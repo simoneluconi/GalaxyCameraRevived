@@ -89,7 +89,7 @@ The user's storage must not fill up with debug output. Keep only what explains c
   - `flash-ev` (−2..2): **no effect** (2026-11-04). The scene was a dark room lit only by the flash. In M 1/30 f/4 ISO 100, −2…+2 gave mean luma 68–72 with no trend; P was the same. Kernel #45 reads CAPPARM 0x28 back, and the value lands (step 4, readback 4), so the ISP ignores it in this flash mode. Not in the app; likely to be dropped from the HAL.
 - **ISP low-light limits** (measured 2026-11-04, dark room):
   - auto, P and A cap the exposure at 1 s and ISO 400. In A at f/8 that leaves the frame ~3 EV under; only S and M go longer (16" works).
-  - The AE bracket does not bracket at that cap: all three frames came out at 1 s and ISO 100, equally dark, though bracket-exif says −1/0/+1 EV. In light it varies the time properly. Reported to the HAL session.
+  - An AE bracket at that cap has nothing left to vary when the ISO is fixed: the test had ISO 100 left over from M, so all three frames came out 1 s, ISO 100, equally dark. That is expected, not a bug. With ISO auto, the bracket at the cap is still to try.
   - App idea: warn when A/P hit the cap ("use S/M or raise ISO").
 - **Self-timer lamp** (`timer-led`): done and verified 2026-11-03. The app sets it at countdown start and turns it off at the end, on cancel and on pause; the ISP blinks it slow, then fast.
   - The lamp needed its LDO powered: kernel #44.
@@ -381,7 +381,8 @@ Still open:
   - Proper fix: make the read tolerate a missing stray frame. For example, retry the transfer once on a poll timeout, or arm FIMC with two buffers. This needs a way to tell a skipped real frame from a dead ISP.
 - **Parameters set during or right after a capture are re-applied on a fixed frame count** (workaround, 2026-11-04, gd1 aef6972).
   - Just out of still capture, and just after the preview STREAMON, the ISP takes AE program writes (pasm-mode, shutter, aperture, ISO) but keeps its old program.
-  - The HAL applies those parameters at once, then applies everything again with force on the 5th preview frame after the restart (`M9MO_PARAMS_REAPPLY_FRAMES`).
+  - The HAL applies those parameters at once. Then, on the 15th preview frame after the restart (`M9MO_PARAMS_REAPPLY_FRAMES`, override with `setprop vendor.camera.test.reapply_frames N`), it invalidates its cached pasm-mode, shutter, aperture and ISO and applies again, so that only those four are sent.
+  - History: a forced apply at the STREAMON, then a forced apply on the 5th frame, both left the ISP in P. The app's own full setParameters, seconds later, works, so the app keeps its hold.
   - Proper fix: find the ISP state or interrupt that says the AE program is writable again, and wait for that instead of counting frames.
 - **Hang on a shot (2026-11-02, OpenCamera), fixed in gd1 camera.** The preview thread sent `CAMERA_MSG_PREVIEW_METADATA` on every frame. CameraService enables that message for every client and its callback spins for the client lock, which `stopPreview()` held while joining the preview thread. It now goes out only during face detection (none on the M9MO). Rule for later HAL work: no thread joins inside a framework call while that thread can be in an enabled callback (docs/CAMERA-APP.md §3.3).
 - The AF thread is still not joinable (see the review list); if it becomes joinable, apply the same rule to `CAMERA_MSG_FOCUS`/`FOCUS_MOVE`, which CameraService also enables for every client.
@@ -396,7 +397,7 @@ Compared with Samsung's GC100 driver (`~/android/ref/ek-gc100-samsung`) and the 
 - **Wired 2026-11-03** (docs/CAMERA-APP.md §3.2): sharpness, contrast, saturation, flash EV, WDR, LSC, LDC, white balance in Kelvin and TIME_INFO (hour and minute only).
   - Verified 2026-11-04: WB Kelvin, sharpness, contrast, saturation and WDR work (numbers under "Camera app").
   - LSC and LDC work since kernel 3952a933, which writes them in parameter mode. The ISP defaults are both on.
-  - **flash-ev has no visible effect** at -2..+2, in M and P. Our path is Samsung's (CID PRIVATE_BASE+183, 0-4 raw, CAPPARM 0x28). Kernel b1d95854 logs a readback. If the value lands and still does nothing, find out when Samsung's app used it (a flash mode or the pre-flash?), or drop the key.
+  - flash-ev was dropped (2026-11-04). The value lands (kernel readback), but the flash exposure did not change from -2 to +2. Samsung's app never sets it.
 - **Still never sent by the HAL**: CAF, SMART_SCENE_DETECT, SMART_ZOOM, and the WB custom R/G and B/G gains.
 - The OIS movie mode while recording (IS_OIS_MODE movie, with its interrupt).
 
@@ -488,6 +489,11 @@ The stock M9MO JPEGs look poor: heavy sharpening halos, smeary noise reduction, 
   - Measure the wake-to-first-frame time and the standby drain (mA, %/day). Check what stock Samsung does as a reference.
   - **Settable auto-standby** (user, 2026-11-01): after a user-set idle time, retract the lens, power the ISP off and suspend. Do not power off, so the next start stays fast. Optionally add a second, longer timeout (hours) that really powers off.
   - Samsung's version is in our kernel: `CONFIG_FAST_BOOT` "fake shutdown" (`fake_shut_down`, `KEY_FAKE_PWR` 0x240 in `gpio_keys.c`), where the power-off menu suspends instead. Study it before designing ours.
+
+## Updates over the air (user wish, 2026-11-04)
+
+- **Our APKs first** (GC Camera, GC Gallery): an update check against GitHub Releases, with the download installed through PackageInstaller. The system copies are presigned with our key, so a same-key APK installs on top of them, as `pm install -r` already does. Options: an F-Droid repo of our own (the F-Droid client is in the build), or a small updater inside each app.
+- **System OTA later**: there is no OTA zip today (no recovery in the build, `m droid` only). It needs a recovery that fits the 8 MB RECOVERY partition (or an A/B-less updater in the mini recovery) and LineageOS Updater (removed for now) pointed at our own server.
 
 ## Android tree
 

@@ -145,10 +145,11 @@ After a reopen the HAL re-sends the stored `zoom` once the preview runs. The len
 | Key | Meaning |
 |---|---|
 | sharpness, contrast, saturation | `-2`..`2`: the ISP's 5-level JPEG look controls (MON 0x20, 0x25, 0x0F) |
-| flash-ev | `-2`..`2`: Samsung's flash step 0..4 (CAPPARM 0x28): the same CID, range and register as Samsung's HAL (`setFlashStep`). **No visible effect yet** (2026-11-04: -2..+2 gave the same flash exposure, in M and P). The kernel logs a readback; keep it out of the UI until it is understood. |
 | wdr | `on`/`off`: the ISP's wide dynamic range (CAPPARM 0x2C). Mild effect. |
 | lens-shading-correction | `on`/`off`: vignetting correction (PARM 0x07). ISP default **on**. Off darkens the edges by about 2%. |
 | lens-distortion-correction | `on`/`off`: distortion correction (PARM 0x1B). ISP default **on**. Off gives the whole uncorrected image circle (barrel distortion, black corners, wider field), like the RAW. Only for an "uncorrected" option. |
+
+**No flash EV.** The HAL had a `flash-ev` key (Samsung's flash step, CAPPARM 0x28, the same CID and 0..4 range as Samsung's HAL). It was removed on 2026-11-04: the ISP takes the value (kernel readback) but the flash exposure stays the same from -2 to +2, and Samsung's own app never sets it.
 
 LSC and LDC are parameter-mode registers. The kernel switches the ISP to parameter mode and back around the write, which costs a short viewfinder stall, and only when the value changes (kernel 3952a933; before that they had no effect with the viewfinder open).
 | whitebalance=kelvin + wb-kelvin | 3000..10000 K in 100 K steps (`wb-kelvin-min/max/step`, default 5500). The ISP takes K/100 (WB 0x92), as with Samsung's HAL. |
