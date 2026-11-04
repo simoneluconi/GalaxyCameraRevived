@@ -241,8 +241,25 @@ Still open:
 - **The vendor blobs had the i9300's Wi-Fi firmware and NVRAM and its Bluetooth patchram** (found 2026-11-01). extract-utils looks for a blob at its destination path first, so the full i9300 `vendor/` in the blob source shadowed every `system/...:vendor/...` entry. `tools/mk-blobsrc.sh` now builds a source whose `vendor/` holds only the files we take from the i9300; re-extracted, all blobs match the GC100 dump.
 - **Wi-Fi works on 2.4 GHz, not on 5 GHz** (2026-11-01).
   - With the i9300 firmware and NVRAM every association failed (`CONNECT` event status 1). With the GC100's own files, 2.4 GHz associates, completes the 4-way handshake and reaches the internet.
-  - The user's mesh AP still rejects association on 5 GHz channel 40 with status 1.
-  - The BCM4334 does 5 GHz as 802.11a/n, one stream. Check whether the AP's 5 GHz band refuses clients without 11n/ac (and whether our driver advertises HT on 5 GHz), or test another 5 GHz AP. Android falls back to 2.4 GHz on its own.
+  - **Debugged 2026-11-04: on this unit 5 GHz receives but its transmissions are never acknowledged.**
+    - The "status 1" is the firmware's generic join failure (`WLC_E_SET_SSID` status 1), not an AP rejection. With the firmware console on (`echo 20 > /sys/module/dhd/parameters/dhd_console_ms`), every 5 GHz join logs `wl0: JOIN: authentication failure, no ack`: the camera sends the 802.11 auth frame and no AP acknowledges it.
+    - Scans see every 5 GHz AP with good RSSI (-54 to -68 dBm), so reception works.
+    - Tried, all with the same "no ack":
+      - two APs: the user's mesh on ch40 (5200) and the S25 hotspot on ch149 (5745);
+      - two country codes, IT/1 and US (forced with `cmd wifi force-country-code`);
+      - two calibrations, the GC100's and the i9300's `nvram_net.txt` (its `swctrlmap_5g` differs);
+      - two firmwares, the GC100's 6.10.58.813 and the i9300's 6.10.58.114 (bind-mounted over `/vendor/etc/wifi/bcmdhd_sta.bin_b2`).
+    - Ruled out:
+      - the module variant: `.cid.info` says "0", because the MAC prefix a0:21:95 is not in macloader's table, so the default file loads, but the Murata and default files are identical;
+      - a missing `aa5g` (the i9300 lacks it too);
+      - the chanspec format (2.4 GHz works);
+      - a board GPIO for the 5 GHz PA (there is none: the FEM is driven by the module).
+    - The EK-GC100 is FCC-certified for 5 GHz (FCC ID A3LEKGC100: UNII and DFS reports), so the design transmits there.
+    - **Most likely a hardware fault of this unit's 5 GHz transmit path.** The one software variable left is our kernel's bcmdhd driver, the same one that works on 5 GHz on the i9300. Only a test on stock 4.1.2 would rule it out (Odin, deferred by the user).
+  - Side effects:
+    - every 5 GHz attempt fails, and after two failures Android temporarily disables the whole network, so Wi-Fi can stay down until the user taps it;
+    - a Wi-Fi hotspot on 5 GHz fails too ("Failed to set country code" in SoftApManager, a separate HAL issue).
+  - Workaround to decide: lock the driver to 2.4 GHz (`WLC_SET_BAND` 2G at init), so Android never tries 5 GHz.
 - **Recovery is our own mini recovery, not LineageOS recovery.** `TARGET_NO_RECOVERY := true` because the 8MB partition is too small (LOS21 recovery is 15.7MB). The mini recovery (`minirecovery/`, docs/RECOVERY.md) is built and **not yet tested on the device**.
   - **No UI**: adb only, plus status screens. A key-driven menu (zoom lever and shutter) could be added later by reading `/dev/input` from the script.
   - **No zip install**: updates go through Odin tars (boot, system, and vendor as `hidden.img`) or through `flash-image`/`adb sync`. Public users will need Odin.
