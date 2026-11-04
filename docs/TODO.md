@@ -98,6 +98,7 @@ The user's storage must not fill up with debug output. Keep only what explains c
 - **EXIF is written in a second pass**: `PhotoWriter` writes the ISP JPEG, then ExifInterface rewrites the file through the same fd (about 3x the I/O on the card). Proper fix: build the APP1 segment in memory (gccore, shared with the DNG writer) and write the file once.
 - **Theme on the very first launch**: `UiModeManager.setApplicationNightMode` only takes effect from the next process start, so the first launch after install follows the system theme. Harmless; it fixes itself on the next start.
 - **Format SD** opens Android's storage settings, because formatting needs the privileged `MOUNT_FORMAT_FILESYSTEMS`. It becomes in-app once the app ships in the ROM as a priv-app (the HOME launcher step).
+- **"Advanced" processing: research and plan in docs/RAW-PIPELINE.md** (2026-11-04). It has a go/no-go gate: if blind A/B and MTF don't show ours clearly better than the ISP, the feature is removed everywhere.
 - **"Advanced" processing is not wired into the app yet** (the setting stays disabled). RAW (DNG) saving works through gccore, with per-shot `raw-capture` (verified on/off 2026-11-02). State of the pipeline, 2026-11-02:
   - Done in gccore (host-tested, not called from the app):
     - `developCorrected`: lens and vignetting into the ISP frame, Catmull-Rom resampling, a simple luma USM;
