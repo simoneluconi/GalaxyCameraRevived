@@ -5,7 +5,7 @@ Goal: run a modern Android (**LineageOS 21 / Android 14**) on the Samsung Galaxy
 RAW (**works since 2026-11-01**, `setprop persist.vendor.camera.raw 1`; details in docs/TODO.md):
 - m9mo.c's `RUNNING_MODE_RAW` sets CAPPARM reg 0x78 to 1, takes frame 0 with `YUVOUT_MAIN=0x05` (raw), then frame 1 as a 16MP JPEG (size 0x33). The HAL restarts FIMC between the two frames.
 - **Format**: 20440000 bytes, a continuous big-endian 10-bit stream, 4736x3452 (5920 bytes per row) plus a 4160-byte tail, GRBG. It is the whole uncorrected lens image circle. Decode with `tools/m9mo-raw.py`.
-- Black level 64 (dark frame; it drops to ~60.5 at short exposures and high ISO), white 1023, active area x 2..4665 (columns 4666-4735 are zero). No optical-black margin.
+- Black level 64 (dark frame; it drops to ~60.5 at 1/30 ISO 3200), white 1023, active area x 2..4665 (columns 4666-4735 are zero). No optical-black margin.
 - The HAL reports the layout as `raw-*` camera parameters; black and white can be overridden with `persist.vendor.camera.raw.black`/`.white`.
 - The HAL reads the ISP's exposure after each shot (`exif-*` parameters) and writes `<raw>.txt` next to a RAW.
 - **`tools/m9mo-dng.py`** makes a valid DNG from `.raw` + `.txt` (checked with exiftool and LibRaw).
@@ -78,7 +78,7 @@ Linux would need two things built from scratch: a port of m9mo to modern V4L2, a
   - 3G on Linux is feasible via Replicant's libsamsung-ipc (XMM6262, as on the i9300).
   - **GPS is not feasible on Linux.** The Broadcom `gpsd_4752`/`gpsd_47511` daemon is a closed Android binary that even links Android's sensor framework, and there is no free driver.
 - The considered Linux route was an "appliance": our 3.0 kernel plus an Alpine/musl userspace, booted from RECOVERY or microSD.
-- **Decision point**: measure RAM at the first LOS21 boot (idle free RAM, camera start, LMK kills during capture and RAW development). Rethink only if that is bad.
+- **Decision point**: measure RAM at the first LOS21 boot (idle free RAM, camera start, LMK kills during capture and DNG writing). Rethink only if that is bad.
 - Possible complement: geotagging from the phone's GPS track (timestamp matching) in the external tool.
 
 ## Anti-brick rules (user priority: never brick the camera)
@@ -130,9 +130,7 @@ The device is a camera, not a phone, and it must be **as light as possible** (ab
 - **App set** (user decisions 2026-10-31):
   - **Camera: OpenCamera** for now (prebuilt already in smdk4412-common/app; Camera1/HAL1 friendly).
     - **Planned: our own dedicated camera app once the system is stable** (user, 2026-10-31). It targets the zoom lever and shutter keys, PASM dials, OIS and RAW/DNG. **`docs/CAMERA-APP.md` is the full brief for whoever builds it** (HAL parameters, capture/RAW behaviour, keys, constraints, workflow); keep it current when the HAL changes.
-      - It also develops RAW photos on the device: the shot saves the DNG plus the ISP JPEG, and a background job replaces the JPEG with a better development, by default while charging.
-      - An external PC/homelab tool shares the same C++ core and handles the heavy stages.
-      - Details are in docs/TODO.md, "Image quality and RAW".
+      - The app saves the ISP JPEG plus the DNG. RAW development is left to PC tools (Lightroom, RawTherapee): decided 2026-11-04, after our on-device development only reached parity with the ISP at ISO 160 and lost at ISO 400. gccore keeps only the DNG writer and the ISP white-balance match. See docs/RAW-PIPELINE.md.
     - Design the HAL and kernel interfaces with that app in mind: expose M9MO controls cleanly through camera parameters or vendor tags, and avoid OpenCamera-specific hacks.
   - **Store: F-Droid client** bundled.
   - **No extra phone-style apps**: no clock, calculator, music or browser.

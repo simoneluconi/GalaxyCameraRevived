@@ -59,7 +59,7 @@ It ships with two apps of its own:
 - **GC Camera**: the camera app, built for the physical controls. [More](camera-app/README.md).
 - **GC Gallery**: a fast gallery for the camera's photos. It pairs each JPEG with its DNG and shows the exposure info, a histogram and star ratings. It is new and still being tested. [More](docs/GALLERY-APP.md).
 
-Planned: developing the DNGs on the camera itself (by default while it charges), a faster HDR, the camera as the home screen, instant-on standby, and a build for the Galaxy Camera 2 (EK-GC200).
+Planned: a faster HDR, the camera as the home screen, instant-on standby, and a build for the Galaxy Camera 2 (EK-GC200).
 
 ## Install
 

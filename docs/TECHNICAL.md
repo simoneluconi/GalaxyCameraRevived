@@ -87,7 +87,7 @@ RAW does not work in bracket modes: the ISP keeps bracket frames only as develop
 | Geometry | 4736 px stride (5920 bytes per row) x 3452 rows, then a 4160-byte tail |
 | CFA | GRBG |
 | Active area | x 2..4665 (columns 0–1 and 4666–4735 are zero); no optical-black margin |
-| Black level | 64 (dark frame: 63.2–63.6 on all four channels). It depends a little on exposure and ISO: ~60.5 at 1/30 ISO 3200. gccore keeps a per-ISO table. |
+| Black level | 64 (dark frame: 63.2–63.6 on all four channels). It depends a little on exposure and ISO: ~60.5 at 1/30 ISO 3200. The DNG says 64. |
 | White level | 1023 (assumed) |
 | Content | the whole lens image circle: strong barrel distortion and vignetting, wider than the JPEG, which the ISP corrects and crops |
 
@@ -99,15 +99,15 @@ Tools:
 
 ### DNG writing in the app
 
-`camera-app/gccore/` is a C++ image core shared by the apps and the PC tools.
+`camera-app/gccore/` is the app's C++ core: the DNG writer and the white-balance match against the ISP's JPEG.
 - `dng.cpp` writes DNG 1.4: the 16-bit CFA in a SubIFD, a small sRGB preview in IFD0, the ISP JPEG as the full-size preview, ActiveArea, DefaultCrop, black/white levels, ColorMatrix1, AsShotNeutral, LensInfo, Orientation, exposure EXIF, and an XMP packet.
 - It streams row by row: no 16-bit full-frame buffer, because RAM is tight.
 - The XMP packet turns on the GC100 lens profile in Lightroom and crops to the ISP's frame ([LENS-PROFILE.md](LENS-PROFILE.md)). The pixels stay raw: no distortion opcode is applied.
-- Colour: ColorMatrix1 is fitted against the ISP's own JPEGs of the same scenes (no ColorChecker), single illuminant for now. AsShotNeutral is still grey world.
+- Colour: ColorMatrix1 is fitted against the ISP's own JPEGs of the same scenes (no ColorChecker), single illuminant for now. AsShotNeutral comes from matching the raw against the ISP's JPEG of the same shot.
 
 ### Development
 
-`gccore/src/develop.cpp` is the on-device development pipeline: black level, white balance, Malvar-He-Cutler demosaic, colour matrix, exposure, tone curve, sRGB, in strips on 4 threads. It takes **0.93 s for 16 MP on the camera**. Lens correction, white balance and exposure matched to the ISP's JPEG, and a measured ISP tone curve are done and host-tested. Wiring it into the app (replacing the ISP JPEG in the background, by default while charging) and noise reduction are still in progress ([TODO.md](TODO.md), "Advanced processing").
+There is no RAW development on the camera. An on-device pipeline was built and measured (2026-11-04): it reached parity with the ISP's JPEG at ISO 160 and lost at ISO 400, so it was removed. The camera keeps the ISP JPEG and the DNG, and the DNG is developed on a PC (Lightroom, Camera Raw, RawTherapee). See [RAW-PIPELINE.md](RAW-PIPELINE.md).
 
 ## 4. Source trees and branches
 
