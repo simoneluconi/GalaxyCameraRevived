@@ -44,6 +44,12 @@ bool develop(const RawFrame& raw, const DevelopParams& params, const RgbSink& si
 /** The automatic exposure gain develop() uses when params.exposure is 0. */
 double autoExposure(const RawFrame& raw, const double neutral[3]);
 
+/**
+ * The tone curve: linear (1.0 = raw white after white balance) → 8-bit sRGB, as a real value.
+ * The ISP's measured curve, then a soft shoulder to the sensor's clip.
+ */
+double toneCurve(double linear);
+
 /** The tone curve's inverse: an 8-bit output value → linear (1.0 = raw white). */
 double toneInverse(double v8);
 

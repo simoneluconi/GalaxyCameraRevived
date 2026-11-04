@@ -33,26 +33,11 @@ double shoulderSlope() {
     return (kCurveYk - kCurveY[kCurveN - 2]) / std::log(kCurveXk / kCurveX[kCurveN - 2]) / kCurveXk;
 }
 
-/** Linear → 8-bit sRGB: the measured curve (log-x interpolation), then the shoulder. */
+/** Linear → 8-bit sRGB, every kLutPerUnit-th of a unit (toneCurve()). */
 std::vector<uint8_t> makeToneLut() {
-    const double xk = kCurveXk;
-    const double slope = shoulderSlope();
-    const double head = kShoulderHead;
     std::vector<uint8_t> lut(kLutSize + 1);
-    int k = 0;
     for (int i = 0; i <= kLutSize; i++) {
-        const double x = static_cast<double>(i) / kLutPerUnit;
-        double y;
-        if (x < kCurveX[0]) {
-            y = kCurveY[0] * x / kCurveX[0];
-        } else if (x < xk) {
-            while (x >= kCurveX[k + 1]) k++;
-            const double t = std::log(x / kCurveX[k]) / std::log(kCurveX[k + 1] / kCurveX[k]);
-            y = kCurveY[k] + (kCurveY[k + 1] - kCurveY[k]) * t;
-        } else {
-            y = 255.0 - head * std::exp(-slope * (x - xk) / head);
-        }
-        lut[i] = static_cast<uint8_t>(std::lround(std::clamp(y, 0.0, 255.0)));
+        lut[i] = static_cast<uint8_t>(std::lround(std::clamp(toneCurve(static_cast<double>(i) / kLutPerUnit), 0.0, 255.0)));
     }
     return lut;
 }
@@ -198,6 +183,15 @@ double autoExposure(const RawFrame& raw, const double neutral[3]) {
     (void)neutral;  // green carries the exposure; kept for a later luminance-based meter
     const double mean = n ? sum / n / (raw.white - raw.black) : 0;
     return mean > 1e-6 ? std::clamp(0.18 / mean, 0.5, 8.0) : 1.0;
+}
+
+double toneCurve(double x) {
+    if (x < kCurveX[0]) return kCurveY[0] * std::max(0.0, x) / kCurveX[0];
+    if (x >= kCurveXk) return 255.0 - kShoulderHead * std::exp(-shoulderSlope() * (x - kCurveXk) / kShoulderHead);
+    int k = 0;
+    while (x >= kCurveX[k + 1]) k++;
+    const double t = std::log(x / kCurveX[k]) / std::log(kCurveX[k + 1] / kCurveX[k]);
+    return kCurveY[k] + (kCurveY[k + 1] - kCurveY[k]) * t;
 }
 
 double toneInverse(double v8) {

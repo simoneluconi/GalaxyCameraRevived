@@ -10,6 +10,9 @@ add_library(gccore STATIC
     src/raw.cpp
     src/dng.cpp
     src/develop.cpp
+    src/develop2.cpp
+    src/noise.cpp
+    src/rcd.cpp
     src/lens.cpp
 )
 target_include_directories(gccore PUBLIC include)
