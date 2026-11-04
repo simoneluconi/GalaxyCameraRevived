@@ -184,6 +184,7 @@ m droid
 
 - Use `m droid`, not `m bacon`: there is no recovery in the build (`TARGET_NO_RECOVERY`, see below), so no OTA zip.
 - The kernel is built in-tree with `lineageos_gd1_defconfig`.
+- Run `source tools/build-env.sh` (this repo) before `m`: the build then says it was made by `simoneluconi@galaxycamerarevived`, with a build number `gcr.<date>.<time>`, instead of your login, your PC's name and `eng.<user>.<date>`. The kernel's user and host are set in the device tree. The version reads `21-<date>-UNOFFICIAL-GalaxyCameraRevived-gd1`.
 - For your own development builds, put your PC's `adbkey.pub` in `device/samsung/gd1/bringup/adb_keys` (git-ignored) and build with `GALAXYCAMERA_DEV_ADB_KEYS=true` in the environment: adb is then trusted from the first boot. Never set it for a build you give to others.
 - The device tree is split for a future Galaxy Camera 2 build: `common.mk`/`BoardConfigCommon.mk` (shared) and `gd1.mk`/`BoardConfig.mk` (GC100 only). See [GC200.md](GC200.md).
 - Outputs in `out/target/product/gd1/`: `boot.img`, `system.img`, `vendor.img`.
