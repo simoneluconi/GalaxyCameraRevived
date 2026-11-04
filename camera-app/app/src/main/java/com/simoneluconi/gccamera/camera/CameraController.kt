@@ -269,7 +269,7 @@ class CameraController(private val listener: Listener) {
 
     /**
      * Test hook: sets HAL parameters as given, unchecked, to try ones the app has no control
-     * for yet (wb-kelvin, flash-ev…). The HAL keeps them until the camera closes.
+     * for yet (wb-kelvin, sharpness…). The HAL keeps them until the camera closes.
      */
     fun setTestParams(params: Map<String, String>) = handler.post {
         params.forEach { (k, v) -> if (setParam(k, v)) Log.i(TAG, "test param $k=$v") }
