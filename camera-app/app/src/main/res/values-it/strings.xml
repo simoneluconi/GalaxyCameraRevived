@@ -82,20 +82,12 @@
     <string name="geotag_age_60">1 ora</string>
     <string name="geotag_permission_denied">Permesso di posizione negato, il geotag resta spento</string>
 
-    <string name="pref_jpeg_engine">Elaborazione delle foto</string>
-    <string name="jpeg_engine_stock">Della fotocamera (immediata)</string>
-    <string name="jpeg_engine_ours">Avanzata, dal RAW</string>
-    <string name="pref_jpeg_engine_summary_soon">L\'elaborazione avanzata è in arrivo. Per ora le foto usano quella della fotocamera.</string>
     <string name="pref_raw">Salva anche il RAW (DNG)</string>
     <string name="pref_raw_summary">Circa 37 MB a scatto</string>
     <string name="pref_jpeg_quality">Qualità JPEG</string>
     <string name="quality_100">Massima (100)</string>
     <string name="quality_95">Alta (95)</string>
     <string name="quality_90">Standard (90)</string>
-    <string name="pref_develop_when">Quando elaborare</string>
-    <string name="pref_develop_when_summary">%1$s. Fino ad allora vedi la versione della fotocamera.</string>
-    <string name="develop_charging">Sotto carica (risparmia la batteria)</string>
-    <string name="develop_now">Subito dopo lo scatto</string>
 
     <string name="pref_theme">Tema</string>
     <string name="theme_light">Chiaro</string>

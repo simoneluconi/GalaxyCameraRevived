@@ -96,24 +96,10 @@ The user's storage must not fill up with debug output. Keep only what explains c
   - Verified: GC100_0077 (5 s, RAW, OIS off) and GC100_0078 (10 s, RAW, OIS on), with the user watching the lamp.
 - **Theme on the very first launch**: `UiModeManager.setApplicationNightMode` only takes effect from the next process start, so the first launch after install follows the system theme. Harmless; it fixes itself on the next start.
 - **Format SD** opens Android's storage settings, because formatting needs the privileged `MOUNT_FORMAT_FILESYSTEMS`. It becomes in-app once the app ships in the ROM as a priv-app (the HOME launcher step).
-- **"Advanced" processing: research and plan in docs/RAW-PIPELINE.md** (2026-11-04). It has a go/no-go gate: if blind A/B and MTF don't show ours clearly better than the ISP, the feature is removed everywhere.
-- **"Advanced" processing is not wired into the app yet** (the setting stays disabled). RAW (DNG) saving works through gccore, with per-shot `raw-capture` (verified on/off 2026-11-02). State of the pipeline, 2026-11-02:
-  - Done in gccore (host-tested, not called from the app):
-    - `developCorrected`: lens and vignetting into the ISP frame, Catmull-Rom resampling, a simple luma USM;
-    - `matchIsp`: reads the white balance and exposure from the ISP's own JPEG of the shot (median per-channel gains on flat patches, 0.05 s). The ISP adds no gain of its own, so exposure is ~1.0;
-    - the measured ISP tone curve with a softer shoulder (the ISP clips at ~0.75 linear), and a matrix refitted with that curve in the loop (ΔE76 vs the ISP: coloured patches 7.8 → 1.2);
-    - neutral clipping of blown highlights;
-    - `developToJpeg` (libjpeg-turbo, ExternalProject).
-  - Bugs:
-    - the resampling is half a pixel off against the ISP (`ispToActive` is fed pixel centres, but the ring indexes samples at integers): subtract 0.5;
-    - libjpeg prints "Corrupt JPEG data: extraneous bytes" for the ISP JPEG's padding: silence `emit_message`.
-  - NR + sharpening, prototyped in Python (scratchpad `nrsharp.py`, "nr5"); port it to C++:
-    - à-trous wavelet with per-level, brightness-dependent noise;
-    - gain and threshold gated by structure, plus impulse removal;
-    - fine chroma dropped as the ISP does.
-    - Result on 2 scenes: flat-area noise at or below the ISP's (0.7–1.5 vs 1.2–1.4), edge gradient equal or higher. The user still finds the ISP crisper on fine texture.
-  - Known colour gap: small blue details under fluorescent light come out greyish-teal, not blue. That needs more RAW+JPEG pairs (the user will shoot some) and possibly per-illuminant matrices or a 3D LUT.
-  - The real "much better than the ISP": a multi-frame RAW merge. The HAL session will test a 3-frame RAW bracket (≈0.4 s of exposures, ≈6 s of readout) with the user's OK.
+- **On-device RAW development ("Advanced" JPEG): removed** (user, 2026-11-04). It only reached parity with the ISP JPEG at ISO 160 and lost at ISO 400; the outcome and the numbers are in docs/RAW-PIPELINE.md.
+  - The app saves the ISP JPEG plus the DNG, and development is left to PC tools.
+  - gccore keeps the DNG writer and `matchIsp` (the ISP's white balance for AsShotNeutral, via its tone curve and matrix in `isp.h`).
+  - The develop code, the RCD port, the noise model and `gcdev` are in git history (e8e6fa0, ff0c19f), should it ever come back.
 - **Lens calibration gaps** (gccore `lens.cpp`):
   - The Lightroom Distortion value (−k1 × 100, so 27 at 4.1 mm) is a guess. The user checks it by eye on the test DNGs in Downloads\GC100-confronto-RAW, then the mapping gets rescaled.
   - Zoom steps 7.5, 11.3 and 13.9 mm (and 86 mm) were not captured, so they are interpolated. Re-shoot them once the HAL keeps the zoom across a reopen.
@@ -426,21 +412,7 @@ The stock M9MO JPEGs look poor: heavy sharpening halos, smeary noise reduction, 
   - Left to try: back-to-back single RAW shots (about 3 s each, with the preview restart between them), or `RUNNING_MODE_CONTINUOUS`/`_BURST` (not explored; probably JPEG too).
 - **Fast HDR** (user, 2026-11-02: phone-like speed). The ISP's `RUNNING_MODE_HDR` exposes 3 bracketed frames at 7.5 fps (about 0.4 s) and keeps them; the merge (exposure fusion) runs on the device in the background. HAL and app plan: docs/CAMERA-APP.md §6.8.
 - **ML denoise** on the user's homelab, not on the device. The camera app uploads DNGs over Wi-Fi and gets the developed JPEG back.
-- **On-device development is preferred** (user, 2026-10-31) if it is not too slow.
-  - **Measured on the device, 2026-11-02**, with gccore's v0 pipeline (`gccore/src/develop.cpp`: black, WB, Malvar-He-Cutler demosaic, matrix, auto exposure, tone shoulder + sRGB LUT; strips; no NR/sharpening/lens yet):
-    - 4670x3452 takes **0.93 s with 4 threads** (17 Mpx/s) and 2.26 s with 1 thread;
-    - build `gcdev` with the NDK clang, `--target=armv7a-linux-androideabi34 -O2 -mfpu=neon -static-libstdc++`, and run it in /data/local/tmp;
-    - on the PC (WSL) it is 0.06 s;
-    - the old estimate was 5–10 s, so there is room for real NR and sharpening on the device.
-  - The old estimates for the heavier stages still stand until measured: profiled denoise and capture sharpening +5–10 s, a 4-frame burst merge 30–60 s, BM3D/ML not feasible.
-  - Plan: the shot saves the DNG and the ISP JPEG at once, then a background job develops the DNG and replaces the JPEG.
-  - **The user likes "develop while charging"** (2026-10-31), which spares the old battery. Make it the default or a prominent option, and keep a manual "develop now".
-  - Process in strips to fit in tens of MB.
-  - Candidates: librtprocess (RawTherapee's RCD/AMaZE demosaic and capture sharpening, GPLv3), the hdr-plus Halide pipeline for bursts, libjpeg-turbo.
-  - **Benchmark first**: a static ARM test binary run over adb in `/data/local/tmp` on stock 4.1.2. It needs no root and leaves the system untouched.
-- **External tool as well** (user, 2026-10-31): a PC/homelab tool for the heavy options (ML denoise, BM3D, full burst merge, batch re-development).
-  - It shares the same C++ core and GC100 profiles (noise, colour, lens) as the on-device pipeline, so both give consistent results.
-  - The core library builds for armv7 and x86-64; the desktop build adds the heavy stages.
+- **On-device development: dropped** (2026-11-04, docs/RAW-PIPELINE.md). The ISP's JPEG is already at this sensor's limit for a single frame; ours reached parity, not better.
 
 ## RAM plan (user priority, 2026-10-31)
 
@@ -448,7 +420,7 @@ The stock M9MO JPEGs look poor: heavy sharpening halos, smeary noise reduction, 
 - The kernel reserves about 256MB: ION contig 140MB, MFC secure 36MB + normal 4MB, FIMC0 31MB, FIMC1 32MB, FIMD 12MB, SRP 1MB.
 - Already in place from html6405: Go profile (`go_defaults`, `ro.config.low_ram=true`), 512 dalvik heap, lmkd props, in-kernel lowmemorykiller, zram with LZ4 (384MB). No memcg/PSI/vmpressure on 3.0.
 
-**Measure at first boot**: `/proc/meminfo`, `dumpsys meminfo`, `/sys/kernel/debug/ion/*` and lmk kills, at idle, during preview, capture and video, and during RAW development.
+**Measure at first boot**: `/proc/meminfo`, `dumpsys meminfo`, `/sys/kernel/debug/ion/*` and lmk kills, at idle, during preview, capture and video.
 
 **Then**:
 1. **Shrink the ION contig heap** (`CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE`, 140MB). It is sized for Samsung's HAL plus DRM secure video. Our open camera HAL allocates its buffers from it (`exynos_ion.c`, `ION_HEAP_EXYNOS_CONTIG_MASK`), and gralloc uses it too, so size it from the measured peak (16MP capture plus video recording) with a margin. Possibly 60–70MB to gain.
@@ -464,7 +436,6 @@ The stock M9MO JPEGs look poor: heavy sharpening halos, smeary noise reduction, 
    - The big wins are our camera app as HOME (~90MB) and the ION resize (60–70MB).
 3. **Tune LMK minfree and zram size** from the measurements (overlay `config_lowMemoryKillerMinFreeKbytes*`).
 4. **Our camera app as HOME launcher** (later): drops the launcher process entirely.
-5. The RAW development job processes in strips and runs only while charging (see "Image quality and RAW").
 
 ## Power and performance (old battery, 2012 hardware)
 

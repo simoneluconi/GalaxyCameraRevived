@@ -131,9 +131,6 @@ class SettingsActivity : AppCompatActivity() {
                     true
                 }
             }
-            findPreference<ListPreference>(Prefs.DEVELOP_WHEN)?.summaryProvider = Preference.SummaryProvider<ListPreference> {
-                getString(R.string.pref_develop_when_summary, it.entry ?: "")
-            }
             for (key in listOf(Prefs.ARTIST, Prefs.COPYRIGHT)) {
                 findPreference<EditTextPreference>(key)?.summaryProvider = Preference.SummaryProvider<EditTextPreference> {
                     it.text?.takeIf(String::isNotBlank) ?: getString(R.string.not_set)
@@ -171,15 +168,12 @@ class SettingsActivity : AppCompatActivity() {
         override fun onSharedPreferenceChanged(sp: SharedPreferences?, key: String?) {
             when (key) {
                 Prefs.THEME -> prefs.applyTheme()
-                Prefs.STORAGE_LOCATION, Prefs.JPEG_ENGINE -> refreshSummaries()
+                Prefs.STORAGE_LOCATION -> refreshSummaries()
             }
         }
 
         private fun refreshSummaries() {
             val ctx = requireContext()
-            // When to develop only means something for our own JPEG
-            findPreference<Preference>(Prefs.DEVELOP_WHEN)?.isVisible =
-                prefs.sp.getString(Prefs.JPEG_ENGINE, "stock") == "ours"
             val t = StorageTarget(ctx).current(prefs.saveToInternal)
             val free = t?.freeBytes()
             findPreference<Preference>(Prefs.STORAGE_INFO)?.summary = if (free == null) {

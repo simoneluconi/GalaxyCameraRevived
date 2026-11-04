@@ -38,24 +38,6 @@
 
     <PreferenceScreen app:key="tab_image">
         <ListPreference
-            app:defaultValue="stock"
-            app:enabled="false"
-            app:entries="@array/jpeg_engine_entries"
-            app:entryValues="@array/jpeg_engine_values"
-            app:iconSpaceReserved="false"
-            app:key="jpeg_engine"
-            app:summary="@string/pref_jpeg_engine_summary_soon"
-            app:title="@string/pref_jpeg_engine" />
-        <!-- Only with the "ours" JPEG (SettingsActivity shows it then) -->
-        <ListPreference
-            app:defaultValue="charging"
-            app:entries="@array/develop_entries"
-            app:entryValues="@array/develop_values"
-            app:iconSpaceReserved="false"
-            app:isPreferenceVisible="false"
-            app:key="develop_when"
-            app:title="@string/pref_develop_when" />
-        <ListPreference
             app:defaultValue="95"
             app:entries="@array/quality_entries"
             app:entryValues="@array/quality_values"

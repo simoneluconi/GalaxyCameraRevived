@@ -113,20 +113,12 @@
     <string name="geotag_age_60">1 hour old</string>
     <string name="geotag_permission_denied">Location permission denied, geotagging stays off</string>
 
-    <string name="pref_jpeg_engine">Photo processing</string>
-    <string name="jpeg_engine_stock">The camera\'s (instant)</string>
-    <string name="jpeg_engine_ours">Advanced, from RAW</string>
-    <string name="pref_jpeg_engine_summary_soon">Advanced processing is coming. For now photos use the camera\'s.</string>
     <string name="pref_raw">Also save RAW (DNG)</string>
     <string name="pref_raw_summary">About 37 MB per shot</string>
     <string name="pref_jpeg_quality">JPEG quality</string>
     <string name="quality_100">Maximum (100)</string>
     <string name="quality_95">High (95)</string>
     <string name="quality_90">Standard (90)</string>
-    <string name="pref_develop_when">When to process</string>
-    <string name="pref_develop_when_summary">%1$s. Until then you see the camera\'s version.</string>
-    <string name="develop_charging">While charging (spares the battery)</string>
-    <string name="develop_now">Right after the shot</string>
 
     <string name="pref_theme">Theme</string>
     <string name="theme_light">Light</string>

@@ -1,4 +1,24 @@
-# Our RAW development ("Advanced" JPEG): research and plan
+# Our RAW development ("Advanced" JPEG): research, attempt and outcome
+
+**Outcome (2026-11-04): removed.** The user's bar was a JPEG **clearly better** than the M9MO ISP's own JPEG, not equal, or the feature goes. After one day of work on the plan below, it went.
+- **What was built** (PC prototype `develop2`, in git history at e8e6fa0 and ff0c19f):
+  - RCD demosaic;
+  - a measured noise model and per-ISO black level (dark frames: read noise 0.65 → 11.9 counts from ISO 100 to 3200; shot-noise gain 0.17 × ISO/100; black 63.5 → 60.5);
+  - Anscombe + wavelet noise reduction, with fine chroma dropped;
+  - a Lanczos warp;
+  - per-scale detail gains matched to the ISP's measured band profile (×1.37 at 2 px, ×1.27 at 4 px, ×1.09 at 8 px, ×0.56 at 1 px).
+- **Result**:
+  - at ISO 160 wide, the user judged ours and the ISP "the same";
+  - at ISO 400 tele, the ISP was crisper and cleaner;
+  - dark saturated blues stayed greenish in ours. A root-polynomial colour fit from the RAW+JPEG pairs did not generalise (leave-one-out ΔE on blues ~10).
+- **Why**: on one frame of this sensor the ISP already sits at what classical single-frame methods reach. A learned raw denoiser (PMRID-class, §2) was the remaining option, at a large cost and with no certainty of a clear win, so the user chose to stop.
+- **What stays**:
+  - the DNG with the ISP's white balance (`matchIsp`), for development on a PC;
+  - the lessons: the ISP's band profile above; this lens's axial CA (red and blue softer than green), which needs fine chroma dropped; and the black level that sinks with ISO, which a DNG BlackLevel per ISO could use.
+
+The rest of this file is the research and plan as written before the attempt.
+
+---
 
 The user's bar (2026-11-04): the JPEG we develop from the RAW must be **clearly better** than the M9MO ISP's own JPEG, not equal. If it cannot be, the feature is removed everywhere (app setting, background job, gccore develop code).
 

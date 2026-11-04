@@ -99,7 +99,7 @@ Java_com_simoneluconi_gccamera_raw_NativeDng_write(JNIEnv* env, jclass, jbyteArr
 #ifdef GCCORE_WITH_JPEG
             // The ISP's own white balance, read back from its JPEG (far better than grey world)
             if (meta.previewJpeg) {
-                gccore::DevelopParams p;
+                gccore::IspParams p;
                 if (gccore::matchIsp(frame, meta.previewJpeg, meta.previewJpegSize,
                                      meta.focalMm > 0 ? meta.focalMm : 4.1, p)) {
                     for (int c = 0; c < 3; c++) meta.neutral[c] = p.neutral[c];

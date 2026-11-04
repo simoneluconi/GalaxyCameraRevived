@@ -15,10 +15,8 @@ A camera-first app for a real camera, not a phone camera app. The user's decisio
 - **P/A/S/M** exposure modes plus auto, with shutter speed, aperture and ISO dials. The ISP computes the exposure; the app only sets the mode and values and shows what the ISP chose.
 - **OIS** on/off.
 - **RAW**:
-  - every shot can save a DNG next to the ISP JPEG;
-  - a background job later develops the DNG on the device and replaces the JPEG, **by default while charging** (old battery);
-  - "develop now" stays available by hand;
-  - an external PC/homelab tool shares the same C++ core for the heavy stages (ML denoise, burst merge).
+  - every shot can save a DNG next to the ISP JPEG, for development on a PC (Lightroom, RawTherapee, darktable);
+  - **no on-device development** (user, 2026-11-04): ours only reached parity with the ISP's JPEG, so the "Advanced" JPEG was removed everywhere (docs/RAW-PIPELINE.md).
 - **Later**: the app becomes the HOME launcher (the device is a camera), saving about 90MB of RAM. It also needs an instant-on standby: Power releases the camera and suspends, and waking brings the viewfinder back fast.
 - **Code, comments, commits and docs in English.** The user talks Italian in chat. It is a separate, publishable repo (GPL/Apache compatible, no proprietary bits).
 - **No Google services** (no GMS, no microG, no Play libraries). Plain AndroidX is fine if it stays small.
@@ -30,13 +28,8 @@ More decisions (user, 2026-11-02):
 - **The microSD is the only default destination.** Without a card the app warns and blocks shooting. Internal storage is an opt-in setting, marked "not recommended".
 - Settings also include: format SD, geotagging (GPS only while the viewfinder is open), file numbering, artist/copyright EXIF, sounds, and grid/level/histogram.
 - **Exposure meter** in M; compensation scale in the other modes.
-- **Image pipeline, "RAW-first"**: get the most out of the sensor with modern demosaic, NR and sharpening. Two independent settings:
-  1. **JPEG: "Stock" (the ISP's) or "Ours"** (developed from RAW; the default once it exists).
-     - With "Ours", every shot also captures the RAW as a temporary packed raw10 file in the app's folder on the card.
-     - The ISP JPEG is a placeholder until the background job replaces it, then the temporary file is deleted.
-  2. **RAW (DNG) on/off.** When on, a real DNG is kept next to the JPEG.
-- **Formats**: JPEG and DNG at capture time. HEIC (8-bit) and Ultra HDR JPEG come from the background job: the Exynos 4412 has no HEVC encoder, so encoding is software-only. 10-bit HEIC HDR comes later.
-- **"Advanced" processing replaces the ISP JPEG and discards it** (user, 2026-11-02): no backup copy is kept.
+- **Image pipeline**: the ISP's JPEG, plus **RAW (DNG) on/off**, which keeps a real DNG next to the JPEG. The "RAW-first" plan (our own JPEG developed on the device, HEIC/Ultra HDR from a background job) was tried and dropped on 2026-11-04: docs/RAW-PIPELINE.md.
+- **Formats**: JPEG and DNG.
 - **The DNG stays raw** (user, 2026-11-02): no distortion opcode in the pixels. At the wide end it carries Lightroom settings (XMP crs) that the user can remove: a crop that hides the image circle's dark corners, and the manual Distortion slider set to approximate the ISP's correction.
 - **The DNG must open in Lightroom and any other raw editor**, not just LibRaw. That means DNG 1.4 tags, a real ColorMatrix/ForwardMatrix with CalibrationIlluminant, DefaultCrop, and the lens opcodes. Validate with Adobe's `dng_validate` and open the files in Lightroom/ACR, RawTherapee and darktable.
 - **Upload plugins** later (Immich, FTP/SFTP, WebDAV), behind an `UploadTarget` interface with a JobScheduler network-constrained queue.
@@ -340,14 +333,14 @@ Ask for these, or do them in the HAL (`device/samsung/gd1/camera/`), as the app 
    - The ISP does not merge: stock "Rich tone" merged in Samsung's userspace.
    - HAL: done as `capture-mode=hdr|ae-bracket` with `bracket-ev` (§3.2): 3 JPEG callbacks per `takePicture()`. Reading them takes about 1 s each, but the subject only has to hold still for the exposures.
    - Possible later: 5 frames (the ISP's frame count register is not explored), 3 RAW frames were tried on 2026-11-02 and do not work: the bracket's frames exist only as JPEGs (TODO.md, "Burst merge").
-   - App: exposure fusion (Mertens) in native code with NEON, in the background job, at full or reduced resolution. Save the EV 0 JPEG at once and replace it when the merge is done, as for RAW development. Align the frames first for hand-held shots: a small global shift search on downscaled luma is enough at 0.4 s.
+   - App (not started): exposure fusion (Mertens) in native code with NEON, at full or reduced resolution. Save the EV 0 JPEG at once and replace it when the merge is done. Align the frames first for hand-held shots: a small global shift search on downscaled luma is enough at 0.4 s. Weigh it against the RAW development result (docs/RAW-PIPELINE.md) before investing: the ISP's own frames are good.
 
 ## 7. Suggested milestones
 
 1. Viewfinder (SurfaceView/TextureView, NV21 preview), shutter keys (half press AF, full press shoot), zoom lever via `setZoom`, flash mode + `flash-popup` indicator, JPEG saved to `DCIM/` via MediaStore with EXIF from exif-*.
 2. P/A/S/M UI with dials and the live readout; OIS toggle; exposure compensation.
 3. RAW: `raw-capture` in the HAL (§6.1), raw callback → DNG writer (port of `tools/m9mo-dng.py`), DNG + JPEG pair in the gallery.
-4. Background development job (WorkManager-free; a simple JobScheduler job with "charging" constraint), strip-based pipeline in C++ shared with the PC tool.
+4. ~~Background development job~~: dropped on 2026-11-04 (docs/RAW-PIPELINE.md).
 5. HOME launcher role, standby/instant-on with the ISP power cycle, settable auto-standby.
 
 ## 8. Hardware reference
@@ -370,8 +363,8 @@ The user wants the app (and GC Gallery) to run on the GC200 later. It has the sa
 - **Still GC100 constants**, to switch per model once a GC200 is on the bench:
   - keys: the scan codes of the lever's fast stage (545/546 in `ViewfinderActivity`). The GC200's zoom ring needs its own codes from its gpio-keys map, probably as relative steps;
   - lens: the EXIF lens strings and LensSpecification, and `BASE_35MM_MM` = 23 for the zoom bar's mm. It is the same lens, so these probably hold, but check `exif-fl` / `exif-fl-35mm` on a GC200;
-  - gccore's lens and colour calibration: `lens.h` (optical centre, model radius, the ISP frame 4608x3456), `lens.cpp` (distortion/vignetting per focal length), `develop.cpp` (tone curve), `dng.h` ColorMatrix1, and the `tools/gc100-lcp.py` profile. These were measured on this GC100 and its sensor/ISP firmware. A GC200 needs its own RAW+JPEG pairs and a per-model table;
-  - RAM: `MAX_RAW_BUFFERS = 2` and the strip sizes in gccore are sized for 768 MB. On 2 GB a third RAW buffer would allow faster RAW bursts;
+  - gccore's lens and colour calibration: `lens.h` (optical centre, model radius, the ISP frame 4608x3456), `lens.cpp` (distortion/vignetting per focal length), `isp.cpp` (the ISP's tone curve and matrix, for `matchIsp`), `dng.h` ColorMatrix1, and the `tools/gc100-lcp.py` profile. These were measured on this GC100 and its sensor/ISP firmware. A GC200 needs its own RAW+JPEG pairs and a per-model table;
+  - RAM: `MAX_RAW_BUFFERS = 2` is sized for 768 MB. On 2 GB a third RAW buffer would allow faster RAW bursts;
   - `rear_camfw` (ISP firmware in Settings → About) is the GC100 sysfs path; it shows "unknown" if missing.
 
 ## 9. The app: `camera-app/` ("GC Camera")
@@ -397,17 +390,14 @@ $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"; .\gradlew.bat asse
   - Tags: ActiveArea, DefaultCrop (8 px inside), Black/WhiteLevel, ColorMatrix1 + CalibrationIlluminant1, AsShotNeutral (grey world), LensInfo, Orientation, and Exif (exposure, lens, dates).
   - It streams row by row, with no 16-bit full-frame buffer; JNI reads the 20 MB array without a copy.
   - Checked on 2026-11-02 against the sample in `device-dump/raw-tests/`: CFA data byte-identical to m9mo-dng.py's, `exiftool -validate` OK, and LibRaw (rawpy) develops it. Not yet opened in Lightroom.
-  - Host build (WSL, no cmake there): `g++ -std=c++17 -O2 -Igccore/include gccore/src/*.cpp gccore/tools/gcdng.cpp -o gcdng`, then `gcdng IMG_x.raw` (reads the `.raw.txt` sidecar).
-  - `gccore/src/develop.cpp` is the v0 development pipeline:
-    - steps: black, WB, Malvar-He-Cutler demosaic, colour matrix, auto exposure, tone shoulder, sRGB;
-    - it works in strips on 4 threads with bounded memory;
-    - `gcdev` (in `gccore/tools`) runs and times it: 0.93 s for 16 MP on the device (TODO.md, "Image quality and RAW").
+  - Host build (WSL, no cmake there): `g++ -std=c++17 -O2 -Igccore/include gccore/src/{tiff,raw,dng,isp,lens}.cpp gccore/tools/gcdng.cpp -o gcdng`, then `gcdng IMG_x.raw` (reads the `.raw.txt` sidecar).
+  - `gccore/src/jpeg.cpp` + `isp.cpp`: `matchIsp` reads the ISP's white balance from its JPEG (embedded in the DNG) for AsShotNeutral. On-device development was tried and removed on 2026-11-04 (docs/RAW-PIPELINE.md; the code is in git history).
 - **Lens calibration** (2026-11-02, `gccore/src/lens.cpp`), from 15 RAW + ISP JPEG pairs across the zoom, with SIFT registration and a radial model:
   - At the centre the ISP JPEG is 1:1 with the RAW, with no rotation, centred at about (0.499, 0.504) of the active area.
   - The ISP corrects barrel distortion only at the wide end: k1 −0.27 at 4.1 mm, −0.18 at 5.0, −0.09 at 6.2, −0.025 at 9.2, and none from 16.5 mm on.
   - At 4.1 mm its frame uses about 84% × 85% of the active area; the rest is the image circle's dark corners. From 16.5 mm on the JPEG is the whole frame.
   - The DNG writer embeds `crs:HasCrop/Crop*` (the inscribed rectangle) and `crs:LensManualDistortionAmount` (a first guess of −k1 × 100: 27 at the wide end) when the focal length is below 16.5 mm.
-  - Repeat with the analysis scripts: drive the app with `am start … --ei zoom N`, capture with persist.vendor.camera.raw=1, develop with `gcdev`, then register.
+  - Repeat with the analysis scripts: drive the app with `am start … --ei zoom N`, capture RAW, develop the DNG (RawTherapee/LibRaw), then register.
 - **RAW in the app**: the panel's JPEG/RAW+JPEG button (or Settings → Image) saves `GC100_NNNN.dng` next to the JPEG.
   - It works when the HAL reports `raw-*`.
   - It sends `raw-capture=on|off` once the HAL has `raw-capture-values`. Until then RAW frames arrive only with `persist.vendor.camera.raw=1`.

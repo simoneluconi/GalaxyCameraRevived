@@ -36,73 +36,6 @@ struct JpegError {
     }
 };
 
-}  // namespace
-
-struct JpegWriter::Impl {
-    jpeg_compress_struct cinfo{};
-    JpegError err{};
-    bool started = false;
-};
-
-JpegWriter::JpegWriter() : d_(new Impl) {}
-
-JpegWriter::~JpegWriter() {
-    if (d_->started) jpeg_destroy_compress(&d_->cinfo);
-}
-
-bool JpegWriter::begin(FILE* out, int width, int height, int quality, std::string* error) {
-    Impl& d = *d_;
-    d.err.install(d.cinfo.err);
-    if (setjmp(d.err.jump)) {
-        if (error) *error = d.err.message;
-        return false;
-    }
-    jpeg_create_compress(&d.cinfo);
-    d.started = true;
-    jpeg_stdio_dest(&d.cinfo, out);
-    d.cinfo.image_width = static_cast<JDIMENSION>(width);
-    d.cinfo.image_height = static_cast<JDIMENSION>(height);
-    d.cinfo.input_components = 3;
-    d.cinfo.in_color_space = JCS_RGB;
-    jpeg_set_defaults(&d.cinfo);
-    jpeg_set_quality(&d.cinfo, quality, TRUE);
-    // Full-resolution chroma at the top quality; 4:2:0 otherwise, like the ISP
-    if (quality >= 98) {
-        for (int i = 0; i < 3; i++) d.cinfo.comp_info[i].h_samp_factor = d.cinfo.comp_info[i].v_samp_factor = 1;
-    }
-    d.cinfo.dct_method = JDCT_ISLOW;
-    // Optimized Huffman tables need a second pass over the whole image's coefficients, which
-    // libjpeg buffers in full (48 MB at 16 MP 4:2:0, 96 MB at 4:4:4); fixed tables cost ~5–10%
-    // in size and keep the encoder at one strip
-    d.cinfo.optimize_coding = FALSE;
-    jpeg_start_compress(&d.cinfo, TRUE);
-    return true;
-}
-
-bool JpegWriter::writeRows(const uint8_t* rgb, int rows) {
-    Impl& d = *d_;
-    if (setjmp(d.err.jump)) return false;
-    const size_t stride = static_cast<size_t>(d.cinfo.image_width) * 3;
-    for (int i = 0; i < rows; i++) {
-        JSAMPROW row = const_cast<JSAMPROW>(rgb + i * stride);
-        jpeg_write_scanlines(&d.cinfo, &row, 1);
-    }
-    return true;
-}
-
-bool JpegWriter::finish() {
-    Impl& d = *d_;
-    if (setjmp(d.err.jump)) return false;
-    jpeg_finish_compress(&d.cinfo);
-    jpeg_destroy_compress(&d.cinfo);
-    d.started = false;
-    return true;
-}
-
-const char* JpegWriter::error() const { return d_->err.message; }
-
-namespace {
-
 /** Decodes [jpeg] at 1/8 scale into [rgb]; false on any libjpeg error. */
 bool decodeEighth(const uint8_t* jpeg, size_t size, std::vector<uint8_t>& rgb, int& w, int& h) {
     jpeg_decompress_struct cinfo{};
@@ -139,7 +72,7 @@ double median(std::vector<double>& v) {
 
 }  // namespace
 
-bool matchIsp(const RawFrame& raw, const uint8_t* jpeg, size_t size, double focalMm, DevelopParams& params) {
+bool matchIsp(const RawFrame& raw, const uint8_t* jpeg, size_t size, double focalMm, IspParams& params) {
     if (!raw.valid() || !jpeg || size == 0) return false;
     std::vector<uint8_t> img;
     int dw = 0, dh = 0;
@@ -228,24 +161,6 @@ bool matchIsp(const RawFrame& raw, const uint8_t* jpeg, size_t size, double foca
     params.neutral[2] = neutralB;
     params.exposure = exposure;
     return true;
-}
-
-bool developToJpeg(const RawFrame& raw, const DevelopParams& params, double focalMm, int quality, FILE* out,
-                   std::string* error) {
-    CorrectedParams cp;
-    cp.lens = lensAt(focalMm);
-    JpegWriter w;
-    if (!w.begin(out, kIspWidth, kIspHeight, quality, error)) return false;
-    bool ok = developCorrected(raw, params, cp, [&](int, int rows, const uint8_t* rgb) { return w.writeRows(rgb, rows); });
-    if (!ok) {
-        if (error) *error = *w.error() ? w.error() : "development failed";
-        return false;
-    }
-    if (!w.finish()) {
-        if (error) *error = std::string("JPEG finish failed: ") + w.error();
-        return false;
-    }
-    return std::fflush(out) == 0;
 }
 
 }  // namespace gccore

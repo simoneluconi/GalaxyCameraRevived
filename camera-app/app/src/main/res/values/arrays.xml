@@ -22,15 +22,6 @@
         <item>60</item>
     </string-array>
 
-    <string-array name="jpeg_engine_entries">
-        <item>@string/jpeg_engine_stock</item>
-        <item>@string/jpeg_engine_ours</item>
-    </string-array>
-    <string-array name="jpeg_engine_values" translatable="false">
-        <item>stock</item>
-        <item>ours</item>
-    </string-array>
-
     <string-array name="quality_entries">
         <item>@string/quality_100</item>
         <item>@string/quality_95</item>
@@ -40,15 +31,6 @@
         <item>100</item>
         <item>95</item>
         <item>90</item>
-    </string-array>
-
-    <string-array name="develop_entries">
-        <item>@string/develop_charging</item>
-        <item>@string/develop_now</item>
-    </string-array>
-    <string-array name="develop_values" translatable="false">
-        <item>charging</item>
-        <item>now</item>
     </string-array>
 
     <string-array name="theme_entries">

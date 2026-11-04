@@ -9,16 +9,13 @@ add_library(gccore STATIC
     src/tiff.cpp
     src/raw.cpp
     src/dng.cpp
-    src/develop.cpp
-    src/develop2.cpp
-    src/noise.cpp
-    src/rcd.cpp
+    src/isp.cpp
     src/lens.cpp
 )
 target_include_directories(gccore PUBLIC include)
 target_compile_options(gccore PRIVATE -Wall -Wextra -O2)
 
-# The JPEG writer needs libjpeg(-turbo); the parent provides a `jpeg` target
+# Reading the ISP's JPEG (matchIsp) needs libjpeg(-turbo); the parent provides a `jpeg` target
 if(GCCORE_WITH_JPEG)
     target_sources(gccore PRIVATE src/jpeg.cpp)
     target_link_libraries(gccore PUBLIC jpeg)
@@ -29,6 +26,4 @@ endif()
 if(NOT ANDROID)
     add_executable(gcdng tools/gcdng.cpp)
     target_link_libraries(gcdng PRIVATE gccore)
-    add_executable(gcdev tools/gcdev.cpp)
-    target_link_libraries(gcdev PRIVATE gccore)
 endif()
