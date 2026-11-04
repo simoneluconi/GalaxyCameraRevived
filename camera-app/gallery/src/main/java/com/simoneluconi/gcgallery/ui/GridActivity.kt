@@ -338,6 +338,10 @@ class GridActivity : Activity(), ThumbGridView.Callback {
             chip.isActivated = k == albumKey
             chip.setOnClickListener { selectAlbum(k) }
         }
+        // The active chip stays in view (Trash sits last, and "Empty trash" takes room)
+        albums.getChildAt(keys.indexOf(albumKey))?.let { c ->
+            c.post { c.requestRectangleOnScreen(Rect(0, 0, c.width, c.height), false) }
+        }
     }
 
     /** An 18 dp icon before the label, tinted with the text by the style's drawableTint. */

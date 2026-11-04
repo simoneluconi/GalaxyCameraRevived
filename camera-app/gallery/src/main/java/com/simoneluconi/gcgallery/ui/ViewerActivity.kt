@@ -293,7 +293,13 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         if (clipOn) buildClipMask()
     }
 
-    override fun onTap() = setChrome(!chromeShown)
+    override fun onTap() {
+        // The tap that closed a popup only closes it
+        if (SystemClock.uptimeMillis() - popupClosedAt < 600) return
+        setChrome(!chromeShown)
+    }
+
+    private var popupClosedAt = 0L
 
     override fun onZoomChanged(percent: Int) {
         if (pager.isAtFit()) {
@@ -582,6 +588,7 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         if (!animate) {
             infoPanel.translationX = if (open) 0f else width
             pager.setInsets(to * width, to * top)
+            message.root.translationX = -to * width / 2
             if (!open) infoPanel.visibility = View.INVISIBLE
             return
         }
@@ -594,6 +601,8 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
             addUpdateListener {
                 val f = it.animatedValue as Float
                 pager.setInsets(f * width, f * top)
+                // Messages stay centred on the photo, not under the panel
+                message.root.translationX = -f * width / 2
             }
             start()
         }
@@ -667,6 +676,7 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         val popup = PopupWindow(content, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, false).apply {
             elevation = 6 * resources.displayMetrics.density
             isOutsideTouchable = true
+            setOnDismissListener { popupClosedAt = SystemClock.uptimeMillis() }
         }
         content.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
         popup.showAsDropDown(anchor, (anchor.width - content.measuredWidth) / 2, dp(6))
