@@ -123,9 +123,9 @@ These rules are mandatory. Before any step that writes to the device, state the 
 The device is a camera, not a phone, and it must be **as light as possible** (about 768MB RAM).
 
 - **No Google services, no microG, no GApps.** Apps are installed from F-Droid or as APKs only.
-- **Keep 3G data, data only.** Port the modem and RIL so mobile data works, but drop voice and SMS:
-  - overlays `config_voice_capable=false` and `config_sms_capable=false` (tablet-with-data style);
-  - no Dialer, Messaging, Contacts or InCallUI, and no telephony UI beyond APN and SIM settings.
+- **Keep 3G data and SMS, no voice.** Port the modem and RIL so mobile data works (verified 2026-11-04 with a Very Mobile SIM on the `internet.wind` APN).
+  - **SMS: kept on the GC100** (user, 2026-11-04). The `messaging` app is in gd1.mk; a model without a modem (GC200) removes it.
+  - No voice: no Dialer, Contacts or InCallUI, and no telephony UI beyond APN and SIM settings.
 - **Low-RAM / Go-style config.** Start from html6405's i9300 `lineage-21.0-mini-go`: `ro.config.low_ram`, zram, low dalvik heap, a Go launcher, minimal system UI effects.
 - **App set** (user decisions 2026-10-31):
   - **Camera: OpenCamera** for now (prebuilt already in smdk4412-common/app; Camera1/HAL1 friendly).
