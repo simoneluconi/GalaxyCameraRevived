@@ -31,12 +31,13 @@ from fractions import Fraction
 import numpy as np
 
 # Defaults: the layout measured on 2026-11-01 (tools/m9mo-raw.py), used when
-# the .txt sidecar is missing or older
+# the .txt sidecar is missing or older. Columns 4666-4735 are zero too
+# (checked 2026-11-04), so the active area ends at 4666 (exclusive).
 DEFAULTS = {
     "raw-size": "4736x3452",
     "raw-format": "raw10be",
     "raw-cfa": "grbg",
-    "raw-active-area": "2,0,4672,3452",
+    "raw-active-area": "2,0,4666,3452",
     "raw-black-level": "64",
     "raw-white-level": "1023",
 }

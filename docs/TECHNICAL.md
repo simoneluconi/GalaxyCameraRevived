@@ -86,8 +86,8 @@ RAW does not work in bracket modes: the ISP keeps bracket frames only as develop
 | Packing | a continuous **big-endian 10-bit stream**, 4 pixels in 5 bytes, MSB first (not MIPI RAW10) |
 | Geometry | 4736 px stride (5920 bytes per row) x 3452 rows, then a 4160-byte tail |
 | CFA | GRBG |
-| Active area | x 2..4671 (columns 0–1 and the last 64 are zero) |
-| Black level | 64 (dark frame: 63.2–63.6 on all four channels) |
+| Active area | x 2..4665 (columns 0–1 and 4666–4735 are zero); no optical-black margin |
+| Black level | 64 (dark frame: 63.2–63.6 on all four channels). It depends a little on exposure and ISO: ~60.5 at 1/30 ISO 3200. gccore keeps a per-ISO table. |
 | White level | 1023 (assumed) |
 | Content | the whole lens image circle: strong barrel distortion and vignetting, wider than the JPEG, which the ISP corrects and crops |
 

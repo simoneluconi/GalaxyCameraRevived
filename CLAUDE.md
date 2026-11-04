@@ -5,7 +5,7 @@ Goal: run a modern Android (**LineageOS 21 / Android 14**) on the Samsung Galaxy
 RAW (**works since 2026-11-01**, `setprop persist.vendor.camera.raw 1`; details in docs/TODO.md):
 - m9mo.c's `RUNNING_MODE_RAW` sets CAPPARM reg 0x78 to 1, takes frame 0 with `YUVOUT_MAIN=0x05` (raw), then frame 1 as a 16MP JPEG (size 0x33). The HAL restarts FIMC between the two frames.
 - **Format**: 20440000 bytes, a continuous big-endian 10-bit stream, 4736x3452 (5920 bytes per row) plus a 4160-byte tail, GRBG. It is the whole uncorrected lens image circle. Decode with `tools/m9mo-raw.py`.
-- Black level 64 (dark frame), white 1023, active area x 2..4671.
+- Black level 64 (dark frame; it drops to ~60.5 at short exposures and high ISO), white 1023, active area x 2..4665 (columns 4666-4735 are zero). No optical-black margin.
 - The HAL reports the layout as `raw-*` camera parameters; black and white can be overridden with `persist.vendor.camera.raw.black`/`.white`.
 - The HAL reads the ISP's exposure after each shot (`exif-*` parameters) and writes `<raw>.txt` next to a RAW.
 - **`tools/m9mo-dng.py`** makes a valid DNG from `.raw` + `.txt` (checked with exiftool and LibRaw).
