@@ -262,6 +262,11 @@ Still open:
         - the country table (IT/1);
         - no TX power set at init.
       - The 11ac-era init iovars of ours (txbf, vht_features, lpc, ack_ratio...) are for 4335/4339/4354 and not built for the 4334 (checked in `.dhd_linux.o.cmd`).
+      - Firmware state during a 5 GHz join, read with the kernel's `gd1_wl_debug` diagnostics (kernel e4988ab6, `echo 1 > /sys/module/dhd/parameters/gd1_wl_debug`):
+        - the join chanspec is legacy and right (0x1b95 = ch149, 20 MHz);
+        - `per_chan_info` for ch40 and ch149 is 0x7 (valid HW/SW, 5 GHz; not passive, radar or restricted);
+        - qtxpower is 127 (no limit), with one tx/rx chain.
+      - Forcing the antenna before the join (`gd1_wl_ant` 0, 1 or 3) changes nothing.
     - **Most likely a hardware fault of this unit's 5 GHz transmit path.** Only a test on stock 4.1.2 would rule the driver out completely (Odin, deferred by the user).
   - Side effects:
     - every 5 GHz attempt fails, and after two failures Android temporarily disables the whole network, so Wi-Fi can stay down until the user taps it;
