@@ -2,6 +2,8 @@
 
 A photography-first gallery that goes with GC Camera and also opens any picture. It is a second APK in the `camera-app/` Gradle project (module `:gallery`, package `com.simoneluconi.gcgallery`), sharing the theme with the camera through `:common`.
 
+**Licence**: GPL-3.0-or-later for GC Gallery (`gallery/`) and the shared `common/` module, the same as GC Camera and gccore (user, 2026-11-04; text in `LICENSES/GPL-3.0-or-later.txt`). The future Develop screen links gccore, which carries GPL-3 code ported from RawTherapee and darktable.
+
 ## 1. What it does
 
 - **Storage first** (user, 2026-11-04: "focus on the camera"): the gallery shows one storage at a time.
