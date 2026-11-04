@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One nested screen per settings tab (SettingsActivity.TABS). Keys match settings/Prefs.kt. -->
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceScreen app:key="tab_storage">
+        <ListPreference
+            app:defaultValue="sd"
+            app:entries="@array/storage_entries"
+            app:entryValues="@array/storage_values"
+            app:iconSpaceReserved="false"
+            app:key="storage_location"
+            app:title="@string/pref_storage_location"
+            app:useSimpleSummaryProvider="true" />
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="storage_info"
+            app:selectable="false"
+            app:title="@string/pref_storage_info" />
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="format_sd"
+            app:summary="@string/pref_format_sd_summary"
+            app:title="@string/pref_format_sd" />
+        <PreferenceCategory
+            app:iconSpaceReserved="false"
+            app:title="@string/pref_cat_files">
+            <EditTextPreference
+                app:iconSpaceReserved="false"
+                app:key="folder_name"
+                app:title="@string/pref_folder_name"
+                app:useSimpleSummaryProvider="true" />
+            <Preference
+                app:iconSpaceReserved="false"
+                app:key="file_counter_reset"
+                app:title="@string/pref_file_counter_reset" />
+        </PreferenceCategory>
+    </PreferenceScreen>
+
+    <PreferenceScreen app:key="tab_image">
+        <ListPreference
+            app:defaultValue="stock"
+            app:enabled="false"
+            app:entries="@array/jpeg_engine_entries"
+            app:entryValues="@array/jpeg_engine_values"
+            app:iconSpaceReserved="false"
+            app:key="jpeg_engine"
+            app:summary="@string/pref_jpeg_engine_summary_soon"
+            app:title="@string/pref_jpeg_engine" />
+        <!-- Only with the "ours" JPEG (SettingsActivity shows it then) -->
+        <ListPreference
+            app:defaultValue="charging"
+            app:entries="@array/develop_entries"
+            app:entryValues="@array/develop_values"
+            app:iconSpaceReserved="false"
+            app:isPreferenceVisible="false"
+            app:key="develop_when"
+            app:title="@string/pref_develop_when" />
+        <ListPreference
+            app:defaultValue="95"
+            app:entries="@array/quality_entries"
+            app:entryValues="@array/quality_values"
+            app:iconSpaceReserved="false"
+            app:key="jpeg_quality"
+            app:title="@string/pref_jpeg_quality"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:iconSpaceReserved="false"
+            app:key="af_lamp"
+            app:summary="@string/pref_af_lamp_summary"
+            app:title="@string/pref_af_lamp" />
+        <PreferenceCategory
+            app:iconSpaceReserved="false"
+            app:title="@string/pref_cat_raw">
+            <SwitchPreferenceCompat
+                app:defaultValue="false"
+                app:iconSpaceReserved="false"
+                app:key="raw"
+                app:summary="@string/pref_raw_summary"
+                app:title="@string/pref_raw" />
+        </PreferenceCategory>
+        <PreferenceCategory
+            app:iconSpaceReserved="false"
+            app:title="@string/pref_cat_copyright">
+            <EditTextPreference
+                app:iconSpaceReserved="false"
+                app:key="artist"
+                app:title="@string/pref_artist" />
+            <EditTextPreference
+                app:iconSpaceReserved="false"
+                app:key="copyright"
+                app:title="@string/pref_copyright" />
+        </PreferenceCategory>
+    </PreferenceScreen>
+
+    <PreferenceScreen app:key="tab_display">
+        <ListPreference
+            app:defaultValue="light"
+            app:entries="@array/theme_entries"
+            app:entryValues="@array/theme_values"
+            app:iconSpaceReserved="false"
+            app:key="theme"
+            app:title="@string/pref_theme"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            app:defaultValue="thirds"
+            app:entries="@array/grid_entries"
+            app:entryValues="@array/grid_values"
+            app:iconSpaceReserved="false"
+            app:key="grid"
+            app:title="@string/pref_grid"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:iconSpaceReserved="false"
+            app:key="level"
+            app:title="@string/pref_level" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:iconSpaceReserved="false"
+            app:key="histogram_overlay"
+            app:summary="@string/pref_histogram_summary"
+            app:title="@string/pref_histogram" />
+        <ListPreference
+            app:defaultValue="2"
+            app:entries="@array/review_entries"
+            app:entryValues="@array/review_values"
+            app:iconSpaceReserved="false"
+            app:key="review"
+            app:title="@string/pref_review"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            app:defaultValue="2"
+            app:entries="@array/auto_off_entries"
+            app:entryValues="@array/auto_off_values"
+            app:iconSpaceReserved="false"
+            app:key="auto_off"
+            app:title="@string/pref_auto_off"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceScreen>
+
+    <PreferenceScreen app:key="tab_sound">
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:iconSpaceReserved="false"
+            app:key="shutter_sound"
+            app:title="@string/pref_shutter_sound" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:iconSpaceReserved="false"
+            app:key="af_beep"
+            app:title="@string/pref_af_beep" />
+    </PreferenceScreen>
+
+    <PreferenceScreen app:key="tab_location">
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:iconSpaceReserved="false"
+            app:key="geotag"
+            app:summary="@string/pref_geotag_summary"
+            app:title="@string/pref_geotag" />
+        <ListPreference
+            app:defaultValue="5"
+            app:dependency="geotag"
+            app:entries="@array/geotag_age_entries"
+            app:entryValues="@array/geotag_age_values"
+            app:iconSpaceReserved="false"
+            app:key="geotag_max_age"
+            app:title="@string/pref_geotag_max_age"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceScreen>
+
+    <PreferenceScreen app:key="tab_system">
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="android_settings"
+            app:summary="@string/pref_android_settings_summary"
+            app:title="@string/pref_android_settings" />
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="reset"
+            app:title="@string/pref_reset" />
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="about"
+            app:selectable="false"
+            app:title="@string/pref_about" />
+    </PreferenceScreen>
+</PreferenceScreen>

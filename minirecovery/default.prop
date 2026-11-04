@@ -1,0 +1,13 @@
+ro.secure=0
+ro.adb.secure=0
+ro.debuggable=1
+persist.sys.usb.config=adb
+ro.build.id=gd1-minirecovery
+ro.product.model=EK-GC100
+ro.product.brand=samsung
+ro.product.name=gd1xx
+ro.product.device=gd1
+ro.product.board=smdk4x12
+ro.product.manufacturer=samsung
+ro.board.platform=exynos4
+ro.build.product=gd1

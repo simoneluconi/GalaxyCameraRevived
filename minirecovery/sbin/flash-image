@@ -1,0 +1,118 @@
+#!/sbin/sh
+# Write an image to one partition and verify it by reading it back.
+# Usage: flash-image <BOOT|RECOVERY|SYSTEM|HIDDEN> <file>
+#        flash-image --restore <EFS|RADIO> <file>
+# The bootloader (BOTA0/BOTA1), PARAM, TZ and every other partition are
+# refused. EFS (IMEI, MACs, calibration) and RADIO are only written with
+# --restore, from a whole-partition backup (backup-critical): the image must
+# be exactly the partition size, and an EFS image must be ext4.
+#
+# <file> may be gzipped (name ending in .gz): it is decompressed straight
+# onto the partition. SYSTEM and HIDDEN (/vendor) take raw ext4 images only,
+# not the sparse images the build makes (convert them with tools/simg2img.py).
+# An optional <file>.info written by tools/flash-adb.sh holds
+# "<raw size> <raw sha1>". The source is checked against it before anything
+# is written, so a corrupt staged file never reaches the partition.
+
+. /sbin/minirecovery-lib.sh
+
+restore=0
+if [ "$1" = "--restore" ]; then
+    restore=1
+    shift
+fi
+name=$1
+img=$2
+case "$name" in
+    BOOT|RECOVERY|SYSTEM|HIDDEN) ;;
+    EFS|RADIO)
+        if [ $restore != 1 ]; then
+            echo "refusing to write '$name' without --restore (a backup of that partition only)" >&2
+            exit 1
+        fi ;;
+    *) echo "refusing to write '$name' (allowed: BOOT RECOVERY SYSTEM HIDDEN, --restore EFS RADIO)" >&2; exit 1 ;;
+esac
+if [ ! -f "$img" ]; then
+    echo "no such file: $img" >&2
+    exit 1
+fi
+dev=$(part "$name") || exit 1
+if is_mounted "$dev"; then
+    echo "$name is mounted, unmount it first" >&2
+    exit 1
+fi
+
+# cat the raw image, decompressing if needed
+raw() {
+    case "$img" in
+        *.gz) zcat "$img" ;;
+        *) cat "$img" ;;
+    esac
+}
+
+# ext4 superblock magic 0xEF53 at offset 1080 (a sparse image starts with
+# 3a ff 26 ed instead)
+is_ext4() {
+    [ "$(raw | head -c 1082 | tail -c 2 | od -An -tx1 | tr -d ' \n')" = "53ef" ]
+}
+
+case "$name" in
+    BOOT|RECOVERY)
+        if [ "$(raw | head -c 8)" != "ANDROID!" ]; then
+            echo "$img is not an Android boot image" >&2
+            exit 1
+        fi ;;
+    SYSTEM|HIDDEN|EFS)
+        if ! is_ext4; then
+            echo "$img is not a raw ext4 image (sparse? use tools/simg2img.py)" >&2
+            exit 1
+        fi ;;
+esac
+
+# Size and sha1 of the source, checked before writing. With an .info file
+# one pass (the sha1) is enough: a matching sha1 also fixes the size.
+if [ -f "$img.info" ]; then
+    read size want < "$img.info"
+    case "$size" in
+        ''|*[!0-9]*) echo "$img.info: bad size '$size'" >&2; exit 1 ;;
+    esac
+    if [ ${#want} != 40 ] || [ -n "$(echo "$want" | tr -d '0-9a-f')" ]; then
+        echo "$img.info: bad sha1 '$want'" >&2
+        exit 1
+    fi
+    have=$(raw | sha1sum | cut -d' ' -f1)
+    if [ "$have" != "$want" ]; then
+        echo "$img does not match $img.info (sha1 $have, expected $want); nothing written" >&2
+        exit 1
+    fi
+else
+    size=$(raw | wc -c)
+    want=$(raw | sha1sum | cut -d' ' -f1)
+fi
+if [ "$size" -eq 0 ]; then
+    echo "$img is empty" >&2
+    exit 1
+fi
+
+psize=$(blockdev --getsize64 "$dev")
+if [ "$size" -gt "$psize" ]; then
+    echo "$img ($size bytes) does not fit in $name ($psize bytes)" >&2
+    exit 1
+fi
+if [ $restore = 1 ] && [ "$size" != "$psize" ]; then
+    echo "$img ($size bytes) is not a whole-partition backup of $name ($psize bytes)" >&2
+    exit 1
+fi
+
+log "flash-image $name <- $img ($size bytes, sha1 $want)"
+raw | dd of="$dev" bs=1048576 conv=fsync 2>/dev/null || exit 1
+sync
+# Read back from the eMMC, not from the page cache
+echo 3 > /proc/sys/vm/drop_caches
+got=$(head -c "$size" "$dev" | sha1sum | cut -d' ' -f1)
+if [ "$got" != "$want" ]; then
+    log "flash-image $name: VERIFY FAILED (read back $got)"
+    echo "verify failed: wrote $want, read back $got" >&2
+    exit 1
+fi
+echo "$name written and verified ($want)"

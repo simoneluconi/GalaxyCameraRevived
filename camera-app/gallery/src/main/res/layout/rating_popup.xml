@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/panel_bg"
+    android:elevation="6dp"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp">
+
+    <com.simoneluconi.gcgallery.ui.widget.StarsView
+        android:id="@+id/stars"
+        android:layout_width="190dp"
+        android:layout_height="44dp"
+        android:contentDescription="@string/rate" />
+</FrameLayout>

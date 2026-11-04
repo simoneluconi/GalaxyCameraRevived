@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Galaxy Camera EK-GC100 (gd1) bring-up on top of LineageOS-UL 21 -->
+<manifest>
+  <remote name="html6405" fetch="https://github.com/html6405" />
+
+  <!-- Exynos4412 common tree; the i9300 low-RAM (Go) tree is the reference device -->
+  <project path="device/samsung/smdk4412-common" name="android_device_samsung_smdk4412-common" remote="html6405" revision="lineage-21.0" />
+  <project path="device/samsung/i9300" name="android_device_samsung_i9300" remote="html6405" revision="lineage-21.0-mini-go" />
+  <project path="kernel/samsung/smdk4412" name="android_kernel_samsung_smdk4412" remote="html6405" revision="lineage-21.0-BPF" />
+  <project path="hardware/samsung" name="android_hardware_samsung" remote="html6405" revision="lineage-21.0-exynos4" />
+  <!-- LineageOS-UL dropped vendor.lineage.power@1.0, which html6405's exynos4
+       hardware/samsung still uses: take his lineage interfaces fork instead -->
+  <remove-project name="LineageOS-UL/android_hardware_lineage_interfaces" />
+  <project path="hardware/lineage/interfaces" name="android_hardware_lineage_interfaces" remote="html6405" revision="lineage-21.0-qpr3" />
+  <!-- LineageOS-UL's frameworks/av has no camera HAL1 (libcameraservice/device1),
+       and the open exynos_camera HAL is HAL1: use html6405's camera branch, the
+       one his working i9300 LOS21 builds use -->
+  <remove-project name="LineageOS-UL/android_frameworks_av" />
+  <project path="frameworks/av" name="android_frameworks_av" remote="html6405" revision="lineage-21.0-qpr3-camera" />
+  <!-- The matching frameworks/base: LineageOS-UL as of 2025-03-30 plus the
+       HAL1 camera client side. Our gd1 branch merges UL's final 2025-04-04
+       head on top of it -->
+  <remove-project name="LineageOS-UL/android_frameworks_base" />
+  <project path="frameworks/base" name="android_frameworks_base" remote="html6405" revision="lineage-21.0-qpr3-camera_hal1-r08" />
+</manifest>

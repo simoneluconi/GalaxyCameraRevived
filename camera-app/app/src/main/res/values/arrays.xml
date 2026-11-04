@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="storage_entries">
+        <item>@string/storage_sd</item>
+        <item>@string/storage_internal</item>
+    </string-array>
+    <string-array name="storage_values" translatable="false">
+        <item>sd</item>
+        <item>internal</item>
+    </string-array>
+
+    <string-array name="geotag_age_entries">
+        <item>@string/geotag_age_1</item>
+        <item>@string/geotag_age_5</item>
+        <item>@string/geotag_age_15</item>
+        <item>@string/geotag_age_60</item>
+    </string-array>
+    <string-array name="geotag_age_values" translatable="false">
+        <item>1</item>
+        <item>5</item>
+        <item>15</item>
+        <item>60</item>
+    </string-array>
+
+    <string-array name="jpeg_engine_entries">
+        <item>@string/jpeg_engine_stock</item>
+        <item>@string/jpeg_engine_ours</item>
+    </string-array>
+    <string-array name="jpeg_engine_values" translatable="false">
+        <item>stock</item>
+        <item>ours</item>
+    </string-array>
+
+    <string-array name="quality_entries">
+        <item>@string/quality_100</item>
+        <item>@string/quality_95</item>
+        <item>@string/quality_90</item>
+    </string-array>
+    <string-array name="quality_values" translatable="false">
+        <item>100</item>
+        <item>95</item>
+        <item>90</item>
+    </string-array>
+
+    <string-array name="develop_entries">
+        <item>@string/develop_charging</item>
+        <item>@string/develop_now</item>
+    </string-array>
+    <string-array name="develop_values" translatable="false">
+        <item>charging</item>
+        <item>now</item>
+    </string-array>
+
+    <string-array name="theme_entries">
+        <item>@string/theme_light</item>
+        <item>@string/theme_dark</item>
+        <item>@string/theme_system</item>
+    </string-array>
+    <string-array name="theme_values" translatable="false">
+        <item>light</item>
+        <item>dark</item>
+        <item>system</item>
+    </string-array>
+
+    <string-array name="grid_entries">
+        <item>@string/grid_off</item>
+        <item>@string/grid_thirds</item>
+        <item>@string/grid_golden</item>
+    </string-array>
+    <string-array name="grid_values" translatable="false">
+        <item>off</item>
+        <item>thirds</item>
+        <item>golden</item>
+    </string-array>
+
+    <string-array name="review_entries">
+        <item>@string/review_off</item>
+        <item>@string/review_1</item>
+        <item>@string/review_2</item>
+        <item>@string/review_5</item>
+    </string-array>
+    <string-array name="review_values" translatable="false">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>5</item>
+    </string-array>
+
+    <string-array name="auto_off_entries">
+        <item>@string/auto_off_1</item>
+        <item>@string/auto_off_2</item>
+        <item>@string/auto_off_5</item>
+        <item>@string/auto_off_10</item>
+        <item>@string/auto_off_never</item>
+    </string-array>
+    <string-array name="auto_off_values" translatable="false">
+        <item>1</item>
+        <item>2</item>
+        <item>5</item>
+        <item>10</item>
+        <item>0</item>
+    </string-array>
+</resources>

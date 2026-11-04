@@ -1,0 +1,504 @@
+# Workarounds and improvements
+
+This file tracks shortcuts taken to get the first boot working, and things that work but could be done better. Each entry says where the shortcut is, why it was taken, and what the proper fix would be. Remove an entry once it is fixed.
+
+## Before release: remove test-only logging and files (user, 2026-11-02)
+
+The user's storage must not fill up with debug output. Keep only what explains crashes and kernel panics, all size-capped by Android itself: tombstones, ANR traces, `last_kmsg`/pstore and dropbox. Remove or switch off everything that only exists for tests:
+- HAL bring-up paths that write files: `persist.vendor.camera.raw` (raw frames and `.txt` in `/data/vendor/camera`) and `vendor.camera.test.raw_burst` (RAW burst frames in the same directory). Also the `vendor.camera.test.*` PASM overrides.
+- Logd persistence (`/data/misc/logd`, `logpersist`) and the adbd trace (`persist.adb.trace_mask`, `/data/adb/adb-*`) if enabled.
+- Leftovers in `/data/local/tmp`: logs (`camtest*.log`, `kmsg*.log`, `rawburst/`, `wpa.log`, `wd.txt`), test binaries and scripts.
+- Verbose kernel logging added for bring-up (e.g. the `m9mo_wait_capture_interrupt` per-interrupt `cam_info`), and the HAL's per-frame `ALOGD`s, down to what a user build needs.
+
+## Kernel (`kernel/samsung/smdk4412`, branch `gd1`)
+
+- **[HIGH, power] Touchscreen `mms_ts_gc.c` has no screen-off suspend.** The battery is old, so fix this before calling the build usable.
+  - html6405's kernel removed the earlysuspend implementation but kept `CONFIG_HAS_EARLYSUSPEND=y`. We `#undef` it locally, so the driver only suspends with the whole system, not when the screen turns off. That costs battery and could cause ghost touches with the screen off.
+  - Proper fix: convert to an fb notifier (`FB_EVENT_BLANK`), as html6405 did for `mms_ts.c`.
+- **External display `s3cfb_extdsp` has the same earlysuspend `#undef`.**
+  - Its `!CONFIG_HAS_EARLYSUSPEND` suspend/resume had never been compiled by Samsung. They were rewritten to mirror the earlysuspend ones and are untested.
+  - Check whether the GC1 actually needs `CONFIG_FB_S5P_EXTDSP` (Samsung enabled it). If not, disable it.
+- **microSD: fixed 2026-11-02**, verified on a Samsung 32GB card, vfat and exFAT.
+  - vfat did not mount: Android 14's vold always passes `time_offset=<minutes>`, which kernel 3.4's FAT driver did not know (EINVAL). Kernel 3501a1ea backports mainline's `time_offset=` option. Timestamps survive a remount.
+  - exFAT mounts as is. The card is now exFAT (label GC100, UUID EBEF-F525).
+  - The card ran at the 25 MHz default speed (about 7 MB/s): `mmc_read_switch()` recorded high speed only for pre-SD 3.0 cards, and this slot has no UHS-I. Kernel b773eaef fixes that (mainline did too): 50 MHz high speed, checked with an md5 of 64 MB of random data.
+  - Read-ahead: 512 KB for SD cards, set in the kernel (9e46b1e2) and again in gd1 after smdk4412-common's tweaks.rc. Files now read at about 19 MB/s and write at about 11 MB/s; raw eMMC reads run at 52 MB/s.
+  - gd1 231a8fe sets `external_storage.sdcardfs.enabled=false` (FUSE and bind mounts, as on GKI). `CONFIG_SDCARD_FS` could go from the defconfig too.
+- **[HIGH, data] A dentry leaks on the microSD when the camera app saves a photo** (found 2026-11-02). The user wants the real fix at the next chance.
+  - Symptom: at the next reboot, unmounting the card finds a negative dentry still referenced, e.g. `BUG: Dentry {i=0,n=GC100_0010.dng} still in use (1) [unmount of exfat mmcblk1p1]`. First seen through sdcardfs (`GC100_0003.jpg`), then on exFAT itself with sdcardfs off.
+  - That `BUG()` in `shrink_dcache_for_umount_subtree()`, with `oops=panic` from the bootloader, panicked the reboot. The emergency reboot also lost the "reboot to recovery" request, so `flash-adb.sh` waited forever.
+  - Stopgap: kernel `fs/dcache.c` now warns and leaves the dentry allocated, as mainline's `umount_check()` does. A leaked positive dentry would also keep its inode ("Busy inodes after unmount").
+  - Not reproduced with a plain `echo > file` from the shell, only with files the app saved. MediaStore creates a pending file through FUSE and renames it into place, so suspect `exfat_rename()`, or `exfat_lookup()`'s `d_find_alias()`/`d_move()` alias handling, in Samsung's `fs/exfat`.
+  - Reproduced on the first photo (2026-11-02):
+    - Sequence: MediaStore insert with IS_PENDING=1; write through `openFileDescriptor("rw")`; ExifInterface rewrite through the same fd after an lseek to 0; update IS_PENDING=0, which is MediaProvider's rename `.pending-*` → `GC100_0011.jpg`.
+    - Then `sm unmount public:179,17` gives `BUG: Dentry {i=0,n=GC100_0011.jpg} still in use (1) ..., leaking it`. The stopgap holds: the unmount completes and the card remounts.
+    - A negative dentry for the final name keeps a reference: look at the rename onto a name that does not exist yet, and at the lookups MediaProvider makes before it.
+  - Test vfat as well, to tell an exFAT bug from a FUSE/VFS one.
+
+## Gallery app (`camera-app/gallery/`, docs/GALLERY-APP.md)
+
+- **Cold thumbnails are slow without an embedded EXIF thumbnail.** BitmapFactory 1/8 over FUSE from the microSD took 0.4–1.9 s per 16 MP JPEG (2026-11-04, measured while GC Camera's preview was running), so the first pass over an existing folder takes a while. The disk cache makes it a one-time cost. The fix is GC Camera embedding a ~320x240 thumbnail (agreed with the camera session). Still possible: a third worker, or a pre-warm job while charging.
+- **Star ratings fall back to a full rewrite** (ExifInterface `saveAttributes`, seconds over FUSE) when a JPEG has no XMP packet with padding. That covers every shot taken before GC Camera writes `xmp:Rating` + padding (agreed). A DNG without room keeps the rating only in the gallery's `RatingStore`.
+- **No screen rotation for portrait viewing.** The UI is fixed landscape. The camera's in-place control rotation (OrientationSensor) is not ported yet, so a portrait photo is shown small.
+- **The camera folder is hard-coded** as `DCIM/GC100/` (`MediaIndex.CAMERA_FOLDER`). GC Camera's folder name is a setting.
+- **The thumbnail grid uses MediaStore's DATE_TAKEN for day sections**; pictures without it fall back to DATE_MODIFIED.
+- **The trash relies on MediaProvider's idle maintenance** for the 30-day expiry. It is not verified that it runs on this ROM.
+- **Develop (RAW development from the DNG) is not started** (milestone 3). It needs a gccore DNG reader and a reduced-size preview develop, plus the libjpeg-turbo CMake factoring shared with :app.
+- **The viewer's photo background follows the theme**; a neutral grey/black option for judging colour is still to add (settings screen).
+- `:app` still has its own copies of the colour tokens, `Ui.kt` and `HistogramView`. Moving it to `:common` is the camera session's call.
+- **Code review of 2026-11-04, still open** (the crashes, leaks, cache wipes, races and the XMP overwrite are fixed):
+  - Each index reload (every shot) filters the photo list several times on the main thread, in `GridActivity.refresh` and `ThumbGridView.buildSections`. That is fine at ~200 photos; move per-scope lists, counts and day keys into the `MediaIndex` worker before thousands.
+  - `onDraw` still boxes the Long ids, through `LruCache<Long>`, `fading` and `selected` (2-3 small allocations per visible cell per frame). Use a LongSparseArray or a field on `Photo` if scrolling stutters.
+  - `RegionSource` re-reads the JPEG (3-5 MB over FUSE) that the screen decode just read. Keep the current photo's bytes for zooming if 100% feels slow to start.
+  - The histogram can be computed twice when the info panel opens while a decode lands.
+  - The rotation fallback (`ExifInterface.saveAttributes`, only for a JPEG with no Orientation tag) opens the file without `setRequireOriginal`, so in theory redacted GPS could be written back. GC Camera's files always have the tag.
+
+## Camera app (`camera-app/`)
+
+- **Zoom lever steps `setZoom(±1)`** every 220 ms (slow) or 90 ms (fast), so the motor stops between steps and the zoom stutters (the user noticed, 2026-11-02). The app switches to the HAL's continuous `zoom-action` automatically once `zoom-action-values` appears.
+- **The M exposure meter is estimated** from the preview's centre-weighted luma until the HAL reports `live-bv`. It is marked "≈" on screen. It assumes the preview shows the manual exposure, which is not verified.
+- **Auto/P/A/S readouts** (fixed 2026-11-03):
+  - The app had ignored `live-*`, because the caps are read before startPreview and the HAL publishes them only once the preview runs. It now uses them as soon as a poll carries them.
+  - The shutter shown is the shot's planned one, from the M9MO's SMART_READ1. In the dark the preview's TV register reads 0, and it is capped at 1/30 anyway. The decoding comes from Samsung's app and was checked against EXIF: 1 s f/2.8 ISO 400.
+  - The app decodes it from `m9mo-live-raw` until the HAL publishes `live-shot-tv/av/iso`; it already prefers those keys. Remove the decoder (`SmartRead1` in `M9mo.kt`) once they are in.
+  - ISO from SMART_READ1 is only in whole stops (100/200/400…), so the app shows `live-iso` while the preview's AE is in range.
+  - A/S checked 2026-11-04: in A the time follows the aperture (f/8 gave 1/8 at ISO 400), and in S the aperture and ISO follow the time. EXIF matches.
+- **Mode tests of 2026-11-04** (test hook: the `TEST_SHOT` broadcast in debug builds, `ViewfinderActivity.testShotReceiver`): A, S, M up to 16" with RAW, AE bracket with and without RAW, and Home during a RAW shot all work. Fixed on the way:
+  - the first-frame watchdog was a fixed 15 s, so a 16" exposure got its preview restarted mid-exposure and the HAL lost the frame. It now adds the exposure time (the set time in S/M, the ISP's plan otherwise);
+  - settings changed during a capture never reached the following shots. The app now holds them until startPreview; the HAL got its own fix the same day;
+  - the EXIF exposure time is snapped to the ISP's steps within 1/6 EV (TV 800 had printed as 1/256);
+  - `bracket-exif` was never stored, because the HAL's parameter strings cannot hold ';'. The HAL now separates frames with '|', and each bracket frame gets its own EXIF.
+- **JPEG save** (fixed 2026-11-04): it took 3–13 s, because ExifInterface rewrote the whole 4 MB file through FUSE. `storage/JpegMeta` now writes the metadata in one pass in front of the ISP JPEG:
+  - EXIF with a 320x240 IFD1 thumbnail;
+  - XMP with xmp:Rating, the gc: capture tags and 2 KB of padding, so the gallery can patch it in place.
+  - The JPEG now lands ~1 s after the shot. The first shot after app start takes ~5 s, as the JIT warms up.
+  - exiftool validates the JPEG and the DNG without warnings.
+  - The DNG still takes 5–6 s after the JPEG: 36 MB through FUSE, at about the card's write speed.
+- **HAL options not yet in the app** (HAL cf42ec64, 2026-11-03). Measured 2026-11-04 on one indoor scene (~3000 K), set with the viewfinder open:
+  - `whitebalance=kelvin` + `wb-kelvin` (3000–10000, step 100): works, direction correct. 3000 K gives B/G 1.34, 5500 R/G 1.38 / B/G 0.85, 8000 R/G 1.36 / B/G 0.68, and auto 1.00/0.97. To do: a Kelvin row in the Fn menu's WB section, with EXIF WhiteBalance = manual.
+  - `sharpness`, `contrast`, `saturation` (−2..2): all work, in roughly even steps.
+    - Laplacian std 4.4 / 6.0 / 7.7.
+    - Luma std 48.8 / 58.2 / 65.4.
+    - Saturation 0.057 / 0.078 / 0.104.
+    - To do: ISP JPEG "look" settings under Settings → Image. Sharpness −1 or −2 should mean fewer halos.
+  - `wdr` (on|off): works, mildly on this scene. Luma std drops 58.1 → 54.6, and shadows and corners lift a little. Try it on a backlit scene.
+  - `lens-shading-correction`, `lens-distortion-correction`: work since the kernel writes PARM 0x07/0x1B in parameter mode. Before that fix, set from monitor mode, they had no effect. The readback shows both on by default.
+    - **LDC off**: the ISP outputs the whole uncorrected image circle, with barrel distortion and black corners, like the RAW.
+    - **LSC off**: about 2% darker towards the edges.
+    - Keep both on, the default. They are not in the app; LDC off could become an "uncorrected / full circle" option later.
+  - `flash-ev` (−2..2): **no effect** (2026-11-04). The scene was a dark room lit only by the flash. In M 1/30 f/4 ISO 100, −2…+2 gave mean luma 68–72 with no trend; P was the same. The HAL applies it and the flash fires. The HAL session is checking the register readback (CAPPARM 0x28, maybe the same parameter-mode issue as LSC/LDC).
+- **Self-timer lamp** (`timer-led`): done and verified 2026-11-03. The app sets it at countdown start and turns it off at the end, on cancel and on pause; the ISP blinks it slow, then fast.
+  - The lamp needed its LDO powered: kernel #44.
+  - Self-timer + RAW + OIS off had failed ("No frame 0"). Fixed in HAL 51e09e92, which no longer sends TIMER_MODE.
+  - Verified: GC100_0077 (5 s, RAW, OIS off) and GC100_0078 (10 s, RAW, OIS on), with the user watching the lamp.
+- **EXIF is written in a second pass**: `PhotoWriter` writes the ISP JPEG, then ExifInterface rewrites the file through the same fd (about 3x the I/O on the card). Proper fix: build the APP1 segment in memory (gccore, shared with the DNG writer) and write the file once.
+- **Theme on the very first launch**: `UiModeManager.setApplicationNightMode` only takes effect from the next process start, so the first launch after install follows the system theme. Harmless; it fixes itself on the next start.
+- **Format SD** opens Android's storage settings, because formatting needs the privileged `MOUNT_FORMAT_FILESYSTEMS`. It becomes in-app once the app ships in the ROM as a priv-app (the HOME launcher step).
+- **"Advanced" processing is not wired into the app yet** (the setting stays disabled). RAW (DNG) saving works through gccore, with per-shot `raw-capture` (verified on/off 2026-11-02). State of the pipeline, 2026-11-02:
+  - Done in gccore (host-tested, not called from the app):
+    - `developCorrected`: lens and vignetting into the ISP frame, Catmull-Rom resampling, a simple luma USM;
+    - `matchIsp`: reads the white balance and exposure from the ISP's own JPEG of the shot (median per-channel gains on flat patches, 0.05 s). The ISP adds no gain of its own, so exposure is ~1.0;
+    - the measured ISP tone curve with a softer shoulder (the ISP clips at ~0.75 linear), and a matrix refitted with that curve in the loop (ΔE76 vs the ISP: coloured patches 7.8 → 1.2);
+    - neutral clipping of blown highlights;
+    - `developToJpeg` (libjpeg-turbo, ExternalProject).
+  - Bugs:
+    - the resampling is half a pixel off against the ISP (`ispToActive` is fed pixel centres, but the ring indexes samples at integers): subtract 0.5;
+    - libjpeg prints "Corrupt JPEG data: extraneous bytes" for the ISP JPEG's padding: silence `emit_message`.
+  - NR + sharpening, prototyped in Python (scratchpad `nrsharp.py`, "nr5"); port it to C++:
+    - à-trous wavelet with per-level, brightness-dependent noise;
+    - gain and threshold gated by structure, plus impulse removal;
+    - fine chroma dropped as the ISP does.
+    - Result on 2 scenes: flat-area noise at or below the ISP's (0.7–1.5 vs 1.2–1.4), edge gradient equal or higher. The user still finds the ISP crisper on fine texture.
+  - Known colour gap: small blue details under fluorescent light come out greyish-teal, not blue. That needs more RAW+JPEG pairs (the user will shoot some) and possibly per-illuminant matrices or a 3D LUT.
+  - The real "much better than the ISP": a multi-frame RAW merge. The HAL session will test a 3-frame RAW bracket (≈0.4 s of exposures, ≈6 s of readout) with the user's OK.
+- **Lens calibration gaps** (gccore `lens.cpp`):
+  - The Lightroom Distortion value (−k1 × 100, so 27 at 4.1 mm) is a guess. The user checks it by eye on the test DNGs in Downloads\GC100-confronto-RAW, then the mapping gets rescaled.
+  - Zoom steps 7.5, 11.3 and 13.9 mm (and 86 mm) were not captured, so they are interpolated. Re-shoot them once the HAL keeps the zoom across a reopen.
+  - The wide-end fits reach only r ≈ 0.75, so k2 is uncertain near the corners.
+  - Vignetting: the ISP hardly corrects it, so the real fall-off needs a flat field: a white diffuser in front of the lens, shot at every zoom step. Until then the .lcp VignetteModel and the in-app development use v1 = −0.375, chosen by the user by eye in Lightroom (slider 150).
+  - Colour: ColorMatrix1 is fitted on one series of colourful pairs under one lamp (cross-checked on a second series and the face scene). Still single-illuminant: add daylight pairs for a dual-illuminant profile.
+- **The zoom is lost when the camera is fully reopened**: the lens comes out at wide while `zoom` says N. The app re-sends the zoom after startPreview, but the HAL seems to drop the unchanged value. Reported to the HAL session on 2026-11-02.
+- **DNG gaps** (gccore `dng.cpp`), to fix before calling the DNGs "Lightroom-ready":
+  - ColorMatrix1 is single-illuminant (see Colour above); dual-illuminant with ForwardMatrix later.
+  - AsShotNeutral is still grey world, which comes out too warm. gccore's `matchIsp` now reads the ISP's white balance from the JPEG preview that the DNG embeds anyway: use it in `writeDng`.
+  - No lens opcodes, by the user's choice: the DNG stays raw. The removable correction comes from the Adobe lens profile (`profiles/Samsung EK-GC100.lcp`, distortion + vignetting) plus an XMP crop.
+  - No NoiseProfile.
+  - Uncompressed (33 MB); lossless JPEG (DNG compression 7) would roughly halve it.
+  - Not yet opened in Lightroom/ACR; run Adobe's `dng_validate` too.
+- **mDNIe on GC1 has no "outdoor" tuning.** `mdnie_table_gc1.h` has no outdoor dimension, so `TUNING_TABLE()` ignores it and outdoor mode does nothing. Possible improvement: add an outdoor (sunlight) table, which is useful on a camera.
+- **AK8963C compass**: `layout = 1` and `outbit = 1` are taken from Samsung's GC100 source. Verify the axis orientation on the device. `ak8963_get_position()` and `select_func_s16()` in `midas-sensor.c` are now unused.
+- **`CONFIG_RTC_POWER_OFF`** (enabled by Samsung) is dropped by Kconfig because of unmet dependencies. Power-off alarm only, so low priority.
+- **Earlysuspend Kconfig symbols** are still `y` with no implementation behind them. Any other GC1 driver that uses them will hit the same problem.
+- **M9MO ISP safety guards** (firmware update and factory/calibration controls) are pending; see the anti-brick rules in CLAUDE.md.
+- **[HIGH, hardware] The lens must never stay extended.** On 2026-10-31 the user found the lens out after a day of `adb reboot`, `poweroff -f` and Odin flashes. Unpowered it is harmless, but it is exposed to knocks and dust.
+  - **Reboot with the camera open: fixed and verified 2026-11-01** (kernel 0fb751df + abbe35eb; see CLAUDE.md, "Lens safety"). A normal close retracts in ~1 s and a reboot in ~6 s.
+  - Still open:
+    - `poweroff` with the camera open (same path, not tested);
+    - suspend with the camera open (camera standby), and low battery;
+    - a kernel panic or a battery pull cannot be covered. One proper camera open and close brings the lens back in.
+  - Cause (user, 2026-10-31): stock Android starts the camera app at boot, so the lens comes out, and our `adb reboot` then cut the power without closing the app. Our kernel did not cause it.
+  - Stock opening the camera at boot is also the behaviour we want for our camera app as HOME.
+- **vmalloc raised to 256MB** (2026-10-31). Binder maps about 1MB of vmalloc per process, and the bootloader's `vmalloc=144m` ran out at ~250 processes, so new processes died with "Binder driver could not be opened". `early_vmalloc()` now keeps the largest value and the gd1 CONFIG_CMDLINE asks for 256m. With HIGHMEM no RAM is lost.
+  - Fewer processes (debloat) is still the real fix.
+  - A smaller per-process binder area could be a further option.
+- **bionic: "Ignore invalid pthread_t" from html6405, on our `gd1` bionic branch.** libMali's context destroy passes an invalid pthread_t to pthread_join, which aborted system_server and launcher3 (RenderThread) and restarted the framework. It is now a warning.
+  - html6405's "pre-P mutex behaviour" squash (932094c) did not cherry-pick cleanly and is not applied. Only needed for processes with target SDK < 28.
+- **AN30259A LED driver disabled** (2026-10-31). It panicked the kernel: samsung_battery calls `enable_led_an30259a()` on charge state changes, but the GC100 has no AN30259A on i2c-21 (the init write fails), so the client is NULL.
+  - Samsung's gc1pq_00_defconfig had it enabled too, maybe harmless with their driver.
+  - If the GC100's front lamp (AF assist / self-timer) turns out to be on another driver, wire it up separately.
+- **[power] Camera regulators stay on from boot.** Our kernel logs "CAM_ISP_1.2V / CAM_ISP_1.8V / CAM_SENSOR_1.8V / CAM_SENSOR_2.8V / CAM_SENSOR_CORE_1.2V: incomplete constraints, leaving on". Measure the idle drain. If it matters, give them `REGULATOR_CHANGE_STATUS` so `regulator_init_complete` turns them off, and let m9mo power them on demand.
+- **[boot time] Crypto self-tests at boot**: dozens of "alg: ... Failed to load transform" lines, from testmgr. Check `CONFIG_CRYPTO_MANAGER_DISABLE_TESTS` / tcrypt and turn them off.
+- **First boot of our kernel** (2026-10-31, in RECOVERY with the mini ramdisk): it works. Log in `device-dump/ourkernel-dmesg-1.txt`.
+  - Working: panel and mDNIe, Melfas touch, AK8963 and LSM330, MAX77693 charger/MUIC with the MAX17047 fuel gauge, bcmdhd, Mali/UMP, the FIMC/M9MO sysfs nodes, and the xmm6262 modem_if with its HSIC link.
+  - MemTotal is 753516 kB.
+
+- **Pop-up flash state: done 2026-11-01** (kernel dfd9146f, gd1 688b341).
+  - Verified on the device: SW 0x0f and `/sys/class/sec/sec_key/strobe_insert` are 1 with the flash up and 0 with it down. getevent labels 0x0f `SW_PEN_INSERTED`, which is its modern input.h name.
+  - The ISP's STROBE_UP_DOWN byte matches. The HAL reports it as `flash-popup=up|down`.
+  - With `flash-mode=on` and the flash down, a shot completes normally without firing.
+  - Still open: `m9mo-strobe-charge` reads 0 in every state seen so far, so decode it with the flash up and the mode on (charging?). Also show the state in our app's UI.
+
+  Original notes:
+- **Pop-up flash state was not reported** (found 2026-11-01). Samsung's GC100 kernel reads GPIO `STR_PU_DET_18V` in `gpio_keys.c` (IRQ + delayed work) and reports `EV_SW SW_STROBE_INSERT` (0x0f, "strobe out"). The board file sets `.gpio_strobe_insert = STR_PU_DET_18V` and configures the pin. Our kernel (html6405/treammc) has the define in input.h but none of that code.
+  - Port it from `~/android/ref/ek-gc100-samsung` (sparse clone of adamoutler/EK-GC100_Galaxy_Camera): `drivers/input/keyboard/gpio_keys.c` lines ~772-871, `mach-midas.c` ~1949 and ~3460.
+  - Expose the state to the HAL and our camera app, e.g. as a sysfs attribute next to `sec_key_pressed` and a camera parameter. Android itself ignores `SW_STROBE_INSERT`.
+  - With the camera on, the ISP also reports it (`M9MO_CAPPARM_STROBE_UP_DOWN`, plus `STROBE_CHARGE`). Firing is ISP-driven through `FLASH_MODE` (`m9mo_set_flash`).
+  - Stock gpio-keys also had key 0x240 (`KEY_FAKE_PWR`, Samsung's fake power off).
+
+## Code review of 2026-11-01: what is still open
+
+Fixed the same day and flashed (full build over adb, 2026-11-01 21:5x):
+- camera HAL gd1 2a48edf;
+- sensors gd1 b607fa1;
+- kernel 13c96831, 9f16697d, 72f706d6;
+- ueventd smdk4412-common f3f3109;
+- debuggerd system/core cf3a6bb and system/unwinding 5b4cd57;
+- `flash-image`, `minirecovery-lib.sh` and `flash-adb.sh`.
+
+Verified on the device:
+- **native crash backtraces work**: a SIGSEGV'd `sleep` gave `tombstone_00` with a full symbolized backtrace;
+- p4/p10 are `root root 0600`, p7 is `root radio 0640`, and `/dev/block/param` is gone;
+- the sensors are listed;
+- two shots in a row take ~1.1 s each (was ~2 s), the capture thread exits before the buffers are freed, the lens retracts in 1.07 s on close, and there were no crashes.
+- The first boot after this flash sat on the Samsung logo for ~2 min (new runtime APEX: ART recompiles once). Expected.
+- **Do not mount /data with `noload` in the mini recovery**: on the stock 3.0 kernel `umount` then spins forever in the kernel (and `sync` hangs behind it). `flash-adb.sh` is back to plain `ro`. Leaving the mini recovery took a sysrq reboot, which then booted recovery again (the reboot reason stays "recovery"); a normal `adb reboot` from there fixed it.
+
+Still open:
+- **[power] CPU hotplug: on since 2026-11-01.** Verified at idle with the screen on: only CPU0 online at 500 MHz, and cpuidle's `LOW_POWER` (AFTR) state in use.
+- **[power] Screen-off drain, first measurement (night of 2026-11-01).**
+  - Conditions: 7 h 55 min unplugged, screen off 99.8%, Wi-Fi connected (2.4 GHz), modem on without a SIM, GPS idle.
+  - Awake only 2% of the time (468 suspends; 51 failed with `alarmtimer` -EBUSY).
+  - Raw fuel-gauge SoC fell from 98.42% to 89.91%: about 1.1%/h. With the 1650 mAh pack (check the stock battery) that is about 18 mA average and about 4 days of standby. It starts from a full charge, so this is slightly pessimistic.
+  - About one wakeup per minute. The biggest sources:
+    - `l2_hsic` (514): the modem waking the AP. With no SIM it keeps searching for emergency service. Power the modem down when no SIM is present or mobile data is off.
+    - `mmc1_detect` (519): the microSD slot is rescanned on every resume.
+    - `battery-monitor` (475): the sec battery driver polls every minute even while suspended; check whether its sleep interval can be longer.
+    - `wlan_wake`/`wlan_wd_wake`: Wi-Fi keeping the connection up.
+  - Repeat the measurement with Wi-Fi off and with airplane mode, to split the modem and Wi-Fi shares. Kernel f23cd48c enables `HOTPLUG_CPU` and makes pegasusq the default governor (html6405's 3.4 config had neither, so CPUs 1-3 never went offline). Exynos4 AFTR/LPA cpuidle needs only CPU0 online (`cpuidle-exynos4.c` `is_only_onlining_cpu`).
+  - smdk4412-common sets `pegasusq/min_cpu_lock` to 2 at boot; gd1 now resets it to 0 right after. Watch for UI lag; 1 is the fallback.
+  - Measure: idle `online` mask, time in AFTR (`/sys/devices/system/cpu/cpu0/cpuidle`), screen-off drain.
+- **[power] Earlysuspend.** The defconfig keeps `CONFIG_EARLYSUSPEND`/`HAS_EARLYSUSPEND=y` (from the i9300) with no implementation, so s3cfb and bcmdhd compile out their normal suspend paths. Check that FIMD really suspends. Touch (`mms_ts_gc`) has no earlysuspend and scans with the screen off whenever a wakelock is held; blank it through an fb notifier.
+- **[power] Defconfig debug options**: `SCHED_DEBUG`, `SCHEDSTATS`, `TIMER_STATS`, `PM_DEBUG`, `PROFILING`/`PERF_EVENTS`. `BOOTPARAM_HUNG_TASK_PANIC` and `SOFTLOCKUP_PANIC` are 1: decide on purpose.
+- **Sensors**:
+  - timestamps are evdev's `CLOCK_REALTIME`, but Android expects `CLOCK_BOOTTIME`. The 3.4 kernel only accepts `EVIOCSCLOCKID` with `CLOCK_MONOTONIC`; set that and add the boottime−monotonic offset;
+  - AKFS load/save races with the compass thread in activate/deactivate;
+  - deinit frees the data while the detached thread lives.
+- **Camera HAL**:
+  - the AF thread notifies FOCUS before its AF_OFF/unlock ioctls, and destroys its own mutex. Make it joinable like the others;
+  - the recording paths (S5C73M3 heritage) are untouched and untested;
+  - `preview_window` is cleared by every preview stop.
+- **init**:
+  - `gd1-bringup.sh` runs on every userdebug boot: 3 min of dumps, world-readable, including the serial and MAC. Keep the last_kmsg copy (it caught the lens bug) and put the rest behind a persist property;
+  - EFS is mounted rw with `errors=panic`, and `restorecon_recursive /efs` rewrites xattrs at every boot.
+- **Mini recovery**: rebuild it so that its built-in `flash-image` and `minirecovery-lib.sh` get the review fixes. Until then flash-adb stages the new `flash-image`, which still sources the old lib.
+- **3G: the modem boots (2026-11-01); data not tested yet, no SIM.**
+  - The status 6 exits were init failing `setexeccon(u:r:cpboot-daemon:s0)`: the domain did not exist, because no device sepolicy was built. cbd never ran.
+  - Started by hand, the i9300 cbd (same `-d` as stock, same defaults: `/dev/umts_boot0`, `mmcblk0p7`, `/efs/nv_data.bin`) boots the XMM6262. rild then reports baseband GC100XXBMC3 and a UMTS cell; the SIM shows ABSENT.
+  - Fix in gd1: `sepolicy/vendor` with a permissive `cpboot-daemon` domain. Verify after the next flash that init starts cbd on its own.
+  - Next: insert a SIM, set the APN and test data.
+- **GPS: the stack runs end to end (2026-11-01); first fix not seen yet** (tested indoors at night, 0 satellites). See "GPS" below.
+
+## Device tree (`device/samsung/gd1`), first-boot gaps
+
+- **[HIGH, security] SELinux is permissive** (`androidboot.selinux=permissive` in `BOARD_KERNEL_CMDLINE`, userdebug only).
+  - html6405's `smdk4412-common/selinux/` exists but no makefile references it, and it is older than the policy in his shipped i9300 build (that one labels `/vendor/bin/cbd` and has `glgps`/`tweaks`).
+  - gd1 now has `sepolicy/vendor` (2026-11-01) with only what init needs to start our daemons: permissive `cpboot-daemon` and `gpsd` domains, and a label for the GNSS service.
+  - rild, wpa_supplicant and other services still run in the `init` domain (their binaries lack a transition), which only works because everything is permissive.
+  - Proper fix: write policy for our services (RIL/cbd, GPS, camera, sensors, Wi-Fi, power HAL), collect denials in permissive mode, then switch to enforcing.
+  - Also check that kernel 3.0 really loads the Android 14 policy (`/sys/fs/selinux/policyvers`, dmesg at boot).
+- **Root folders** are limited to `efs` (`BOARD_ROOT_EXTRA_FOLDERS`). The common tree's `misc` and `preload` have no label in UL and broke the system image.
+- **VINTF**: the device manifest declares `target-level="5"`.
+
+- **[HIGH, UX] Sensors HAL missing, so no auto-rotate.** The user wants landscape by default and portrait as an option; landscape is now fixed via `ro.surface_flinger.primary_display_orientation`.
+  - Portrait needs the accelerometer in Android. Port the i9300 libsensors for the LSM330 (same chip) first.
+  - The camera app also needs it for EXIF orientation and a level.
+- **Sensors HAL missing.** The GC100 has an LSM330DLC (accel/gyro, same as the i9300) and an AK8963C compass (the i9300 has AK8975), with no light, proximity or barometer. Port the i9300 libsensors with an AK8963 backend, then re-add `android.hardware.sensors` to `manifest.xml`.
+- **GPS** (port of 2026-11-01: the chip powers up and reports satellite status every second through the whole stack; a real fix is still to be seen outdoors). This camera reads `/sys/class/sec/gps/hwrev` = `b`, so it has a **BCM4752** (`gpsd_4752` + `gps_4752.xml`). Revisions 0–a use `gpsd_47511`, the i9300's chip.
+  - Same layout as the i9300: GNSS 1.0 legacy service → `gps.smdk4x12` (i9300's Apache `libgps-shim`, copied to `gd1/shims`) → the stock HAL as `gps.exynos4.vendor.so` → socket → the stock daemon, installed as `/vendor/bin/gpsd`.
+  - The daemon links the Android 4.1 `SensorManager` API. `gd1/shims/libgpsd_shim` (LD_PRELOAD) stubs it with no sensors, and `configs/gps.xml` sets `SensorsEnable="false"`. It also provides `SSLv3_client_method`. Sensor-aided navigation is lost; a real bridge to the Android 14 sensor API would bring it back.
+  - The vendor service had also been missing from the VINTF manifest. With it declared but failing, system_server waits for it forever and the boot hangs on the animation: keep the GNSS HAL working or out of the manifest.
+  - The stock HAL has text relocations, so the GNSS service executable gets an SDK override of 22 in BoardConfig (the linker matches only executables).
+  - The stock HAL passes NMEA without a terminating NUL; libgps-shim now copies it, or the HIDL wrapper aborts in `hidl_string::setToExternal`.
+  - gpsd's `RILClient` (AGPS through libsecril-client) gets "connection refused" from rild; harmless without a SIM, check with one.
+  - `LbsServer`/`gllto.glpals.com` (Broadcom assistance and LTO download) may no longer exist; check what the daemon does without them.
+- **Audio mixer paths** (`configs/tiny_hw.xml`) are the i9300's. The WM1811 codec is the same, but the GC100 has no earpiece and has a different mic/speaker layout; check against stock.
+- **Keys**: `gpio-keys` still need a GC100 keylayout and keyhandler mapping. Codes recorded on 2026-10-31 with our kernel:
+  - shutter: half press `0x210` (KEY_CAMERA_FOCUS), full press `0x220` with 0x210 still held;
+  - zoom T: `0x215` (KEY_CAMERA_ZOOMIN), then `0x221` about 30 ms later (second contact or speed);
+  - zoom W: `0x216` (KEY_CAMERA_ZOOMOUT), then `0x222`;
+  - Power: `0x74`;
+  - flash switch: SW 0x0f, registered by gpio-keys since kernel dfd9146f; the toggle itself is not tested yet.
+- **cbd and libsec-ril.so** come from the i9300 LOS21 vendor (I9300 4.3) and drive the GC100's XMM6262 modem firmware (GC100XXBMC3); the modem boots with them. The GC100 stock `/sbin/cbd` (static, almost the same build) is the fallback.
+- **The vendor blobs had the i9300's Wi-Fi firmware and NVRAM and its Bluetooth patchram** (found 2026-11-01). extract-utils looks for a blob at its destination path first, so the full i9300 `vendor/` in the blob source shadowed every `system/...:vendor/...` entry. `tools/mk-blobsrc.sh` now builds a source whose `vendor/` holds only the files we take from the i9300; re-extracted, all blobs match the GC100 dump.
+- **Wi-Fi works on 2.4 GHz, not on 5 GHz** (2026-11-01).
+  - With the i9300 firmware and NVRAM every association failed (`CONNECT` event status 1). With the GC100's own files, 2.4 GHz associates, completes the 4-way handshake and reaches the internet.
+  - The user's mesh AP still rejects association on 5 GHz channel 40 with status 1.
+  - The BCM4334 does 5 GHz as 802.11a/n, one stream. Check whether the AP's 5 GHz band refuses clients without 11n/ac (and whether our driver advertises HT on 5 GHz), or test another 5 GHz AP. Android falls back to 2.4 GHz on its own.
+- **Recovery is our own mini recovery, not LineageOS recovery.** `TARGET_NO_RECOVERY := true` because the 8MB partition is too small (LOS21 recovery is 15.7MB). The mini recovery (`minirecovery/`, docs/RECOVERY.md) is built and **not yet tested on the device**.
+  - **No UI**: adb only, plus status screens. A key-driven menu (zoom lever and shutter) could be added later by reading `/dev/input` from the script.
+  - **No zip install**: updates go through Odin tars (boot, system, and vendor as `hidden.img`) or through `flash-image`/`adb sync`. Public users will need Odin.
+  - **Optional: measure a slimmed LOS recovery.** Use a recovery-only kernel config with no camera, Mali, MFC, Wi-Fi, BT, audio or modem, and a ramdisk without fastbootd. Keep it only if it fits in 8MB.
+  - **Repartition (PIT) only as a last resort, and with an explicit exception to anti-brick rule 1.** RECOVERY (p6) sits before RADIO, CACHE and SYSTEM, so growing it moves all of them. The firmware package has no PIT, so the stock PIT would first have to be read from download mode (e.g. `heimdall download-pit`).
+  - The busybox binary is fetched by hand from Alpine. Script that fetch (with the docker `apk fetch` command from docs/RECOVERY.md) before publishing.
+- **[BLOCKER] SurfaceFlinger aborts with "EGLContext creation failed"** (2026-10-31, 64 times in 5 minutes; logs in `device-dump/bootlog-2/`).
+  - EGL initializes (Mali r3p2, kernel and user API 29), but the EGL extension string has only the loader's own extensions; Mali's KHR_image/fence/native_buffer are missing.
+  - The Mali, UMP and gralloc blobs are bit-identical to the working i9300 LOS21 build, and frameworks/native matches html6405's r08 in the EGL loader and RenderEngine. Suspect the kernel side (gd1 defconfig/board: Mali/UMP/ION/fb) or device config.
+  - `gd1-bringup.sh` saves the live dmesg and device permissions to `/data/bringup/` for the next attempt.
+- **adb "offline" under LineageOS: FIXED 2026-11-01.** The camera now shows as `device`, with a root shell. The fixed adbd APEX was swapped into `/system/apex` by hand from the console (the original is in `/data/local/tmp/com.android.adbd.apex.orig`), and the next full build includes it.
+  - adbd uses the legacy FunctionFS path (nonblocking_ffs=0, aio_compat=1). The 3.4 f_fs rejects the v2 descriptors (EINVAL) and accepts the v1 fallback.
+  - The kernel side works: `gd1_ffstest` (bringup-tools) binds `/dev/usb-ffs/adb` with v1 descriptors and receives the host's CNXN.
+  - Bug in adbd (`packages/modules/adb` transport.cpp, `fdevent_register_transport`): `#if ADB_HOST` wrapped only half of the "start detached" condition. On the device it reduced to `t->type == kTransportUsb`. Only the legacy path sets that type, so its transport was registered, left in kCsDetached and never started (no read/write threads).
+  - Fix: `packages/modules/adb` branch `gd1` f31cfce, which applies the detached setting only on the host. Worth sending upstream.
+  - The adbd trace with `persist.adb.trace_mask` goes to `/data/adb/adb-*`, not to logcat.
+- **First full boot: 2026-10-31.** It reaches the LineageOS setup wizard. The fixes were:
+  - the Mali GLES modules copied into /system/lib/egl;
+  - IAdaptiveBacklight dropped from the manifest (the s6d6aa1 has no CABC);
+  - debugging over the USB ACM root console (`tools/serialsh.ps1`, `tools/serialpush.ps1`).
+- **Landscape and touch done** (2026-10-31): `ro.surface_flinger.primary_display_orientation=ORIENTATION_90` plus `sec_touchscreen.idc` with `touch.orientation = ORIENTATION_90`, both tested on the device.
+- **No lock screen** (user, 2026-10-31): `config_disableLockscreenByDefault`, with the lock entries hidden in Settings.
+- **Lessons from the debloat (2026-10-31)**:
+  - never `pm disable` `com.android.sdksandbox`: PackageManagerService throws "There should exactly one sdk sandbox package" and system_server crash-loops. To recover with the framework stopped, fix both `package-restrictions.xml` and `-backup.xml`/`.reservecopy` via abx2xml/xml2abx;
+  - a vendor init service cannot run `settings`/`pm` ("inaccessible or not found"), so framework-side scripts belong in system_ext;
+  - SystemUI writes its in-memory tile list straight back over any outside change to `sysui_qs_tiles`, so the setup script sets it while SystemUI is restarting.
+- "Discover Trust" onboarding notification: off via `settings put --lineage system trust_interface_hinted 1` in gd1-setup.sh (next build).
+- **[UX] Display orientation and density.** The panel is 720x1280 portrait, and stock runs the display rotated (SurfaceFlinger orientation=1, landscape 1280x720) at density 320.
+  - Under LineageOS the UI comes up in portrait at 320 dpi (360x640dp). The setup wizard pages are cramped: Next is only reachable by scrolling (the display size is correct).
+  - Decide on fixed landscape (stock-like), probably with a lower density (240–260) for a camera UI. Also consider dropping the setup wizard from the product.
+- **Setup wizard** (user, 2026-10-31): skip most of LineageOS's onboarding.
+  - Option 1, recommended: drop LineageSetupWizard so AOSP Provision marks the device set up, with Italian locale and timezone defaults in the build.
+  - Option 2: keep it but skip the SIM, Lineage services, fingerprint/lock, theme and navigation pages.
+- **[UX] UI lag** (user, 2026-10-31): the quick settings tile label marquee stutters on the Mali-400. Ideas:
+  - no marquee on QS tile labels;
+  - default animation scales 0.5x via the SettingsProvider defaults overlay;
+  - review the CPU governor/hotplug and Mali DVFS together with the power work.
+- **[UX] Vibration far too strong** (user, 2026-10-31). Lower the motor intensity (vibrator HAL amplitude or the kernel's max duty), or default haptic feedback off.
+- **/vendor is mounted read-write** (found 2026-11-01): the HIDDEN line in `rootdir/fstab.smdk4x12` has no `ro`. Add `ro` for the next build, after checking that nothing in smdk4412-common/i9300 writes to /vendor at runtime and why html6405's fstab leaves it rw.
+- **Hand-swapped files on the device**: all included in the build flashed on 2026-11-01 via `tools/flash-adb.sh`, so this list is history. Since then only `camera.smdk4x12.so` (gd1 10639a6) has been pushed by hand. The old originals in `/data/local/tmp/*.orig` can go:
+  - `/system/apex/com.android.adbd.apex`, the adb fix;
+  - `/vendor/overlay/framework-res__lineage_gd1__auto_generated_rro_vendor.apk`, no doze;
+  - `/vendor/lib/hw/sensors.smdk4x12.so` (new) and `/vendor/etc/vintf/manifest.xml` (with the sensors HAL);
+  - `/vendor/usr/keylayout/gpio-keys.kl` (new) and `/vendor/overlay/org.lineageos.platform-res__lineage_gd1__auto_generated_rro_vendor.apk` (camera key, no LED/backlight/burn-in).
+- **Camera HAL status (2026-11-01, gd1 `camera/`)**: preview, optical zoom (pinch), AF and auto exposure work in OpenCamera. The ISP powers up only when the preview starts, so the lens no longer cycles at boot. Still missing:
+  - **JPEG still capture works** (2026-11-01, first 16MP picture from OpenCamera). Still open:
+    - ~2 s from shutter to JPEG. Measure each step (preview stop, exposure, ISP compression, transfer, preview restart), then try keeping the buffers or the capture mode;
+    - the old S5C73M3 picture thread no longer starts for the M9MO (gd1 d794b97);
+    - no EXIF from the HAL: the ISP JPEG is passed on as is. Check what the ISP puts in it; the HAL could add EXIF from the M9MO EXIF controls (ISO, shutter, aperture, focal length, flash);
+    - the flash fires and exposes correctly (user, 2026-11-01, flash "on" in OpenCamera);
+    - **flash closed** (user decision, 2026-11-01): the app handles it. The HAL only exposes the pop-up state, read from the ISP (see "Pop-up flash state" above), and does not change the flash mode on its own. Checked: with the flash down and the mode "on", the shot completes without firing;
+  - **RAW works** (2026-11-01, gd1 d794b97 + 10639a6), behind `setprop persist.vendor.camera.raw 1`:
+    - each shot gives the raw frame and then the 16MP JPEG, in about 3 s, and the preview resumes. The raw frame goes to `CAMERA_MSG_RAW_IMAGE` and to `/data/vendor/camera/IMG_<time>.raw`. Test files are in `device-dump/raw-tests/`;
+    - **format** (`tools/m9mo-raw.py`): 20440000 bytes, a continuous big-endian 10-bit stream (not MIPI RAW10), 4736 px = 5920 bytes per row, 3452 rows plus a 4160-byte tail. The last 64 columns are zero, and the left columns read ~50 (optical black?). Bayer **GRBG**, checked against the JPEG colours;
+    - **the frame is the whole lens image circle**: strong barrel distortion and vignetting, and a much wider view than the JPEG. The ISP corrects and crops for its JPEG. A DNG needs `WarpRectilinear` + `FixVignetteRadial` opcodes (per zoom position) or a lensfun profile, plus the crop (`DefaultCrop`);
+    - FIMC stops after every frame in JPEG mode (lastend), so the HAL restarts it between the raw frame and the JPEG. STREAMON is safe there: the M9MO is already in still capture;
+    - **black level 64** (dark frame 2026-11-01, `device-dump/raw-tests/dark-*`): 63.2-63.6 on all four channels, flat across the frame, dark noise σ ≈ 2.8, 1231 hot pixels > 200 at the long auto exposure. Columns 0-1 are zero too (active area x 2..4671);
+    - the HAL reports the layout as parameters (gd1 7cdc1a4): `raw-size`, `raw-format`, `raw-cfa`, `raw-active-area`, `raw-black-level`, `raw-white-level`. Black and white can be overridden with `persist.vendor.camera.raw.black` / `.white` (user, 2026-11-01: keep them tweakable);
+    - the ISP JPEG has no exposure EXIF (no exposure time, ISO, F-number). The HAL now reads them from the ISP after each shot (gd1 e2f4472) and reports them as `exif-iso`, `exif-tv` (APEX x100), `exif-av` (APEX x100), `exif-bv`, `exif-ebv`, `exif-flash`, `exif-fl` (mm x1000) and `exif-fl-35mm` (mm x100). For a RAW shot they also go to `<raw>.txt`. Still to do: write them into the JPEG (our app, or the HAL);
+    - the ISP's EXIF flash read 9 ("fired, compulsory") with the pop-up flash down and the mode "on". It seems to follow the mode, not the actual firing; check with the flash up;
+    - **DNG: `tools/m9mo-dng.py`** turns `.raw` + `.raw.txt` into an uncompressed 16-bit DNG with exposure EXIF. exiftool validates it and LibRaw (rawpy) develops it with correct colours. Placeholders: ColorMatrix1 treats the sensor as linear sRGB, and AsShotNeutral is a gray-world estimate. Next: a real colour profile (ColorChecker + dcamprof), the ISP's own white balance if it can be read, lens correction opcodes, and the same writer in our app;
+    - still to do: the black level per ISO (and whether the ISP already subtracts or clamps anything), the white level (1023 assumed; check a clipped highlight), what the 4160-byte tail holds, whether the data is before NR/sharpening, the raw at other zoom positions, and RAW at other picture sizes (the HAL forces 4608x3456 now);
+    - then the DNG writer (in our app, or in the HAL as a vendor parameter) with the EXIF exposure values from the ISP;
+    - writing to `/data/vendor/camera` is a bring-up shortcut: the app should get the frame from `CAMERA_MSG_RAW_IMAGE`. OpenCamera ignores it;
+  - the zoom lever: OpenCamera steps one zoom level per key press. Our app should drive `V4L2_CID_CAMERA_OPTICAL_ZOOM_CTRL` (continuous TELE/WIDE/STOP, slow/fast) instead;
+  - **PASM works** (2026-11-01, gd1 ead43a0). The M9MO runs the exposure program and the HAL passes the mode and values:
+    - parameters: `pasm-mode` (auto/program/aperture/shutter/manual), `shutter-speed` (the ISP's 30 steps, 16 s to 1/2000), `aperture` (f x10), `iso` (now up to ISO3200; manual forces ISO100 if auto);
+    - verified via `exif-*`: A f/5.6 → AV 473; S 1/250 → TV 797; M 1/30 f/2.8 ISO200 → exactly that;
+    - OpenCamera does not know these parameters. For tests, `setprop vendor.camera.test.{pasm,shutter,aperture,iso}` overrides them on every setParameters. Bring-up only: drop it once our app exists;
+    - still open: the aperture limits per zoom position (the ISP clamps; read them back and publish them in `aperture-values`), the real values chosen by the ISP during the preview (for the viewfinder), exposure compensation in P/A/S, and auto ISO in S mode (it stayed at 400 in a dim room).
+  - touch AF, OIS, the flash state in the UI;
+  - **preview latency** (user, 2026-11-01: noticeable lag). Fewer capture buffers (`EXYNOS_CAMERA_CAPTURE_BUFFERS_COUNT` is 6, up to ~200 ms at 30 fps; try 3-4), and a fixed 30 fps preview through `V4L2_CID_CAMERA_FRAME_RATE` (OpenCamera asks 15-30 fps, and in low light the ISP drops to 15). Measure before and after.
+- **Kernel oops on a fast camera close/reopen** (2026-11-01, old kernel without m9mo_shutdown). Likely related: every close then took 5 s, because the lens-off waited for a masked interrupt; kernel abbe35eb brings that to ~1 s. Re-test a fast close/reopen.
+  Original notes: `klist_put` NULL dereference in the FIMC/i2c release path (`i2c_unregister_device` → `klist_del`). It happened a second after the first close, while the camera provider restarted and opened the camera again. The close before it logged `m9mo_set_lens_off: M9MO_INT_LENS_INIT isn't issued, 0x0`, yet the lens did retract. Log: `/data/bringup/last_kmsg/last_kmsg-20261101-163635.txt` on the device (copy it to device-dump). The HAL's lazy power-up avoids that sequence, but the FIMC open/release path needs a race review (two opens of FIMC0 at once?).
+- **[HIGH, debugging] No native crash backtraces on this kernel** (found 2026-11-01).
+  - tombstoned fails with "failed to create temporary tombstone in /data/tombstones: Is a directory". That is the EISDIR a kernel without `O_TMPFILE` returns, and 3.4 has none.
+  - crash_dump also fails to read thread registers ("failed to fetch registers ... I/O error"), probably no `PTRACE_GETREGSET` on 3.4 ARM.
+  - **Fixed and verified 2026-11-01**: system/core cf3a6bb (tombstoned, named temp file) and system/unwinding 5b4cd57 (PTRACE_GETREGS fallback). Root cause of the second: `PTRACE_GETREGSET` is under `CONFIG_HAVE_ARCH_TRACEHOOK` in kernel/ptrace.c, and 3.4 ARM does not select it.
+  - Test: `kill -SEGV` a throwaway native process, e.g. `sleep 100 & kill -SEGV $!`, then check `/data/tombstones/tombstone_00` for a backtrace.
+  - Leftover `.temp_*` files can stay behind only if tombstoned itself dies mid-dump.
+- **Intermittent camera provider crash during a capture** (2026-11-01, once in about 15 shots): SIGSEGV at address 0 in a HwBinder thread of the provider, 20 ms after take_picture, while the picture thread stopped the preview. The thread logged no HAL entry point, so it is probably in the HIDL camera device wrapper (a callback racing with the preview stop). It crashed mediaserver too. Needs a backtrace (see above).
+- **Clock**: it had drifted ~5.5 min. `auto_time` is on but there is no network, so no NTP. Set from the PC with `adb shell cmd alarm set-time <ms>` (it reaches the RTC; it survived a reboot). With Wi-Fi it should sync on its own. 24-hour format is now the default (gd1-setup.sh, gd1 6864d0c).
+- **Restarting the camera provider leaves the camera unusable until a reboot** (seen 2026-11-01).
+  - Killing the provider also restarts CameraService, which runs inside mediaserver (uid media, 1013) in this HAL1 setup.
+  - The new CameraService has an empty "allowed device users" list and rejects every client ("cannot connect from device user 0").
+  - It asks system_server for the user list, but CameraServiceProxy drops the call: "Calling UID: 1013 doesn't match expected camera service UID".
+  - Fix it in html6405's `frameworks/base` HAL1 fork (accept the media UID in CameraServiceProxy), or run CameraService as cameraserver. Until then, push a new HAL and reboot.
+- **The modem stays on all the time.** cbd and the GNSS service no longer restart (fixed 2026-11-01), but nothing turns the XMM6262 off when mobile data is unused. Airplane mode should power it down; check what it really does to the modem and its HSIC link.
+- **Lens left out after a crash**: the shutdown hook cannot help after a kernel panic or a battery pull. Any camera open and close re-homes the lens. Consider a quick open/close at boot, done by the HAL or our app, if the ISP reports the lens out.
+- The device overlays are built as RROs on /vendor (`PRODUCT_ENFORCE_RRO_TARGETS := *` in smdk4412-common), not into framework-res. To test an overlay change, build `<pkg>__lineage_gd1__auto_generated_rro_vendor` and push that.
+- **Sensors HAL** (gd1 `libsensors/`, 2026-11-01): working, and auto-rotation verified. Still open:
+  - check the compass against a real heading (a compass app, or our camera app), and the gyro sign while turning;
+  - the `sensors.smdk4x12.so` on the device lacks the last tweak (continuous reporting mode, compass range 4911.9); the next build has it;
+  - AKFS stores its offsets in `/data/misc/akfs.txt` from system_server; fine while permissive, but needs a sepolicy rule (or a vendor path) for enforcing;
+  - the 1.0 passthrough HAL loads into system_server. Consider the HIDL sensors service process later (SELinux, crash isolation).
+- **Sensor feature flags**: smdk4412-common copies `android.hardware.sensor.light.xml` and `.proximity.xml`, but the GC100 has neither (only the LSM330 accelerometer and gyroscope and the AK8963C compass). Drop them for gd1 so apps do not expect those sensors.
+- **USB ACM console: opt-in from the next build** (user, 2026-11-01). It is off by default; `setprop persist.vendor.gd1.console 1` plus a reboot turns it on (userdebug only). `tools/serialsh.ps1` and `serialpush.ps1` still work once it is on.
+- **Restarting adbd breaks the ACM console** until reboot (Windows: "device not functioning"). For adb debugging use the persistent `persist.adb.trace_mask` and reboot instead.
+- **Quick settings tiles** set to internet, bt, airplane, rotation, location, battery, dark, caffeine (SystemUI overlay). The script resets `sysui_qs_tiles` once.
+- **Settings cleanup** (user, 2026-10-31): after the debloated build, list the remaining entries and hide the irrelevant ones with Settings `config_show_*` overlays (phone, SIM, emergency, ...).
+- **Backlight stays at 0 until the framework sets it.** That is expected, but check that the lights HAL drives `/sys/class/backlight/panel` (max 255) once booted.
+- **Camera HAL is disabled on gd1** (`-DEXYNOS_CAMERA_DISABLED`: zero cameras, `open()` returns -ENODEV).
+  - On the first LineageOS boot (2026-10-31), cameraserver opened camera 0 at boot with the i9300's S5C73M3 preset, and the device rebooted right after. Log in `device-dump/bootlog-1/`.
+  - Re-enable only with a real M9MO preset (plan step 6).
+  - Also find out why the wrong commands crashed the kernel instead of failing; the m9mo/fimc error paths must not take the system down.
+- **smdk4412-common device lists**: `gd1` was added to the top-level Android.mk and camera/Android.mk filters. Prebuilt apps (AuroraStore, Via, OpenCamera) are still pulled in by common.mk; strip them per the app decisions in CLAUDE.md.
+
+## Camera HAL stability
+
+- **[HIGH, lens safety] A failed lens-off leaves the lens out** (2026-11-02). After the HAL hang below, the reboot ran `m9mo_remove` → `m9mo_set_lens_off`. The ISP never started retracting: LENS 0x28 read 196 (0xC4) for all 3 resends, about 0.8 s. The driver gave up and powered the ISP down with the lens extended.
+  - Recovered by opening and closing the camera normally: the ISP power-up ran "Lens boot complete", and lens-off then took 1.05 s.
+  - Fix in m9mo.c: when lens-off fails, power-cycle the ISP, wait for the lens boot (`m9mo_init`), retry lens-off, and only then power down.
+    - The m9mo driver cannot switch the ISP power today. FIMC does it through `s3c_platform_camera.cam_power` = `m9mo_power()` in `midas-camera.c`.
+    - Add a `power` callback to `m9mo_platform_data` (it already has `config_sambaz`, `af_led_power`, `irq`) and point it at `m9mo_power`. The 0/1 pair keeps the regulator counts balanced, and FIMC still powers down after `m9mo_remove`.
+    - Run the fallback in `m9mo_remove` and `m9mo_shutdown`, under `m9mo_lens_lock`, before `free_irq` (`m9mo_init` needs the ISP irq). Also log what 0xC4 means if Samsung's source tells; the high bits may be status flags on top of 4. Test by forcing the failure (e.g. a debug-only skip of the first lens-off command).
+
+- **The capture path relies on a stray ISP frame** (found 2026-11-03).
+  - What happens: with one buffer, FIMC skips the first frame interrupt after STREAMON (`fimc_irq_cap[0] SKIPPED`, then it stops). Every frame read (RAW frame 0, the JPEG, bracket frames) works only because the M9MO emits a short stray frame right when the transfer starts, and FIMC keeps the frame after it.
+  - When the stray frame is missing, the real frame is skipped and the HAL gets "No frame N".
+  - Seen once: Samsung's TIMER_MODE (NEW 0x07) with the OIS off, then a RAW shot. The HAL no longer sends TIMER_MODE (gd1 camera), and that fixed it.
+  - Proper fix: make the read tolerate a missing stray frame. For example, retry the transfer once on a poll timeout, or arm FIMC with two buffers. This needs a way to tell a skipped real frame from a dead ISP.
+- **Parameters set during or right after a capture are re-applied on a fixed frame count** (workaround, 2026-11-04, gd1 aef6972).
+  - Just out of still capture, and just after the preview STREAMON, the ISP takes AE program writes (pasm-mode, shutter, aperture, ISO) but keeps its old program.
+  - The HAL applies those parameters at once, then applies everything again with force on the 5th preview frame after the restart (`M9MO_PARAMS_REAPPLY_FRAMES`).
+  - Proper fix: find the ISP state or interrupt that says the AE program is writable again, and wait for that instead of counting frames.
+- **Hang on a shot (2026-11-02, OpenCamera), fixed in gd1 camera.** The preview thread sent `CAMERA_MSG_PREVIEW_METADATA` on every frame. CameraService enables that message for every client and its callback spins for the client lock, which `stopPreview()` held while joining the preview thread. It now goes out only during face detection (none on the M9MO). Rule for later HAL work: no thread joins inside a framework call while that thread can be in an enabled callback (docs/CAMERA-APP.md §3.3).
+- The AF thread is still not joinable (see the review list); if it becomes joinable, apply the same rule to `CAMERA_MSG_FOCUS`/`FOCUS_MOVE`, which CameraService also enables for every client.
+
+## M9MO features not wired yet (audit of 2026-11-03)
+
+Compared with Samsung's GC100 driver (`~/android/ref/ek-gc100-samsung`) and the stock HAL/app. Fixed in the same audit: the OIS (the HAL had sent ANTI_SHAKE, an AE program, so the optical stabilizer never ran), the self-timer LED and the AF lamp setting (docs/CAMERA-APP.md §3.2).
+- **Missing from our kernel** (it comes from the GC110 tree):
+  - `m9mo_set_OIS_cap_mode`: ported 2026-11-03 for stills (0x04 single, 0x05 multi-frame). Still missing: the recording modes (0x01/0x02 at ≤30/60 fps) and panorama (0x03), which need recording state in the driver.
+  - `m9mo_set_iqgrp`: MON 0x59, the ISP's IQ tuning group per recording size and fps (0x64 1080p, 0x66 720p, 0x69 VGA, 0x65/0x68 at 60 fps). Needed for good video.
+  - `m9mo_set_smart_auto_default_value`, `post_init` (split OIS init), `CAPTURE_END`, `FAST_CAPTURE`.
+- **Wired 2026-11-03** (docs/CAMERA-APP.md §3.2): sharpness, contrast, saturation, flash EV, WDR, LSC, LDC, white balance in Kelvin and TIME_INFO (hour and minute only).
+  - Verified 2026-11-04: WB Kelvin, sharpness, contrast, saturation and WDR work (numbers under "Camera app").
+  - LSC and LDC work since kernel 3952a933, which writes them in parameter mode. The ISP defaults are both on.
+  - **flash-ev has no visible effect** at -2..+2, in M and P. Our path is Samsung's (CID PRIVATE_BASE+183, 0-4 raw, CAPPARM 0x28). Kernel b1d95854 logs a readback. If the value lands and still does nothing, find out when Samsung's app used it (a flash mode or the pre-flash?), or drop the key.
+- **Still never sent by the HAL**: CAF, SMART_SCENE_DETECT, SMART_ZOOM, and the WB custom R/G and B/G gains.
+- The OIS movie mode while recording (IS_OIS_MODE movie, with its interrupt).
+
+## Image quality and RAW (ideas, user request 2026-10-31)
+
+The stock M9MO JPEGs look poor: heavy sharpening halos, smeary noise reduction, simple demosaicing.
+
+- **Quick win**: lower the ISP sharpening (M9MO sharpness/contrast CIDs) and use maximum JPEG quality.
+- **RAW first**: characterise `RUNNING_MODE_RAW` output: bit depth, Bayer layout, black/white level, and whether it is pre-NR sensor data. Then write proper DNGs.
+- **Colour profile without a ColorChecker** (user, 2026-11-01: a ColorChecker costs more than the camera). Plan:
+  1. fit the matrix against the ISP's own JPEG of the same shot (Samsung's colour tuning). Use many colourful scenes, in daylight and under tungsten, for a dual-illuminant DNG profile. The JPEG is distortion-corrected and cropped, so register it to the raw first; that registration also gives the lens correction;
+  2. as a starting point, the Adobe matrix of another camera with the same sensor, once the GC100 sensor is identified (16MP 1/2.3");
+  3. a cheap printed 24-patch card only to check the result.
+  - Avoid a chart shown on a screen: display primaries are narrow-band and mislead the sensor.
+- **Offline development**:
+  - darktable / RawTherapee CLI with a GC100 noise profile (per ISO) and capture sharpening (deconvolution);
+  - the colour profile from the plan above (dcamprof can fit it from the matched patches);
+  - a lensfun profile (distortion, vignetting, TCA) per zoom position.
+- **Burst merge** (HDR+ style align and merge, optionally multi-frame super-resolution) for noise. **A RAW burst from the ISP's bracket does not work** (experiment 2026-11-02, kept on the `raw-burst-experiment` branches of the kernel and gd1):
+  - Setup: the HDR bracket (3 frames at 7.5 fps) at EV 0 with CAPPARM 0x78 set, and each frame read with YUVOUT_MAIN 0x05.
+  - Format written before the frame select: every frame came out as the ISP's stored 16MP JPEG, in a 10 MiB transfer, while CAPCTRL_IMG_SIZE still claimed 20440000.
+  - Format written after the select: the transfer never started (timeout). The HAL's ISP reset recovered both times.
+  - Reading the middle frame again as a JPEG after the raw reads also timed out.
+  - Conclusion: the ISP keeps bracket frames only as developed JPEGs (Samsung's driver says so too: "convert raw to jpeg ... and store memory on ISP").
+  - Measured on the way: 3 exposures at 1/30 s end about 0.6 s after the capture start; each stored frame then takes about 0.12 s to select and 0.5 s to transfer.
+  - Left to try: back-to-back single RAW shots (about 3 s each, with the preview restart between them), or `RUNNING_MODE_CONTINUOUS`/`_BURST` (not explored; probably JPEG too).
+- **Fast HDR** (user, 2026-11-02: phone-like speed). The ISP's `RUNNING_MODE_HDR` exposes 3 bracketed frames at 7.5 fps (about 0.4 s) and keeps them; the merge (exposure fusion) runs on the device in the background. HAL and app plan: docs/CAMERA-APP.md §6.8.
+- **ML denoise** on the user's homelab, not on the device. The camera app uploads DNGs over Wi-Fi and gets the developed JPEG back.
+- **On-device development is preferred** (user, 2026-10-31) if it is not too slow.
+  - **Measured on the device, 2026-11-02**, with gccore's v0 pipeline (`gccore/src/develop.cpp`: black, WB, Malvar-He-Cutler demosaic, matrix, auto exposure, tone shoulder + sRGB LUT; strips; no NR/sharpening/lens yet):
+    - 4670x3452 takes **0.93 s with 4 threads** (17 Mpx/s) and 2.26 s with 1 thread;
+    - build `gcdev` with the NDK clang, `--target=armv7a-linux-androideabi34 -O2 -mfpu=neon -static-libstdc++`, and run it in /data/local/tmp;
+    - on the PC (WSL) it is 0.06 s;
+    - the old estimate was 5–10 s, so there is room for real NR and sharpening on the device.
+  - The old estimates for the heavier stages still stand until measured: profiled denoise and capture sharpening +5–10 s, a 4-frame burst merge 30–60 s, BM3D/ML not feasible.
+  - Plan: the shot saves the DNG and the ISP JPEG at once, then a background job develops the DNG and replaces the JPEG.
+  - **The user likes "develop while charging"** (2026-10-31), which spares the old battery. Make it the default or a prominent option, and keep a manual "develop now".
+  - Process in strips to fit in tens of MB.
+  - Candidates: librtprocess (RawTherapee's RCD/AMaZE demosaic and capture sharpening, GPLv3), the hdr-plus Halide pipeline for bursts, libjpeg-turbo.
+  - **Benchmark first**: a static ARM test binary run over adb in `/data/local/tmp` on stock 4.1.2. It needs no root and leaves the system untouched.
+- **External tool as well** (user, 2026-10-31): a PC/homelab tool for the heavy options (ML denoise, BM3D, full burst merge, batch re-development).
+  - It shares the same C++ core and GC100 profiles (noise, colour, lens) as the on-device pipeline, so both give consistent results.
+  - The core library builds for armv7 and x86-64; the desktop build adds the heavy stages.
+
+## RAM plan (user priority, 2026-10-31)
+
+**Baseline**: 1GB physical, 755MB visible to the kernel (stock MemTotal 773380 kB).
+- The kernel reserves about 256MB: ION contig 140MB, MFC secure 36MB + normal 4MB, FIMC0 31MB, FIMC1 32MB, FIMD 12MB, SRP 1MB.
+- Already in place from html6405: Go profile (`go_defaults`, `ro.config.low_ram=true`), 512 dalvik heap, lmkd props, in-kernel lowmemorykiller, zram with LZ4 (384MB). No memcg/PSI/vmpressure on 3.0.
+
+**Measure at first boot**: `/proc/meminfo`, `dumpsys meminfo`, `/sys/kernel/debug/ion/*` and lmk kills, at idle, during preview, capture and video, and during RAW development.
+
+**Then**:
+1. **Shrink the ION contig heap** (`CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE`, 140MB). It is sized for Samsung's HAL plus DRM secure video. Our open camera HAL allocates its buffers from it (`exynos_ion.c`, `ION_HEAP_EXYNOS_CONTIG_MASK`), and gralloc uses it too, so size it from the measured peak (16MP capture plus video recording) with a margin. Possibly 60–70MB to gain.
+   - Disabling `EXYNOS_CONTENT_PATH_PROTECTION` alone does not free ION, because the non-CPP layout keeps the "ion" region.
+   - Check whether the MFC secure region can shrink without breaking video encode/decode.
+   - Check whether FIMC0 and FIMC1 (63MB) are still used by the open HAL; it may use ION/USERPTR instead of the reserved regions.
+2. **Strip packages** with a `RemovePackages` module (`LOCAL_OVERRIDES_PACKAGES`) in device/samsung/gd1, built from the real `installed-files.txt`. Priority: anything persistent or started at boot. F-Droid is no longer wanted (user, 2026-10-31).
+2b. **Next debloat round** (measured RSS on 2026-10-31: system_server 190MB, SystemUI 157, launcher3 89, permissioncontroller 77, mediaprovider 70, LatinIME 64, phone 62, networkstack 58, extservices 52):
+   - stop statsd, incidentd and storaged. Check that system_server only warns about missing statsd and stays stable;
+   - keep traced/perfetto while we profile the UI, and drop them in the release build;
+   - drop LocalTransport, SharedStorageBackup, WallpaperBackup, BackupRestoreConfirmation, PacProcessor, ProxyHandler, SoundPicker and ManagedProvisioning (user OK, 2026-10-31). Without SoundPicker, also hide the notification/ringtone sound entries in Settings;
+   - Bluetooth off by default and no lockscreen by default.
+   - The big wins are our camera app as HOME (~90MB) and the ION resize (60–70MB).
+3. **Tune LMK minfree and zram size** from the measurements (overlay `config_lowMemoryKillerMinFreeKbytes*`).
+4. **Our camera app as HOME launcher** (later): drops the launcher process entirely.
+5. The RAW development job processes in strips and runs only while charging (see "Image quality and RAW").
+
+## Power and performance (old battery, 2012 hardware)
+
+- Audit the kernel debug options inherited from the i9300/Samsung configs (SEC_DEBUG*, tracing, schedstats) and turn off what is not needed.
+- Pick a cpufreq governor and min/max frequencies for idle-heavy camera use, and review CPU hotplug.
+- Measure the screen-off drain and wakelocks after the first boot (`dumpsys batterystats`, wakeup_sources), then fix the offenders.
+- Make sure the XMM6262 modem can be powered down (airplane mode / data off) without wakeups. The camera has no voice use.
+  - Seen 2026-11-01 (no SIM inserted): rild logs `mif: usb_init_communication` every 13 s, forever. Find out what it retries, and stop it when there is no SIM or data is off.
+- **The screen turned itself back on ~5 s after every timeout** (user, 2026-11-01), so the device never stayed in standby. Cause: not the charger, but doze.
+  - smdk4412-common enables doze for the i9300's AMOLED. On timeout the device dozed, the disabled keyguard hid at once, and SystemUI's `KeyguardViewMediator.handleHide()` woke the screen (`WAKE_REASON_GESTURE`, `BOUNCER_DOZING`).
+  - Fix: gd1 a3413ac + fbd0530 clear `config_dozeComponent` (no ambient display on an LCD). **Verified 2026-11-01**: after the timeout the device is `Asleep` with the display OFF, and stays there.
+  - Wake-on-plug (`config_unplugTurnsOnScreen=true` from smdk4412-common) stays as is (user, 2026-11-01).
+- The MAX77693 charger re-reports the cable every ~35 s at 90% on the PC's USB port (cable state 5, CDP), as it cycles between charging and full. Each report wakes the CPU, and with wake-on-plug it could light the screen too. Check why, and test with a wall charger.
+  - **Own charging screen** (user idea, 2026-11-01). The panel is an LCD (s6d6aa1), so there is no burn-in risk, but the backlight costs the same on a black screen, so keep it short.
+    - Powered off: a custom off-mode charger theme (camera-style, with percentage), then screen off.
+    - Powered on: on a real plug-in, show our charging overlay for a few seconds and then turn the screen off. This could replace the plain wake-on-plug behaviour.
+- Reduce the low-RAM / Go profile further: background process limits, zram size, no unneeded persistent services.
+- **Camera standby / instant-on** (user request 2026-10-31). Use suspend-to-RAM, the normal Android deep sleep, not hibernation: suspend-to-disk is unsupported on this 3.0 Android kernel, and resuming from it would be as slow as booting. Plan:
+  - A short Power press releases the camera (the M9MO retracts the lens), turns the screen off and suspends. Optionally the modem, Wi-Fi and GPS go off too.
+  - On wake, our camera app (HOME, no lockscreen) is already in front. Start the M9MO (ISP boot, lens out) in parallel with the screen-on.
+  - Make the shutter and zoom keys wake sources (gpio-keys `.wakeup` in the gc1 board file), like a real camera.
+  - Measure the wake-to-first-frame time and the standby drain (mA, %/day). Check what stock Samsung does as a reference.
+  - **Settable auto-standby** (user, 2026-11-01): after a user-set idle time, retract the lens, power the ISP off and suspend. Do not power off, so the next start stays fast. Optionally add a second, longer timeout (hours) that really powers off.
+  - Samsung's version is in our kernel: `CONFIG_FAST_BOOT` "fake shutdown" (`fake_shut_down`, `KEY_FAKE_PWR` 0x240 in `gpio_keys.c`), where the power-off menu suspends instead. Study it before designing ours.
+
+## Android tree
+
+- **Base frozen at April 2025.** LineageOS-UL 21 stopped on 2025-04-04, so all LineageOS projects are pinned to that date (`manifests/zz-lineage-snapshot.xml`) and the security patch level is about April 2025. Options to move forward:
+  - merge newer LineageOS lineage-21.0 into our own copies of the ~30 UL forks;
+  - or move to html6405's LineageOS 23.2 line once it supports smdk4412 phones and the kernel.
+
+- **`frameworks/av` is html6405's `lineage-21.0-qpr3-camera` (Aug 2024)** instead of UL's (Apr 2025), because only it has camera HAL1.
+  - Media is a frequent CVE target, so this project is about 8 months older in security fixes than the rest.
+  - `frameworks/base` follows it: html6405's `camera_hal1-r08` with UL's final head merged on top, so it is current. Its camera Java side is reverted to match the 12.1-era camera AIDL.
+  - Proper fix: rebase the HAL1 commits (device1, HALv1 recording path, `[UL/HAL1]` fixes) onto UL's `lineage-21.0` av.
+  - Longer term: a HAL3 camera HAL for the M9MO, which would remove the need for both forks.
+- **Legacy health@2.0 HAL** is vendored in `device/samsung/gd1/legacy/health` because LineageOS-UL dropped it. Proper fix: an AIDL health HAL for exynos4 (`android.hardware.health-service`) in hardware/samsung.
+- **`vendor.lineage.power@1.0`** comes from html6405's `hardware/lineage/interfaces` fork (`lineage-21.0-qpr3`, Aug 2024) instead of UL's. Proper fix: move the exynos4 power HAL to AIDL power and drop the fork.
+- **smdk4412-common prebuilt apps** (AuroraStore, Via browser, OpenCamera) are still installed by the common tree. Strip them for the camera-first profile. Keep or replace OpenCamera depending on the camera app choice.
+- **`hardware/samsung` `SamsungServiceMode` include** was made optional rather than removed.
+- **i9300 `lineage.dependencies`** is invalid JSON (a missing comma), which makes roomservice crash during `lunch`. It is harmless for us; it could be reported upstream.
+- **smdk4412-common extract scripts** were rewritten for LOS21 extract-utils. The old `proprietary-files.txt` (pre-treble paths) was replaced, so make sure nothing else used it.

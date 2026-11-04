@@ -1,0 +1,19 @@
+#!/sbin/sh
+# Copy the small critical partitions to /tmp/backup (RAM), with SHA-1 sums.
+# On the PC: adb pull /tmp/backup
+# BOTA0/BOTA1 (bootloader) and PARAM are only ever read, never written.
+
+. /sbin/minirecovery-lib.sh
+
+mkdir -p /tmp/backup && cd /tmp/backup || exit 1
+for p in BOTA0 BOTA1 EFS PARAM BOOT RECOVERY RADIO OTA; do
+    dev=$(part $p) || exit 1
+    echo "$p <- $dev"
+    dd if="$dev" of=$p.img bs=1048576 2>/dev/null || exit 1
+done
+sha1sum *.img > SHA1SUMS
+# adbd runs as the shell user, so adb pull needs read access
+chmod 0755 /tmp/backup
+chmod 0644 /tmp/backup/*
+cat SHA1SUMS
+log "backup-critical done"

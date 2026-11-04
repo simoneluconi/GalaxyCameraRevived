@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The grid scrolls under a floating bar: albums as chips, or the selection actions -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <com.simoneluconi.gcgallery.ui.widget.ThumbGridView
+        android:id="@+id/grid"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <LinearLayout
+        android:id="@+id/top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_gravity="top"
+        android:layout_margin="8dp"
+        android:background="@drawable/bar_bg"
+        android:elevation="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="4dp">
+
+        <!-- Which storage: the microSD by default, the phone one tap away. Hidden without a card -->
+        <LinearLayout
+            android:id="@+id/storage"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:background="@drawable/segment_bg"
+            android:orientation="horizontal"
+            android:padding="2dp">
+
+            <TextView
+                android:id="@+id/storage_sd"
+                style="@style/Segment"
+                android:text="@string/storage_sd" />
+
+            <TextView
+                android:id="@+id/storage_phone"
+                style="@style/Segment"
+                android:text="@string/storage_phone" />
+        </LinearLayout>
+
+        <View
+            android:id="@+id/storage_divider"
+            android:layout_width="1dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:background="@color/outline" />
+
+        <HorizontalScrollView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:fadingEdgeLength="16dp"
+            android:requiresFadingEdge="horizontal"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/albums"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+
+        <TextView
+            android:id="@+id/empty_trash"
+            style="@style/TextButton"
+            android:layout_marginStart="6dp"
+            android:text="@string/empty_trash"
+            android:visibility="gone" />
+
+        <ImageButton
+            android:id="@+id/camera"
+            style="@style/BarButton"
+            android:layout_marginStart="4dp"
+            android:contentDescription="@string/open_camera"
+            android:src="@drawable/ic_camera" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/selection_bar"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_gravity="top"
+        android:layout_margin="8dp"
+        android:background="@drawable/bar_bg"
+        android:elevation="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/sel_close"
+            style="@style/BarButton"
+            android:contentDescription="@string/close"
+            android:src="@drawable/ic_close" />
+
+        <TextView
+            android:id="@+id/sel_count"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:fontFamily="sans-serif-medium"
+            android:fontFeatureSettings="tnum"
+            android:textColor="@color/on_surface"
+            android:textSize="16sp" />
+
+        <ImageButton
+            android:id="@+id/sel_all"
+            style="@style/BarButton"
+            android:contentDescription="@string/select_all"
+            android:src="@drawable/ic_select_all" />
+
+        <ImageButton
+            android:id="@+id/sel_rate"
+            style="@style/BarButton"
+            android:contentDescription="@string/rate"
+            android:src="@drawable/ic_star" />
+
+        <ImageButton
+            android:id="@+id/sel_rotate"
+            style="@style/BarButton"
+            android:contentDescription="@string/rotate_right"
+            android:src="@drawable/ic_rotate_right" />
+
+        <ImageButton
+            android:id="@+id/sel_share"
+            style="@style/BarButton"
+            android:contentDescription="@string/share"
+            android:src="@drawable/ic_share" />
+
+        <TextView
+            android:id="@+id/sel_raw"
+            style="@style/TextButton"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:contentDescription="@string/trash_raw"
+            android:text="@string/raw_button" />
+
+        <ImageButton
+            android:id="@+id/sel_restore"
+            style="@style/BarButton"
+            android:contentDescription="@string/restore"
+            android:src="@drawable/ic_restore"
+            android:visibility="gone" />
+
+        <ImageButton
+            android:id="@+id/sel_trash"
+            style="@style/BarButton"
+            android:contentDescription="@string/trash"
+            android:src="@drawable/ic_delete" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/empty"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/empty_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:gravity="center"
+            android:textColor="@color/on_surface_muted"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/empty_action"
+            style="@style/TextButton"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <include layout="@layout/message_bar" />
+</FrameLayout>

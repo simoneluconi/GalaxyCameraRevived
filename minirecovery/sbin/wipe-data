@@ -1,0 +1,11 @@
+#!/sbin/sh
+# Factory reset by hand. LineageOS reformats /data and /cache on the next boot.
+
+. /sbin/minirecovery-lib.sh
+
+if [ "$1" != "--yes" ]; then
+    echo "usage: wipe-data --yes" >&2
+    echo "Erases /data (apps, settings and the internal storage, including photos) and /cache." >&2
+    exit 1
+fi
+wipe_data && screen main

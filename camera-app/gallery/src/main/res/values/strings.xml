@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- translatable="false": the same word in every language (names, units, abbreviations) -->
+<resources>
+    <string name="app_name" translatable="false">GC Gallery</string>
+
+    <!-- Grid -->
+    <string name="today">Today</string>
+    <string name="yesterday">Yesterday</string>
+    <string name="storage_sd" translatable="false">SD</string>
+    <string name="storage_phone">Internal</string>
+    <string name="sd_removed">SD card removed: showing internal storage</string>
+    <string name="album_all">All</string>
+    <string name="album_rated">Rated</string>
+    <string name="album_trash">Trash</string>
+    <string name="empty_trash">Empty trash</string>
+    <string name="selected_count">%d selected</string>
+    <string name="permission_needed">GC Gallery needs access to your photos.</string>
+    <string name="allow">Allow</string>
+    <string name="no_photos">No photos yet</string>
+    <string name="trash_is_empty">The trash is empty</string>
+    <string name="trash_hint">Photos in the trash are deleted after 30 days</string>
+    <string name="raw_button" translatable="false">RAW</string>
+
+    <!-- Actions -->
+    <string name="back">Back</string>
+    <string name="close">Close</string>
+    <string name="info">Info</string>
+    <string name="rate">Rating</string>
+    <string name="rotate">Rotate</string>
+    <string name="rotate_left">Rotate left</string>
+    <string name="rotate_right">Rotate right</string>
+    <string name="flip">Flip</string>
+    <string name="share">Share</string>
+    <string name="trash">Move to trash</string>
+    <string name="trash_raw">Move the RAW files to trash</string>
+    <string name="restore">Restore</string>
+    <string name="select_all">Select all</string>
+    <string name="open_camera">Camera</string>
+    <string name="undo">Undo</string>
+    <string name="settings">Settings</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="open_in_maps">Open in maps</string>
+    <string name="copy_coordinates">Copy</string>
+    <string name="rgb" translatable="false">RGB</string>
+    <string name="clipping">Clipping</string>
+    <string name="no_rating">No rating</string>
+
+    <!-- Results -->
+    <string name="moved_to_trash">%d moved to trash</string>
+    <string name="raw_moved_to_trash">%d RAW files moved to trash</string>
+    <string name="restored">%d restored</string>
+    <string name="deleted">%d deleted</string>
+    <string name="no_raw_selected">None of these has a RAW file</string>
+    <string name="edit_failed">The file could not be changed</string>
+    <string name="rating_store_only">Rating kept in the gallery only: the file has no room for it</string>
+    <string name="working">Saving %1$d of %2$d…</string>
+    <string name="manage_media_hint">Allow GC Gallery to manage media to skip these confirmations</string>
+    <string name="delete_forever_q">Delete %d photos permanently? This cannot be undone.</string>
+    <string name="empty_trash_q">Delete everything in the trash permanently?</string>
+    <string name="coordinates_copied">Coordinates copied</string>
+    <string name="no_maps_app">No maps app installed</string>
+    <string name="not_editable">Only photos in the gallery can be changed</string>
+
+    <!-- Info panel -->
+    <string name="section_exposure">Exposure</string>
+    <string name="section_lens">Lens</string>
+    <string name="section_shot">Shot</string>
+    <string name="section_location">Location</string>
+    <string name="section_file">File</string>
+    <string name="section_raw" translatable="false">RAW</string>
+
+    <string name="info_shutter">Shutter</string>
+    <string name="info_aperture">Aperture</string>
+    <string name="info_iso" translatable="false">ISO</string>
+    <string name="info_bias">Compensation</string>
+    <string name="info_ev100" translatable="false">EV₁₀₀</string>
+    <string name="info_mode">Mode</string>
+    <string name="info_metering">Metering</string>
+    <string name="info_wb">White balance</string>
+    <string name="info_flash" translatable="false">Flash</string>
+    <string name="info_focal">Focal length</string>
+    <string name="info_zoom" translatable="false">Zoom</string>
+    <string name="info_lens">Lens</string>
+    <string name="info_max_aperture">Widest aperture</string>
+    <string name="info_ois">Stabilizer</string>
+    <string name="info_af_mode">Focus</string>
+    <string name="info_af_area">Focus area</string>
+    <string name="info_drive">Drive</string>
+    <string name="info_bracket_frame">Bracket frame</string>
+    <string name="info_timer">Self-timer</string>
+    <string name="info_flash_popup">Flash head</string>
+    <string name="info_zoom_step">Zoom step</string>
+    <string name="info_developed">Image</string>
+    <string name="info_develop_params">Development</string>
+    <string name="info_coordinates">Coordinates</string>
+    <string name="info_dms" translatable="false">DMS</string>
+    <string name="info_altitude">Altitude</string>
+    <string name="info_accuracy">Accuracy</string>
+    <string name="info_dop" translatable="false">DOP</string>
+    <string name="info_direction">Direction</string>
+    <string name="info_gps_time">GPS time</string>
+    <string name="info_name">Name</string>
+    <string name="info_folder">Folder</string>
+    <string name="info_volume">Storage</string>
+    <string name="info_taken">Taken</string>
+    <string name="info_modified">Modified</string>
+    <string name="info_file_size">Size</string>
+    <string name="info_dimensions">Dimensions</string>
+    <string name="info_orientation">Orientation</string>
+    <string name="info_colour_space">Colour space</string>
+    <string name="info_camera">Camera</string>
+    <string name="info_software" translatable="false">Software</string>
+    <string name="info_artist">Artist</string>
+    <string name="info_copyright" translatable="false">Copyright</string>
+    <string name="info_sensor">Sensor</string>
+    <string name="info_cfa" translatable="false">CFA</string>
+    <string name="info_levels">Black / white</string>
+    <string name="info_active_area">Active area</string>
+
+    <string name="value_auto" translatable="false">Auto</string>
+    <string name="value_manual">Manual</string>
+    <string name="value_on">On</string>
+    <string name="value_off">Off</string>
+    <string name="value_isp_jpeg" translatable="false">ISP JPEG</string>
+    <string name="value_true_north">true</string>
+    <string name="value_magnetic">magnetic</string>
+    <string name="value_internal">Internal</string>
+    <string name="value_sd" translatable="false">SD</string>
+    <string name="value_uncalibrated">Uncalibrated</string>
+    <string name="value_no_flash">No flash</string>
+    <string name="value_fired">Fired</string>
+    <string name="value_not_fired">Did not fire</string>
+    <string name="value_metering_average">Average</string>
+    <string name="value_metering_centre">Centre-weighted</string>
+    <string name="value_metering_spot" translatable="false">Spot</string>
+    <string name="value_metering_matrix">Matrix</string>
+    <string name="value_upright">Upright</string>
+    <string name="value_mirrored">mirrored</string>
+</resources>

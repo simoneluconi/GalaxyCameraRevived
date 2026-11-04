@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colour tokens, light theme (the default). values-night redefines the same names. -->
+<resources>
+    <color name="background">#FFF3F4F6</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="surface_variant">#FFE8EAEE</color>
+    <color name="on_surface">#FF1A1C20</color>
+    <color name="on_surface_muted">#FF6B7280</color>
+    <color name="outline">#FFD5D8DE</color>
+    <color name="accent">#FF2563EB</color>
+    <color name="on_accent">#FFFFFFFF</color>
+    <color name="ok">#FF16A34A</color>
+    <color name="warning">#FFD97706</color>
+    <color name="error">#FFDC2626</color>
+    <!-- Drawn over the live image: the same in both themes -->
+    <color name="overlay_line">#E6FFFFFF</color>
+    <color name="overlay_shadow">#59000000</color>
+    <color name="overlay_mask">#99000000</color>
+    <color name="status_bar_bg">#D9FFFFFF</color>
+</resources>

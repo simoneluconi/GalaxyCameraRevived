@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="row_shutter">Tempo</string>
+    <string name="row_aperture">Diaframma</string>
+    <string name="iso_auto">Auto</string>
+    <string name="meter_exposure">Esposimetro</string>
+    <string name="meter_compensation">Compensazione</string>
+    <string name="settings_title">Impostazioni</string>
+
+    <string name="status_internal">INT</string>
+    <string name="status_no_sd">NO SD</string>
+
+    <string name="banner_no_sd">Nessuna microSD. Inseriscila per scattare.</string>
+    <string name="toast_raise_flash">Alza il flash per usarlo</string>
+    <string name="banner_camera_error">Fotocamera non disponibile: %1$s</string>
+    <string name="banner_permission">Serve il permesso della fotocamera</string>
+    <string name="toast_raw_unsupported">Il software della fotocamera non fornisce i fotogrammi RAW</string>
+    <string name="toast_dng_failed">Il JPEG è salvato, ma il DNG non è stato scritto</string>
+    <string name="toast_save_failed">Impossibile salvare la foto</string>
+    <string name="toast_capture_failed">La fotocamera non ha consegnato la foto</string>
+    <string name="toast_no_gallery">Nessuna app galleria per mostrare la foto</string>
+    <string name="last_shot">Ultima foto</string>
+
+    <string name="qm_section_exposure">Esposizione</string>
+    <string name="qm_section_focus">Messa a fuoco</string>
+    <string name="qm_section_drive">Scatto</string>
+    <string name="qm_section_image">Immagine</string>
+    <string name="qm_wb">Bilanciamento bianco</string>
+    <string name="wb_incandescent">Tungsteno</string>
+    <string name="wb_fluorescent">Fluorescente</string>
+    <string name="wb_daylight">Luce diurna</string>
+    <string name="wb_cloudy">Nuvoloso</string>
+    <string name="qm_metering">Misurazione</string>
+    <string name="metering_center">Centrale</string>
+    <string name="metering_spot">Spot</string>
+    <string name="metering_matrix">Matrix</string>
+    <string name="qm_af_area">Area AF</string>
+    <string name="af_area_center">Centro</string>
+    <string name="af_area_multi">Multi</string>
+    <string name="af_area_face">Volto</string>
+    <string name="face_count">Volti: %1$d</string>
+    <string name="qm_focus">Messa a fuoco</string>
+    <string name="qm_drive">Modalità</string>
+    <string name="drive_single">Singolo</string>
+    <string name="qm_bracket_ev">Passo bracketing</string>
+    <string name="qm_timer">Autoscatto</string>
+    <string name="qm_ois">Stabilizzatore</string>
+    <string name="on">On</string>
+    <string name="off">Off</string>
+    <string name="qm_aspect">Formato</string>
+
+    <string name="back">Indietro</string>
+    <string name="tab_storage">Memoria</string>
+    <string name="tab_image">Immagine</string>
+    <string name="tab_display">Display</string>
+    <string name="tab_sound">Suoni</string>
+    <string name="tab_location">Posizione</string>
+    <string name="tab_system">Sistema</string>
+    <string name="pref_cat_files">File</string>
+    <string name="pref_histogram_summary">Mostrato sopra il mirino, in alto a destra</string>
+    <string name="pref_storage_location">Salva le foto su</string>
+    <string name="storage_sd">Scheda microSD</string>
+    <string name="storage_internal">Memoria interna (non raccomandato)</string>
+    <string name="storage_internal_warning">La memoria interna è piccola (circa 3 GB) e contiene anche i dati del sistema. Se si riempie, la fotocamera rallenta e alcune app possono smettere di funzionare. Usala solo se non hai una microSD.</string>
+    <string name="storage_internal_confirm">Usa la memoria interna</string>
+    <string name="pref_storage_info">Spazio libero</string>
+    <string name="storage_info_summary">%1$s liberi, circa %2$d scatti</string>
+    <string name="storage_info_none">Nessuna memoria disponibile</string>
+    <string name="pref_format_sd">Formatta la microSD</string>
+    <string name="pref_format_sd_summary">Apre le impostazioni di memoria di Android, dove si può formattare la scheda</string>
+    <string name="pref_folder_name">Nome della cartella</string>
+    <string name="pref_file_counter_reset">Azzera la numerazione dei file</string>
+    <string name="pref_file_counter_summary">Prossimo file: %1$s</string>
+    <string name="file_counter_reset_confirm">Ricominciare la numerazione da 0001? I file esistenti restano.</string>
+
+    <string name="pref_geotag">Geotag delle foto</string>
+    <string name="pref_geotag_summary">Usa il GPS solo con il mirino aperto. Il primo fix all\'aperto può richiedere qualche minuto.</string>
+    <string name="pref_geotag_max_age">Usa una posizione vecchia al massimo</string>
+    <string name="geotag_age_1">1 minuto</string>
+    <string name="geotag_age_5">5 minuti</string>
+    <string name="geotag_age_15">15 minuti</string>
+    <string name="geotag_age_60">1 ora</string>
+    <string name="geotag_permission_denied">Permesso di posizione negato, il geotag resta spento</string>
+
+    <string name="pref_jpeg_engine">Elaborazione delle foto</string>
+    <string name="jpeg_engine_stock">Della fotocamera (immediata)</string>
+    <string name="jpeg_engine_ours">Avanzata, dal RAW</string>
+    <string name="pref_jpeg_engine_summary_soon">L\'elaborazione avanzata è in arrivo. Per ora le foto usano quella della fotocamera.</string>
+    <string name="pref_raw">Salva anche il RAW (DNG)</string>
+    <string name="pref_raw_summary">Circa 37 MB a scatto</string>
+    <string name="pref_jpeg_quality">Qualità JPEG</string>
+    <string name="quality_100">Massima (100)</string>
+    <string name="quality_95">Alta (95)</string>
+    <string name="quality_90">Standard (90)</string>
+    <string name="pref_develop_when">Quando elaborare</string>
+    <string name="pref_develop_when_summary">%1$s. Fino ad allora vedi la versione della fotocamera.</string>
+    <string name="develop_charging">Sotto carica (risparmia la batteria)</string>
+    <string name="develop_now">Subito dopo lo scatto</string>
+
+    <string name="pref_theme">Tema</string>
+    <string name="theme_light">Chiaro</string>
+    <string name="theme_dark">Scuro</string>
+    <string name="theme_system">Come il sistema</string>
+    <string name="pref_grid">Griglia</string>
+    <string name="grid_off">Spenta</string>
+    <string name="grid_thirds">Regola dei terzi</string>
+    <string name="grid_golden">Sezione aurea</string>
+    <string name="pref_level">Livella elettronica</string>
+    <string name="pref_histogram">Istogramma live</string>
+    <string name="pref_review">Mostra la foto dopo lo scatto</string>
+    <string name="review_off">No</string>
+    <string name="review_1">1 secondo</string>
+    <string name="review_2">2 secondi</string>
+    <string name="review_5">5 secondi</string>
+    <string name="pref_auto_off">Spegnimento automatico</string>
+    <string name="pref_af_lamp">Luce di assistenza AF</string>
+    <string name="pref_af_lamp_summary">Illumina il soggetto per mettere a fuoco al buio</string>
+    <string name="auto_off_1">Dopo 1 minuto</string>
+    <string name="auto_off_2">Dopo 2 minuti</string>
+    <string name="auto_off_5">Dopo 5 minuti</string>
+    <string name="auto_off_10">Dopo 10 minuti</string>
+    <string name="auto_off_never">Mai</string>
+
+    <string name="pref_shutter_sound">Suono dell\'otturatore</string>
+    <string name="pref_af_beep">Beep della messa a fuoco</string>
+
+    <string name="pref_artist">Autore</string>
+    <string name="pref_copyright">Nota di copyright</string>
+    <string name="not_set">Non impostato</string>
+
+    <string name="pref_android_settings">Impostazioni di Android</string>
+    <string name="pref_android_settings_summary">Wi-Fi, Bluetooth, display e il resto del sistema</string>
+    <string name="pref_reset">Ripristina le impostazioni della fotocamera</string>
+    <string name="reset_confirm">Riportare tutte le impostazioni della fotocamera ai valori predefiniti?</string>
+    <string name="pref_about">Informazioni</string>
+    <string name="about_summary">Versione %1$s · firmware ISP %2$s</string>
+</resources>

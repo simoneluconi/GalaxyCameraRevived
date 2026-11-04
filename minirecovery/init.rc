@@ -1,0 +1,52 @@
+# Init script of the gd1 mini recovery.
+# It runs under the stock Android 4.1.2 init and kernel taken from the
+# GC100XXBMC4 recovery image, so it uses the 4.1 init language.
+
+on early-init
+    start ueventd
+
+on init
+    export PATH /sbin
+    export ANDROID_ROOT /system
+    export ANDROID_DATA /data
+
+    mkdir /tmp
+    chown root shell /tmp
+    chmod 0775 /tmp
+    mkdir /mnt 0755 root root
+    mkdir /mnt/system
+    mkdir /mnt/vendor
+    mkdir /mnt/data
+    mkdir /mnt/cache
+    mkdir /mnt/efs
+    mkdir /mnt/sdcard
+
+    # exFAT for SD card backups (modules built with the stock kernel)
+    insmod /lib/modules/exfat_core.ko
+    insmod /lib/modules/exfat_fs.ko
+
+on boot
+    ifup lo
+    hostname localhost
+    domainname localdomain
+
+    # adb only, with the same IDs as the stock recovery
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/idVendor 04e8
+    write /sys/class/android_usb/android0/idProduct 6860
+    write /sys/class/android_usb/android0/functions adb
+    write /sys/class/android_usb/android0/iManufacturer $ro.product.manufacturer
+    write /sys/class/android_usb/android0/iProduct $ro.product.model
+    write /sys/class/android_usb/android0/iSerial $ro.serialno
+    write /sys/class/android_usb/android0/enable 1
+
+    class_start default
+
+service ueventd /sbin/ueventd
+    critical
+
+# ro.secure=0 in default.prop keeps adbd running as root
+service adbd /sbin/adbd recovery
+
+service recovery /sbin/sh /sbin/recovery.sh
+    oneshot

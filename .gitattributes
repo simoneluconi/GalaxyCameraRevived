@@ -1,0 +1,11 @@
+# Text files are stored with LF. Scripts that run in WSL, Linux or on the
+# device keep LF in the working copy too; Windows batch files keep CRLF.
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.rc text eol=lf
+*.prop text eol=lf
+gradlew text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.lcp text eol=lf
