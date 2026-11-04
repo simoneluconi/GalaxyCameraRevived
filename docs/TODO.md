@@ -95,7 +95,6 @@ The user's storage must not fill up with debug output. Keep only what explains c
   - The lamp needed its LDO powered: kernel #44.
   - Self-timer + RAW + OIS off had failed ("No frame 0"). Fixed in HAL 51e09e92, which no longer sends TIMER_MODE.
   - Verified: GC100_0077 (5 s, RAW, OIS off) and GC100_0078 (10 s, RAW, OIS on), with the user watching the lamp.
-- **EXIF is written in a second pass**: `PhotoWriter` writes the ISP JPEG, then ExifInterface rewrites the file through the same fd (about 3x the I/O on the card). Proper fix: build the APP1 segment in memory (gccore, shared with the DNG writer) and write the file once.
 - **Theme on the very first launch**: `UiModeManager.setApplicationNightMode` only takes effect from the next process start, so the first launch after install follows the system theme. Harmless; it fixes itself on the next start.
 - **Format SD** opens Android's storage settings, because formatting needs the privileged `MOUNT_FORMAT_FILESYSTEMS`. It becomes in-app once the app ships in the ROM as a priv-app (the HOME launcher step).
 - **"Advanced" processing: research and plan in docs/RAW-PIPELINE.md** (2026-11-04). It has a go/no-go gate: if blind A/B and MTF don't show ours clearly better than the ISP, the feature is removed everywhere.
@@ -383,7 +382,8 @@ Still open:
 - **Parameters set during or right after a capture are re-applied on a fixed frame count** (workaround, 2026-11-04, gd1 aef6972).
   - Just out of still capture, and just after the preview STREAMON, the ISP takes AE program writes (pasm-mode, shutter, aperture, ISO) but keeps its old program.
   - The HAL applies those parameters at once. Then, on the 15th preview frame after the restart (`M9MO_PARAMS_REAPPLY_FRAMES`, override with `setprop vendor.camera.test.reapply_frames N`), it invalidates its cached pasm-mode, shutter, aperture and ISO and applies again, so that only those four are sent.
-  - History: a forced apply at the STREAMON, then a forced apply on the 5th frame, both left the ISP in P. The app's own full setParameters, seconds later, works, so the app keeps its hold.
+  - History: a forced apply at the STREAMON, then a forced apply on the 5th frame, both left the ISP in P. So the cause was what a forced apply re-sends, not the timing.
+  - **Works since gd1 e4b0205** (2026-11-04): P→M during an AE bracket, sent straight to the HAL with no app hold, gave a real 16" f/8 ISO 100 shot with both 15 and 60 frames. Before release, drop the `vendor.camera.test.reapply_frames` override (see "Before release").
   - Proper fix: find the ISP state or interrupt that says the AE program is writable again, and wait for that instead of counting frames.
 - **Hang on a shot (2026-11-02, OpenCamera), fixed in gd1 camera.** The preview thread sent `CAMERA_MSG_PREVIEW_METADATA` on every frame. CameraService enables that message for every client and its callback spins for the client lock, which `stopPreview()` held while joining the preview thread. It now goes out only during face detection (none on the M9MO). Rule for later HAL work: no thread joins inside a framework call while that thread can be in an enabled callback (docs/CAMERA-APP.md §3.3).
 - The AF thread is still not joinable (see the review list); if it becomes joinable, apply the same rule to `CAMERA_MSG_FOCUS`/`FOCUS_MOVE`, which CameraService also enables for every client.

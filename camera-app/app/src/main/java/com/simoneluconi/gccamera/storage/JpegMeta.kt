@@ -4,8 +4,6 @@ import android.location.Location
 import com.simoneluconi.gccamera.camera.CameraModel
 import com.simoneluconi.gccamera.camera.Pasm
 import java.io.OutputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -163,14 +161,14 @@ object JpegMeta {
         if (gps != null) ifd0.long(TAG_GPS_IFD, oGps.toLong())
         ifd1?.long(0x0201, oThumb.toLong())
 
-        val tiff = ByteBuffer.allocate(oThumb + (thumb?.size ?: 0)).order(ByteOrder.LITTLE_ENDIAN)
-        tiff.put('I'.code.toByte()).put('I'.code.toByte()).putShort(42).putInt(o0)
+        val tiff = Le(oThumb + (thumb?.size ?: 0))
+        tiff.u8('I'.code).u8('I'.code).u16(42).u32(o0.toLong())
         ifd0.write(tiff, o0, if (ifd1 != null) o1 else 0)
         exif.write(tiff, oExif, 0)
         gps?.write(tiff, oGps, 0)
         ifd1?.write(tiff, o1, 0)
         thumb?.let(tiff::put)
-        return segment(0xE1, EXIF_ID + tiff.array())
+        return segment(0xE1, EXIF_ID + tiff.bytes)
     }
 
     private fun gpsIfd(l: Location) = Ifd().apply {
@@ -222,46 +220,66 @@ object JpegMeta {
         fun ascii(tag: Int, s: String?) {
             if (s != null) (s + "\u0000").toByteArray(Charsets.UTF_8).let { put(tag, ASCII, it.size, it) }
         }
-        fun short(tag: Int, vararg v: Int) = put(tag, SHORT, v.size, le(v.size * 2) { v.forEach { putShort(it.toShort()) } })
-        fun long(tag: Int, vararg v: Long) = put(tag, LONG, v.size, le(v.size * 4) { v.forEach { putInt(it.toInt()) } })
+        fun short(tag: Int, vararg v: Int) = put(tag, SHORT, v.size, Le(v.size * 2).apply { v.forEach { u16(it) } }.bytes)
+        fun long(tag: Int, vararg v: Long) = put(tag, LONG, v.size, Le(v.size * 4).apply { v.forEach { u32(it) } }.bytes)
         /** Numerator, denominator pairs. */
-        fun rational(tag: Int, vararg v: Long) = put(tag, RATIONAL, v.size / 2, le(v.size * 4) { v.forEach { putInt(it.toInt()) } })
-        fun srational(tag: Int, num: Long, den: Long) = put(tag, SRATIONAL, 1, le(8) { putInt(num.toInt()).putInt(den.toInt()) })
+        fun rational(tag: Int, vararg v: Long) = put(tag, RATIONAL, v.size / 2, Le(v.size * 4).apply { v.forEach { u32(it) } }.bytes)
+        fun srational(tag: Int, num: Long, den: Long) = put(tag, SRATIONAL, 1, Le(8).u32(num).u32(den).bytes)
         fun undefined(tag: Int, b: ByteArray) = put(tag, UNDEFINED, b.size, b)
 
         private fun put(tag: Int, type: Int, count: Int, data: ByteArray) {
             entries[tag] = Entry(type, count, data)
         }
 
-        private fun le(n: Int, fill: ByteBuffer.() -> Unit): ByteArray =
-            ByteBuffer.allocate(n).order(ByteOrder.LITTLE_ENDIAN).apply(fill).array()
-
         /** Bytes the IFD takes: the entry table, the next-IFD link and the values over 4 bytes. */
         val size get() = 2 + 12 * entries.size + 4 + entries.values.sumOf { if (it.data.size > 4) even(it.data.size) else 0 }
 
         /** Writes the IFD at [offset], which must be [out]'s position (TIFF offsets). */
-        fun write(out: ByteBuffer, offset: Int, next: Int) {
+        fun write(out: Le, offset: Int, next: Int) {
             var data = offset + 2 + 12 * entries.size + 4
-            out.putShort(entries.size.toShort())
+            out.u16(entries.size)
             for ((tag, e) in entries) {
-                out.putShort(tag.toShort()).putShort(e.type.toShort()).putInt(e.count)
+                out.u16(tag).u16(e.type).u32(e.count.toLong())
                 if (e.data.size <= 4) {
                     out.put(e.data)
-                    repeat(4 - e.data.size) { out.put(0) }
+                    repeat(4 - e.data.size) { out.u8(0) }
                 } else {
-                    out.putInt(data)
+                    out.u32(data.toLong())
                     data += even(e.data.size)
                 }
             }
-            out.putInt(next)
+            out.u32(next.toLong())
             for (e in entries.values) {
                 if (e.data.size <= 4) continue
                 out.put(e.data)
-                if (e.data.size % 2 == 1) out.put(0)
+                if (e.data.size % 2 == 1) out.u8(0)
             }
         }
 
         private fun even(n: Int) = n + (n and 1)
+    }
+
+    /**
+     * A little-endian byte writer over a plain array. Not java.nio.ByteBuffer: once the JIT
+     * compiles HeapByteBuffer.putShort on this device, it jumps to address 0 (SIGSEGV in
+     * java.nio.Bits.putShortL, 2026-11-04, while saving an AE bracket).
+     */
+    private class Le(size: Int) {
+        val bytes = ByteArray(size)
+        private var pos = 0
+
+        fun u8(v: Int) = apply { bytes[pos++] = v.toByte() }
+        fun u16(v: Int) = apply {
+            bytes[pos++] = v.toByte()
+            bytes[pos++] = (v shr 8).toByte()
+        }
+        fun u32(v: Long) = apply {
+            for (i in 0 until 4) bytes[pos++] = (v shr (8 * i)).toByte()
+        }
+        fun put(b: ByteArray) = apply {
+            b.copyInto(bytes, pos)
+            pos += b.size
+        }
     }
 
     // --- JPEG structure ---
