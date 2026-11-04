@@ -255,7 +255,14 @@ Still open:
       - the chanspec format (2.4 GHz works);
       - a board GPIO for the 5 GHz PA (there is none: the FEM is driven by the module).
     - The EK-GC100 is FCC-certified for 5 GHz (FCC ID A3LEKGC100: UNII and DFS reports), so the design transmits there.
-    - **Most likely a hardware fault of this unit's 5 GHz transmit path.** The one software variable left is our kernel's bcmdhd driver, the same one that works on 5 GHz on the i9300. Only a test on stock 4.1.2 would rule it out (Odin, deferred by the user).
+    - **Driver check, same day.** Our bcmdhd is 1.141.44.4; Samsung's GC100 driver is 1.28.11.12 (adamoutler/EK-GC100_Galaxy_Camera, `drivers/net/wireless/bcmdhd`).
+      - Found and fixed a real bug (kernel bff38bf5): the roam cache built 11ac chanspecs for the ioctl version 1 firmware, and the join sends them unconverted (5 GHz ch40 went out as 0xd028). It is now legacy; `init_roam: ioctl version 1, legacy chanspecs` confirms it. **5 GHz still fails the same way after it.**
+      - The same in both drivers:
+        - the join command (extended `join` iovar, scan params, roam-cache channel list);
+        - the country table (IT/1);
+        - no TX power set at init.
+      - The 11ac-era init iovars of ours (txbf, vht_features, lpc, ack_ratio...) are for 4335/4339/4354 and not built for the 4334 (checked in `.dhd_linux.o.cmd`).
+    - **Most likely a hardware fault of this unit's 5 GHz transmit path.** Only a test on stock 4.1.2 would rule the driver out completely (Odin, deferred by the user).
   - Side effects:
     - every 5 GHz attempt fails, and after two failures Android temporarily disables the whole network, so Wi-Fi can stay down until the user taps it;
     - a Wi-Fi hotspot on 5 GHz fails too ("Failed to set country code" in SoftApManager, a separate HAL issue).
