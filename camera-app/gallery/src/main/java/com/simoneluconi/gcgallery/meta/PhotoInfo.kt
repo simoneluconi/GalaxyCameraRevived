@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 package com.simoneluconi.gcgallery.meta
 
 import android.Manifest
@@ -149,9 +150,7 @@ class PhotoInfo(
                 gc["Timer"]?.takeIf { it != "0" }?.let { add(s(R.string.info_timer), "$it s") }
                 gc["FlashPopup"]?.let { add(s(R.string.info_flash_popup), it) }
                 gc["ZoomStep"]?.let { z -> add(s(R.string.info_zoom_step), z + (gc["ZoomMax"]?.let { " / $it" } ?: "")) }
-                add(s(R.string.info_developed), gc["Developed"] ?: s(R.string.value_isp_jpeg))
-                gc["DevelopParams"]?.let { add(s(R.string.info_develop_params), it.replace(";", "  ")) }
-            }?.takeIf { gc.isNotEmpty() }?.let { sections.add(Section(s(R.string.section_shot), it)) }
+            }?.let { sections.add(Section(s(R.string.section_shot), it)) }
 
             // Location
             val latLong = exif.latLong

@@ -40,10 +40,9 @@ The user's storage must not fill up with debug output. Keep only what explains c
 - **Cold thumbnails are slow without an embedded EXIF thumbnail.** BitmapFactory 1/8 over FUSE from the microSD took 0.4–1.9 s per 16 MP JPEG (2026-11-04, measured while GC Camera's preview was running), so the first pass over an existing folder takes a while. The disk cache makes it a one-time cost. The fix is GC Camera embedding a ~320x240 thumbnail (agreed with the camera session). Still possible: a third worker, or a pre-warm job while charging.
 - **Star ratings fall back to a full rewrite** (ExifInterface `saveAttributes`, seconds over FUSE) when a JPEG has no XMP packet with padding. That covers every shot taken before GC Camera writes `xmp:Rating` + padding (agreed). A DNG without room keeps the rating only in the gallery's `RatingStore`.
 - **No screen rotation for portrait viewing.** The UI is fixed landscape. The camera's in-place control rotation (OrientationSensor) is not ported yet, so a portrait photo is shown small.
-- **The camera folder is hard-coded** as `DCIM/GC100/` (`MediaIndex.CAMERA_FOLDER`). GC Camera's folder name is a setting.
+- **The camera folder is recognised by name**: any `DCIM/GC<3 digits>/` (`MediaIndex.isCameraFolder`). GC Camera's folder name is a setting, so a renamed folder shows as a plain album.
 - **The thumbnail grid uses MediaStore's DATE_TAKEN for day sections**; pictures without it fall back to DATE_MODIFIED.
 - **The trash relies on MediaProvider's idle maintenance** for the 30-day expiry. It is not verified that it runs on this ROM.
-- **Develop (RAW development from the DNG) is not started** (milestone 3). It needs a gccore DNG reader and a reduced-size preview develop, plus the libjpeg-turbo CMake factoring shared with :app.
 - **The viewer's photo background follows the theme**; a neutral grey/black option for judging colour is still to add (settings screen).
 - `:app` still has its own copies of the colour tokens, `Ui.kt` and `HistogramView`. Moving it to `:common` is the camera session's call.
 - **Code review of 2026-11-04, still open** (the crashes, leaks, cache wipes, races and the XMP overwrite are fixed):

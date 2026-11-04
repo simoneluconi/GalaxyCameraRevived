@@ -2,7 +2,7 @@
 
 A photography-first gallery that goes with GC Camera and also opens any picture. It is a second APK in the `camera-app/` Gradle project (module `:gallery`, package `com.simoneluconi.gcgallery`), sharing the theme with the camera through `:common`.
 
-**Licence**: GPL-3.0-or-later for GC Gallery (`gallery/`) and the shared `common/` module, the same as GC Camera and gccore (user, 2026-11-04; text in `LICENSES/GPL-3.0-or-later.txt`). The future Develop screen links gccore, which carries GPL-3 code ported from RawTherapee and darktable.
+**Licence**: GPL-3.0-or-later for GC Gallery (`gallery/`) and the shared `common/` module, the same as GC Camera and gccore (user, 2026-11-04; text in `LICENSES/GPL-3.0-or-later.txt`). Files carry `SPDX-License-Identifier: GPL-3.0-or-later` headers as they are touched.
 
 ## 1. What it does
 
@@ -87,12 +87,11 @@ A photography-first gallery that goes with GC Camera and also opens any picture.
    - `Pasm` (auto|program|aperture|shutter|manual), `OIS` (True|False);
    - `AFMode` (auto|macro|infinity), `AFArea` (center|multi|face|touch);
    - `Drive` (single|aeb|hdr), `BracketEV`, `BracketFrame`, `BracketCount`, `Timer`;
-   - `FlashPopup` (up|down), `ZoomStep`, `ZoomMax`;
-   - `Developed` (`gccore/<version>`), `DevelopParams` (`key=value;…`).
-6. RAW development, the same convention in the camera's "Advanced" job and the gallery's Develop:
-   - the output replaces the JPEG and keeps its EXIF (thumbnail regenerated);
-   - `gc:Developed` and `gc:DevelopParams` are set;
-   - the ISP JPEG embedded in the DNG is the restore source. Without a DNG next to the JPEG there is no "Restore".
+   - `FlashPopup` (up|down), `ZoomStep`, `ZoomMax`.
+6. ~~RAW development on the device~~: dropped by the user, 2026-11-04. After a day of work the "Advanced" development only matched the ISP JPEG at ISO 160 and lost at ISO 400. So:
+   - the JPEG is always the ISP's;
+   - the DNG stays as it is, for editing on a PC;
+   - there is no `gc:Developed`/`gc:DevelopParams`, no Develop screen and no "restore".
 
 ## 4. Building and installing
 
@@ -155,6 +154,6 @@ adb -s <serial> shell appops set com.simoneluconi.gcgallery MANAGE_MEDIA allow
 
 ## 7. Milestones
 
-1. Done 2026-11-04 (built and installed; UI not yet checked on the device): grid, viewer, info, keys, intents.
-2. Done in the same pass (to verify on the device): selection, trash, rotate/flip, stars, share, RAW to trash.
-3. Develop: a gccore DNG reader plus a reduced-size preview develop, with sliders for exposure, WB and lens; full develop under a short foreground service; restore from the DNG's ISP JPEG.
+1. Done 2026-11-04 (verified on the device, §6): grid, viewer, info, keys, intents.
+2. Done 2026-11-04 (verified on the device, §6): selection, trash, rotate/flip, stars, share, RAW to trash.
+3. ~~Develop~~: dropped with on-device RAW development (§3.6). The gallery does not link gccore.

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <resources>
     <string name="today">Oggi</string>
     <string name="yesterday">Ieri</string>
@@ -76,8 +77,6 @@
     <string name="info_timer">Autoscatto</string>
     <string name="info_flash_popup">Flash</string>
     <string name="info_zoom_step">Passo zoom</string>
-    <string name="info_developed">Immagine</string>
-    <string name="info_develop_params">Sviluppo</string>
     <string name="info_coordinates">Coordinate</string>
     <string name="info_altitude">Altitudine</string>
     <string name="info_accuracy">Precisione</string>
