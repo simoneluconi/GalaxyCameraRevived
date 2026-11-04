@@ -436,6 +436,53 @@ bool develop2(const RawFrame& raw, const Develop2Params& p, const RgbSink& sink)
         });
     }
 
+    // 6b. Detail gains per scale on gamma luma, held near the neighbourhood's range
+    bool anyDetail = false;
+    for (double g : p.detail) anyDetail |= std::fabs(g - 1) > 1e-3;
+    if (anyDetail) {
+        std::vector<float> luma(on), cur(on), next(on), tmp(on), boosted(on);
+        parallelRows(H, threads, [&](int y) {
+            for (size_t i = static_cast<size_t>(y) * W, e = i + W; i < e; i++) {
+                luma[i] = cur[i] = 0.299f * o[0][i] + 0.587f * o[1][i] + 0.114f * o[2][i];
+                boosted[i] = 0;
+            }
+        });
+        for (int l = 0; l < 5; l++) {
+            atrousSmooth(cur.data(), next.data(), tmp.data(), W, H, 1 << l, threads);
+            const float g = static_cast<float>(p.detail[l]);
+            parallelRows(H, threads, [&](int y) {
+                for (size_t i = static_cast<size_t>(y) * W, e = i + W; i < e; i++) boosted[i] += g * (cur[i] - next[i]);
+            });
+            std::swap(cur, next);
+        }
+        const float over = static_cast<float>(p.detailOvershoot);
+        parallelRows(H, threads, [&](int y) {
+            for (int x = 0; x < W; x++) {
+                const size_t i = static_cast<size_t>(y) * W + x;
+                float v = boosted[i] + cur[i];
+                if (over >= 0) {
+                    float mn = luma[i], mx = luma[i];
+                    for (int dy = -1; dy <= 1; dy++) {
+                        const size_t r = static_cast<size_t>(std::clamp(y + dy, 0, H - 1)) * W;
+                        for (int dx = -1; dx <= 1; dx++) {
+                            const float s = luma[r + std::clamp(x + dx, 0, W - 1)];
+                            mn = std::min(mn, s);
+                            mx = std::max(mx, s);
+                        }
+                    }
+                    const float room = over * (mx - mn);
+                    v = std::clamp(v, mn - room, mx + room);
+                }
+                tmp[i] = v - luma[i];
+            }
+        });
+        parallelRows(H, threads, [&](int y) {
+            for (size_t i = static_cast<size_t>(y) * W, e = i + W; i < e; i++) {
+                for (int c = 0; c < 3; c++) o[c][i] += tmp[i];
+            }
+        });
+    }
+
     // 7. Interleaved 8-bit rows to the sink
     constexpr int kSinkRows = 64;
     std::vector<uint8_t> buf(static_cast<size_t>(kSinkRows) * W * 3);

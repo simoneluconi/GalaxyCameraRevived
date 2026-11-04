@@ -62,6 +62,15 @@ struct Develop2Params {
     double sharpenSigma = 1.0;
     double sharpenThreshold = 2.0;
     double overshoot = 0.1;
+
+    /**
+     * Detail gains per à-trous level of gamma luma after the warp (~1, 2, 4, 8, 16 px), 1 =
+     * unchanged. The ISP's look, measured against ours (scratchpad bandgain.py): ×0.56 at 1 px,
+     * ×1.37 at 2 px, ×1.27 at 4 px, ×1.09 at 8 px; its crispness lives at 2–8 px, not in the
+     * finest level. Held like the unsharp mask, with [detailOvershoot] (< 0: unclamped).
+     */
+    double detail[5] = {1, 1, 1, 1, 1};
+    double detailOvershoot = 0.5;
 };
 
 /** Develops [raw] into the lens-corrected ISP frame, handing rows to [sink] in order. */

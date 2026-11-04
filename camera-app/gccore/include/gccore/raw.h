@@ -13,8 +13,8 @@ struct RawFrame {
     /** Row stride in pixels, and rows (raw-size). */
     int width = 4736;
     int height = 3452;
-    /** raw-active-area: left, top, right, bottom. */
-    int left = 2, top = 0, right = 4672, bottom = 3452;
+    /** raw-active-area: left, top, right, bottom (columns 4666-4735 are zero). */
+    int left = 2, top = 0, right = 4666, bottom = 3452;
     double black = 64;
     double white = 1023;
     /** raw-cfa, row-major 2x2 (grbg → 1,0,2,1). */

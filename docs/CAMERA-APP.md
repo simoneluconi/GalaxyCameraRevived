@@ -232,8 +232,8 @@ Verified in M at 1/60 f/4 ISO200: the room meters −0.7, a lamp +2.3 (it blows 
 | raw-size | 4736x3452 (row stride in pixels x rows; a 4160-byte tail follows the rows) |
 | raw-format | raw10be: a continuous big-endian 10-bit stream, 4 pixels in 5 bytes, MSB first. Not MIPI RAW10. |
 | raw-cfa | grbg |
-| raw-active-area | 2,0,4672,3452 (left, top, right, bottom); columns 0-1 and the last 64 are zero |
-| raw-black-level | 64 (dark frame: 63.2–63.6 on all four channels) |
+| raw-active-area | 2,0,4666,3452 (left, top, right, bottom); columns 0-1 and 4666-4735 are zero (HAL 5413dfd; before it, 4672) |
+| raw-black-level | 64. The real black depends on ISO: 63.5 at ISO 100 down to 60.5 at ISO 3200 for exposures up to 1/4 s, ~63.5 at 1 s (gccore `noise.h`) |
 | raw-white-level | 1023 (assumed, not yet checked on a clipped highlight) |
 
 ### 3.3 Capture behaviour

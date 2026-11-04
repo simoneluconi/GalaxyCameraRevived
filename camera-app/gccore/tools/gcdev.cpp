@@ -76,6 +76,10 @@ int main(int argc, char** argv) {
             iso = std::atof(argv[++i]);
         } else if (std::strcmp(argv[i], "--tsec") == 0 && i + 1 < argc) {
             tsec = std::atof(argv[++i]);
+        } else if (std::strcmp(argv[i], "--detail") == 0 && i + 5 < argc) {
+            for (int l = 0; l < 5; l++) p2.detail[l] = std::atof(argv[++i]);
+        } else if (std::strcmp(argv[i], "--detail-over") == 0 && i + 1 < argc) {
+            p2.detailOvershoot = std::atof(argv[++i]);
         } else if (std::strcmp(argv[i], "--chroma-drop") == 0 && i + 1 < argc) {
             p2.chromaDropLevels = std::atoi(argv[++i]);
         } else if (std::strcmp(argv[i], "--nr") == 0 && i + 2 < argc) {
