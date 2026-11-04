@@ -28,4 +28,6 @@ adb -s <serial> shell pm install -r /data/local/tmp/gccamera.apk
 
 ## Licence
 
-To be decided before publishing (GPL/Apache compatible, see the project's CLAUDE.md).
+GC Camera (`app/`) and gccore (`gccore/`) are licensed under the GNU General Public License, version 3 or (at your option) any later version: see [`../LICENSES/GPL-3.0-or-later.txt`](../LICENSES/GPL-3.0-or-later.txt). Files ported from other GPL projects keep their original copyright notice.
+
+GC Gallery (`gallery/`) and the shared theme module (`common/`) are still to be confirmed. libjpeg-turbo (`third_party/libjpeg-turbo`) keeps its own licence (`LICENSE.md` there).
