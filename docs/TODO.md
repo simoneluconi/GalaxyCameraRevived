@@ -352,18 +352,23 @@ Still open:
 
 ## Camera HAL stability
 
-- **[HIGH, lens safety] A failed lens-off leaves the lens out** (2026-11-02). After the HAL hang below, the reboot ran `m9mo_remove` → `m9mo_set_lens_off`. The ISP never started retracting: LENS 0x28 read 196 (0xC4) for all 3 resends, about 0.8 s. The driver gave up and powered the ISP down with the lens extended.
-  - Recovered by opening and closing the camera normally: the ISP power-up ran "Lens boot complete", and lens-off then took 1.05 s.
-  - Fix in m9mo.c: when lens-off fails, power-cycle the ISP, wait for the lens boot (`m9mo_init`), retry lens-off, and only then power down.
-    - The m9mo driver cannot switch the ISP power today. FIMC does it through `s3c_platform_camera.cam_power` = `m9mo_power()` in `midas-camera.c`.
-    - Add a `power` callback to `m9mo_platform_data` (it already has `config_sambaz`, `af_led_power`, `irq`) and point it at `m9mo_power`. The 0/1 pair keeps the regulator counts balanced, and FIMC still powers down after `m9mo_remove`.
-    - Run the fallback in `m9mo_remove` and `m9mo_shutdown`, under `m9mo_lens_lock`, before `free_irq` (`m9mo_init` needs the ISP irq). Also log what 0xC4 means if Samsung's source tells; the high bits may be status flags on top of 4. Test by forcing the failure (e.g. a debug-only skip of the first lens-off command).
+- **A failed lens-off left the lens out** (2026-11-02): after a HAL hang the ISP ignored lens-off (LENS 0x28 stayed 0xC4) and was powered down with the lens extended. Recovered then by opening and closing the camera normally.
+  - **Fixed and verified 2026-11-04** (kernel 14e17036 + e5a7cf0d). `m9mo_lens_off_or_reset()`, called by `m9mo_remove` and `m9mo_shutdown`, handles a failed lens-off this way:
+    1. power-cycles the ISP through the new `m9mo_platform_data.power` callback (`m9mo_power`);
+    2. boots it with `m9mo_init`;
+    3. **enters monitor mode** and lets the lens settle 1 s;
+    4. retries lens-off.
+  - Without step 3 the retry reported success with the lens half out: the fresh ISP does not know where the lens is until monitor mode homes it.
+  - Test hook: `echo 1 > /sys/module/m9mo/parameters/test_lens_off_fail` (one-shot). With the user watching, the lens retracted fully; the close took ~4 s.
+  - Before release: keep the hook or drop it (it is harmless unless written). Still unknown: what 0xC4 means.
 
 - **The capture path relies on a stray ISP frame** (found 2026-11-03).
   - What happens: with one buffer, FIMC skips the first frame interrupt after STREAMON (`fimc_irq_cap[0] SKIPPED`, then it stops). Every frame read (RAW frame 0, the JPEG, bracket frames) works only because the M9MO emits a short stray frame right when the transfer starts, and FIMC keeps the frame after it.
   - When the stray frame is missing, the real frame is skipped and the HAL gets "No frame N".
   - Seen once: Samsung's TIMER_MODE (NEW 0x07) with the OIS off, then a RAW shot. The HAL no longer sends TIMER_MODE (gd1 camera), and that fixed it.
-  - Proper fix: make the read tolerate a missing stray frame. For example, retry the transfer once on a poll timeout, or arm FIMC with two buffers. This needs a way to tell a skipped real frame from a dead ISP.
+  - **Retry added 2026-11-04** (gd1 60c4f85): after a poll timeout the HAL restarts FIMC and transfers the same frame once more. This covers the RAW frame 0, single JPEGs and bracket frames, but not a RAW shot's JPEG, because the kernel is back in monitor mode by then.
+  - **Not exercised yet**: `setprop vendor.camera.test.timer_mode 1` (Samsung's TIMER_MODE, OIS off, RAW) no longer loses the frame, so the retry never ran. The regression tests pass.
+  - If the failure shows up again, check the log for "restarting FIMC and transferring it again". The alternative is FIMC with two buffers.
 - **Parameters set during or right after a capture are re-applied on a fixed frame count** (workaround, 2026-11-04, gd1 aef6972).
   - Just out of still capture, and just after the preview STREAMON, the ISP takes AE program writes (pasm-mode, shutter, aperture, ISO) but keeps its old program.
   - The HAL applies those parameters at once. Then, on the 15th preview frame after the restart (`M9MO_PARAMS_REAPPLY_FRAMES`, override with `setprop vendor.camera.test.reapply_frames N`), it invalidates its cached pasm-mode, shutter, aperture and ISO and applies again, so that only those four are sent.

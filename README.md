@@ -35,7 +35,8 @@ It is built camera-first. There are no Google services and no phone apps, only w
 | Wi-Fi | 2.4 GHz works; 5 GHz does not connect yet |
 | GPS | Starts and sees satellite status; a first fix has not been seen yet |
 | 3G mobile data | Modem starts; data not tested yet |
-| Bluetooth, audio | Not checked yet |
+| Audio | Works |
+| Bluetooth | Not checked yet |
 | Video recording | Not tested yet |
 | Standby battery drain | About 1%/hour with Wi-Fi on; being improved |
 | Security | SELinux is permissive and the security patch level is from early 2025 |
