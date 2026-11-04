@@ -1,6 +1,6 @@
 # Galaxy Camera Revived
 
-Android 14 (LineageOS 21) for the **Samsung Galaxy Camera**, the 2012 Android camera with a 21x optical zoom.
+A custom ROM that brings Android 14 (LineageOS 21) to the **Samsung Galaxy Camera**, the 2012 Android camera with a 21x optical zoom.
 
 | Model | Support |
 |---|---|

@@ -86,7 +86,11 @@ The user's storage must not fill up with debug output. Keep only what explains c
     - **LDC off**: the ISP outputs the whole uncorrected image circle, with barrel distortion and black corners, like the RAW.
     - **LSC off**: about 2% darker towards the edges.
     - Keep both on, the default. They are not in the app; LDC off could become an "uncorrected / full circle" option later.
-  - `flash-ev` (−2..2): **no effect** (2026-11-04). The scene was a dark room lit only by the flash. In M 1/30 f/4 ISO 100, −2…+2 gave mean luma 68–72 with no trend; P was the same. The HAL applies it and the flash fires. The HAL session is checking the register readback (CAPPARM 0x28, maybe the same parameter-mode issue as LSC/LDC).
+  - `flash-ev` (−2..2): **no effect** (2026-11-04). The scene was a dark room lit only by the flash. In M 1/30 f/4 ISO 100, −2…+2 gave mean luma 68–72 with no trend; P was the same. Kernel #45 reads CAPPARM 0x28 back, and the value lands (step 4, readback 4), so the ISP ignores it in this flash mode. Not in the app; likely to be dropped from the HAL.
+- **ISP low-light limits** (measured 2026-11-04, dark room):
+  - auto, P and A cap the exposure at 1 s and ISO 400. In A at f/8 that leaves the frame ~3 EV under; only S and M go longer (16" works).
+  - The AE bracket does not bracket at that cap: all three frames came out at 1 s and ISO 100, equally dark, though bracket-exif says −1/0/+1 EV. In light it varies the time properly. Reported to the HAL session.
+  - App idea: warn when A/P hit the cap ("use S/M or raise ISO").
 - **Self-timer lamp** (`timer-led`): done and verified 2026-11-03. The app sets it at countdown start and turns it off at the end, on cancel and on pause; the ISP blinks it slow, then fast.
   - The lamp needed its LDO powered: kernel #44.
   - Self-timer + RAW + OIS off had failed ("No frame 0"). Fixed in HAL 51e09e92, which no longer sends TIMER_MODE.

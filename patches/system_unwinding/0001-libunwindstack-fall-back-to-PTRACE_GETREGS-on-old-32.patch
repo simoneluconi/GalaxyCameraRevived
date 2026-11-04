@@ -1,0 +1,70 @@
+From 5b4cd5711f2a2f7b3680c7d0b2536a28e0f30934 Mon Sep 17 00:00:00 2001
+From: simoneluconi <12747695+simoneluconi@users.noreply.github.com>
+Date: Sun, 1 Nov 2026 21:14:49 +0100
+Subject: [PATCH] libunwindstack: fall back to PTRACE_GETREGS on old 32-bit ARM
+ kernels
+
+32-bit ARM kernels without CONFIG_HAVE_ARCH_TRACEHOOK (3.4 and older,
+such as the Exynos 4 legacy devices) fail PTRACE_GETREGSET with EIO,
+so crash_dump could not read any thread's registers and no native
+crash got a backtrace. PTRACE_GETREGS returns the same NT_PRSTATUS
+register layout there: use it when GETREGSET fails with EIO.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Change-Id: I3948a541fb7ab3b6488ec6bd95c986e3c07160e2
+---
+ libunwindstack/Regs.cpp | 24 ++++++++++++++++++++++--
+ 1 file changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/libunwindstack/Regs.cpp b/libunwindstack/Regs.cpp
+index 3f4a184..2eab4d7 100644
+--- a/libunwindstack/Regs.cpp
++++ b/libunwindstack/Regs.cpp
+@@ -46,6 +46,24 @@ static constexpr size_t kMaxUserRegsSize = std::max(
+     sizeof(arm_user_regs),
+     std::max(sizeof(arm64_user_regs), std::max(sizeof(x86_user_regs), sizeof(x86_64_user_regs))));
+ 
++// 32-bit ARM kernels without CONFIG_HAVE_ARCH_TRACEHOOK (3.4 and older, e.g.
++// the Exynos 4 legacy devices) do not know PTRACE_GETREGSET and fail it with
++// EIO; PTRACE_GETREGS returns the same NT_PRSTATUS layout there. Called right
++// after a failed PTRACE_GETREGSET, with its errno.
++static bool GetArmRegsFallback(pid_t pid, void* regs, struct iovec* io) {
++#if defined(__arm__)
++  if (errno == EIO && ptrace(PTRACE_GETREGS, pid, nullptr, regs) == 0) {
++    io->iov_len = sizeof(arm_user_regs);
++    return true;
++  }
++#else
++  (void)pid;
++  (void)regs;
++  (void)io;
++#endif
++  return false;
++}
++
+ // This function assumes that reg_data is already aligned to a 64 bit value.
+ // If not this could crash with an unaligned access.
+ Regs* Regs::RemoteGet(pid_t pid, ErrorCode* error_code) {
+@@ -55,7 +73,8 @@ Regs* Regs::RemoteGet(pid_t pid, ErrorCode* error_code) {
+     .iov_base = buffer.data(), .iov_len = buffer.size() * sizeof(uint64_t)
+   };
+ 
+-  if (ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, reinterpret_cast<void*>(&io)) == -1) {
++  if (ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, reinterpret_cast<void*>(&io)) == -1 &&
++      !GetArmRegsFallback(pid, buffer.data(), &io)) {
+     Log::Error("PTRACE_GETREGSET failed for pid %d: %s", pid, strerror(errno));
+     if (error_code != nullptr) {
+       *error_code = ERROR_PTRACE_CALL;
+@@ -91,7 +110,8 @@ ArchEnum Regs::RemoteGetArch(pid_t pid, ErrorCode* error_code) {
+   io.iov_base = buffer.data();
+   io.iov_len = buffer.size() * sizeof(uint64_t);
+ 
+-  if (ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, reinterpret_cast<void*>(&io)) == -1) {
++  if (ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, reinterpret_cast<void*>(&io)) == -1 &&
++      !GetArmRegsFallback(pid, buffer.data(), &io)) {
+     Log::Error("PTRACE_GETREGSET failed for pid %d: %s", pid, strerror(errno));
+     if (error_code != nullptr) {
+       *error_code = ERROR_PTRACE_CALL;
+-- 
+2.34.1
+
