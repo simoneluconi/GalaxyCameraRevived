@@ -490,6 +490,19 @@ The stock M9MO JPEGs look poor: heavy sharpening halos, smeary noise reduction, 
   - **Settable auto-standby** (user, 2026-11-01): after a user-set idle time, retract the lens, power the ISP off and suspend. Do not power off, so the next start stays fast. Optionally add a second, longer timeout (hours) that really powers off.
   - Samsung's version is in our kernel: `CONFIG_FAST_BOOT` "fake shutdown" (`fake_shut_down`, `KEY_FAKE_PWR` 0x240 in `gpio_keys.c`), where the power-off menu suspends instead. Study it before designing ours.
 
+## ART
+
+- **A JIT-compiled call jumped to address 0** (once, 2026-11-04, tombstone_36, GC Camera's photo-writer thread, 20 s after start).
+  - The frames were `#00 pc 0` and `#01 /memfd:jit-cache java.nio.Bits.putShortL+146`: HeapByteBuffer.putShort in little-endian order, writing EXIF tag 0xA002. The callee's entry point was read as null.
+  - It only appears once the method is hot. Other code that uses ByteBuffer put*/get* with an explicit byte order (the `Bits.*L` helpers) may hit it too.
+  - The app now writes EXIF without ByteBuffer. No other JIT crash in the 37 kept tombstones.
+  - To look at:
+    - whether it reproduces (a loop of putShort in a test app);
+    - UL's ART fork and html6405's issues for armv7 JIT crashes;
+    - JIT code-cache collection racing with entry-point updates;
+    - the dual-view (memfd) JIT code cache on the 3.4 kernel, i.e. instruction cache maintenance of the executable alias.
+  - Fallbacks if it recurs: `dalvik.vm.usejit=false` (apps rely on AOT, slower first runs), or a JIT option that avoids the failing path, once found.
+
 ## Updates over the air (user wish, 2026-11-04)
 
 - **Our APKs first** (GC Camera, GC Gallery): an update check against GitHub Releases, with the download installed through PackageInstaller. The system copies are presigned with our key, so a same-key APK installs on top of them, as `pm install -r` already does. Options: an F-Droid repo of our own (the F-Droid client is in the build), or a small updater inside each app.
