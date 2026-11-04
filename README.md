@@ -121,8 +121,7 @@ This port stands on the work of many people:
 | Camera HAL (based on Replicant's `exynos_camera`) and sensors HAL | GPL-3.0-or-later |
 | Rest of the device tree (based on LineageOS / html6405) | Apache-2.0 |
 | libjpeg-turbo (`camera-app/third_party/libjpeg-turbo`) | IJG / BSD-3-Clause / zlib, see its `LICENSE.md` |
-| GC Camera (`camera-app/app`) and its image core gccore (`camera-app/gccore`), and the planned PC tool built on it | GPL-3.0-or-later ([text](LICENSES/GPL-3.0-or-later.txt)), so that GPL-3 code from RawTherapee and darktable can be ported into it |
-| GC Gallery (`camera-app/gallery`, `camera-app/common`) | To be confirmed |
+| GC Camera, GC Gallery and their shared modules (`camera-app/app`, `gallery`, `gccore`, `common`), and the planned PC tool built on gccore | GPL-3.0-or-later ([text](LICENSES/GPL-3.0-or-later.txt)), so that GPL-3 code from RawTherapee and darktable can be ported into them |
 | Tools, docs and the lens profile | To be confirmed before the first release |
 
 Samsung's proprietary files (firmware, drivers, libraries) are **not** in these repositories. They are extracted from the official firmware when the system is built.

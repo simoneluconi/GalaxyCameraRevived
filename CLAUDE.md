@@ -17,7 +17,7 @@ Never commit these to a public repo:
 - Samsung's proprietary blobs and firmware: `device-dump/`, `system/`, the `.img` files, `RS_M9MO*.bin`, modem.bin. Keep them gitignored; LineageOS convention is a separate `vendor/samsung/gd1` extracted by `extract-files.sh`.
 - The device serial, the WiFi MAC (`getprop.txt`, `wifi.txt`), or IMEI/`efs` data.
 
-GPL code (kernel, m9mo.c) and the Apache code from html6405's trees can be published. Licences: the camera HAL and sensors HAL are GPL-3.0-or-later (Replicant), the rest of the device tree Apache-2.0. **GC Camera, gccore and the PC tool are GPL-3.0-or-later** (user, 2026-11-04, to port RawTherapee/darktable code), with the text in `LICENSES/`. GC Gallery, the tools, the docs and the lens profile are still to be decided. Keep this unit's serials, MAC and local setup in the git-ignored `CLAUDE.local.md`, never in tracked files. The `play-store-publish` skill covers the GitHub part (README, Pages).
+GPL code (kernel, m9mo.c) and the Apache code from html6405's trees can be published. Licences: the camera HAL and sensors HAL are GPL-3.0-or-later (Replicant), the rest of the device tree Apache-2.0. **GC Camera, GC Gallery, gccore, common and the PC tool are GPL-3.0-or-later** (user, 2026-11-04, to port RawTherapee/darktable code), with the text in `LICENSES/`. The tools, the docs and the lens profile are still to be decided. Keep this unit's serials, MAC and local setup in the git-ignored `CLAUDE.local.md`, never in tracked files. The `play-store-publish` skill covers the GitHub part (README, Pages).
 
 The user is Italian, technically comfortable, and runs a homelab. Talk to the user in Italian. **Everything else is in English**: code, comments, commit messages, docs, README, CLAUDE.md and file names.
 
