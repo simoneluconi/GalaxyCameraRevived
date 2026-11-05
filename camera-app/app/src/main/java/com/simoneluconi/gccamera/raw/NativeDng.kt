@@ -26,6 +26,11 @@ object NativeDng {
         model: String?,
         /** XMP rdf:Description namespaces and attributes, the same as the JPEG's; null for just a rating. */
         xmp: String?,
+        /**
+         * The geotag: latitude, longitude, has altitude (0/1), altitude m, fix time ms UTC,
+         * accuracy m (0 = unknown); null for none.
+         */
+        gps: DoubleArray?,
         /** The ISP JPEG of the same shot, embedded as the full-size preview; null for none. */
         preview: ByteArray?,
         fd: Int,

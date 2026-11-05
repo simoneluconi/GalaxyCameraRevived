@@ -195,6 +195,16 @@ class PhotoWriter private constructor(private val context: Context) {
                     copyright = m.copyright,
                     model = CameraModel.model,
                     xmp = JpegMeta.xmpProperties(m),
+                    gps = m.location?.let { l ->
+                        doubleArrayOf(
+                            l.latitude,
+                            l.longitude,
+                            if (l.hasAltitude()) 1.0 else 0.0,
+                            l.altitude,
+                            l.time.toDouble(),
+                            if (l.hasAccuracy()) l.accuracy.toDouble() else 0.0,
+                        )
+                    },
                     preview = preview,
                     fd = pfd.fd,
                 )

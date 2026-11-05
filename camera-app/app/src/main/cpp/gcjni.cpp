@@ -31,6 +31,8 @@ std::string str(JNIEnv* env, jstring s) {
  * exposure = {iso, seconds, fNumber, focalMm, focal35mm, biasEv, program, orientation};
  * model = the TIFF Model ("EK-GC100"; null keeps that default);
  * xmp = the app's XMP properties (DngMeta::xmpProperties; may be null);
+ * gps = {latitude, longitude, hasAltitude (0/1), altitude m, fix time ms UTC, accuracy m
+ * (0 = unknown)}, or null for no geotag;
  * preview = the ISP JPEG to embed full size (may be null).
  * Returns null on success, or the error.
  */
@@ -39,13 +41,15 @@ Java_com_simoneluconi_gccamera_raw_NativeDng_write(JNIEnv* env, jclass, jbyteArr
                                                    jdoubleArray levels, jstring cfa, jdoubleArray exposure,
                                                    jstring dateTime, jstring offsetTime, jstring software,
                                                    jstring artist, jstring copyright, jstring model,
-                                                   jstring xmp, jbyteArray preview, jint fd) {
+                                                   jstring xmp, jdoubleArray gps, jbyteArray preview, jint fd) {
     jint l[6];
     env->GetIntArrayRegion(layout, 0, 6, l);
     jdouble lv[2];
     env->GetDoubleArrayRegion(levels, 0, 2, lv);
     jdouble ex[8];
     env->GetDoubleArrayRegion(exposure, 0, 8, ex);
+    jdouble g[6] = {};
+    if (gps) env->GetDoubleArrayRegion(gps, 0, 6, g);
     // A short array throws on the Java side; nothing below may run with garbage
     if (env->ExceptionCheck()) return nullptr;
 
@@ -77,6 +81,15 @@ Java_com_simoneluconi_gccamera_raw_NativeDng_write(JNIEnv* env, jclass, jbyteArr
     meta.copyright = str(env, copyright);
     if (model) meta.model = str(env, model);
     meta.xmpProperties = str(env, xmp);
+    if (gps) {
+        meta.hasGps = true;
+        meta.latitude = g[0];
+        meta.longitude = g[1];
+        meta.hasAltitude = g[2] != 0;
+        meta.altitude = g[3];
+        meta.gpsTimeMs = static_cast<int64_t>(g[4]);
+        meta.gpsAccuracy = g[5];
+    }
 
     // A 20 MB array lives in ART's non-moving large-object space, so this does not copy
     jbyte* data = env->GetByteArrayElements(raw, nullptr);

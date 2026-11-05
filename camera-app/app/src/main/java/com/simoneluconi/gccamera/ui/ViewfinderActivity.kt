@@ -293,7 +293,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         registerWifi()
         clockTick.run()
         orientation.start()
-        if (prefs.geotag) geo.start() else geo.stop()
+        if (prefs.geotag) geo.start(prefs.geotagMaxAgeMs) else geo.stop()
         updateGps(geo.state)
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.CAMERA), REQ_CAMERA)
@@ -1017,7 +1017,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
             pasm = shot.pasm,
             takenAt = if (shutterAt > 0) shutterAt else System.currentTimeMillis(),
             exifOrientation = if (shutterOrientation >= 0) shutterOrientation else orientation.exifOrientation,
-            location = if (prefs.geotag) geo.locationFor(prefs.geotagMaxAgeMs) else null,
+            location = if (prefs.geotag) geo.location() else null,
             flashFired = fired,
             flashMode = shot.flash,
             whiteBalanceAuto = shot.whiteBalance == Camera.Parameters.WHITE_BALANCE_AUTO,

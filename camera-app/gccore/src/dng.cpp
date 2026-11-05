@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <ctime>
 #include <utility>
 #include <vector>
 
@@ -21,6 +22,45 @@ const std::pair<uint32_t, uint32_t> kShutterSteps[] = {
     {1, 90}, {1, 125}, {1, 180}, {1, 250}, {1, 350}, {1, 500}, {1, 750}, {1, 1000},
     {1, 1500}, {1, 2000},
 };
+
+/** Degrees as EXIF degrees, minutes and milliseconds-precise seconds. */
+std::vector<std::pair<uint32_t, uint32_t>> dms(double v) {
+    const double a = std::fabs(v);
+    const double d = std::floor(a);
+    const double mf = (a - d) * 60;
+    const double m = std::floor(mf);
+    return {{static_cast<uint32_t>(d), 1},
+            {static_cast<uint32_t>(m), 1},
+            {static_cast<uint32_t>(std::lround((mf - m) * 60 * 1000)), 1000}};
+}
+
+/** The GPS IFD, tag for tag the same as the app's JPEG (JpegMeta.gpsIfd). */
+void gpsIfd(const DngMeta& m, Ifd& gps) {
+    gps.bytes(0, {2, 3, 0, 0});  // GPSVersionID
+    gps.ascii(1, m.latitude >= 0 ? "N" : "S");
+    gps.rationalsExact(2, dms(m.latitude));
+    gps.ascii(3, m.longitude >= 0 ? "E" : "W");
+    gps.rationalsExact(4, dms(m.longitude));
+    if (m.hasAltitude) {
+        gps.bytes(5, {static_cast<uint8_t>(m.altitude >= 0 ? 0 : 1)});
+        gps.rationals(6, {std::fabs(m.altitude)}, 100);
+    }
+    const std::time_t t = static_cast<std::time_t>(m.gpsTimeMs / 1000);
+    std::tm utc{};
+#ifdef _WIN32
+    gmtime_s(&utc, &t);
+#else
+    gmtime_r(&t, &utc);
+#endif
+    gps.rationalsExact(7, {{static_cast<uint32_t>(utc.tm_hour), 1},
+                           {static_cast<uint32_t>(utc.tm_min), 1},
+                           {static_cast<uint32_t>(utc.tm_sec), 1}});
+    gps.ascii(18, "WGS-84");  // GPSMapDatum
+    char date[11];
+    std::strftime(date, sizeof date, "%Y:%m:%d", &utc);
+    gps.ascii(29, date);  // GPSDateStamp
+    if (m.gpsAccuracy > 0) gps.rationals(31, {m.gpsAccuracy}, 100);  // GPSHPositioningError
+}
 
 std::pair<uint32_t, uint32_t> nominalShutter(double seconds) {
     auto best = kShutterSteps[0];
@@ -248,6 +288,7 @@ bool writeDng(const RawFrame& raw, const DngMeta& meta, FILE* f, std::string* er
     ifd0.longVal(330, 0);  // SubIFDs, set below
     if (!meta.copyright.empty()) ifd0.ascii(33432, meta.copyright);
     ifd0.longVal(34665, 0);  // Exif IFD, set below
+    if (meta.hasGps) ifd0.longVal(34853, 0);  // GPS IFD, set below
     ifd0.bytes(50706, {1, 4, 0, 0});  // DNGVersion
     ifd0.bytes(50707, {1, 1, 0, 0});  // DNGBackwardVersion
     ifd0.ascii(50708, "Samsung " + meta.model);
@@ -324,15 +365,19 @@ bool writeDng(const RawFrame& raw, const DngMeta& meta, FILE* f, std::string* er
     exif.ascii(42035, "Samsung");
     exif.ascii(42036, "4.1-86.1mm f/2.8-5.9");
 
-    // Layout: header, IFD0, SubIFD, [preview SubIFD], Exif IFD, thumbnail, [JPEG preview],
-    // CFA data. Every value above has its final size already, so setting the offsets below
-    // does not move anything.
+    Ifd gps;
+    if (meta.hasGps) gpsIfd(meta, gps);
+
+    // Layout: header, IFD0, SubIFD, [preview SubIFD], Exif IFD, [GPS IFD], thumbnail,
+    // [JPEG preview], CFA data. Every value above has its final size already, so setting the
+    // offsets below does not move anything.
     auto even = [](size_t v) { return static_cast<uint32_t>(v + (v & 1)); };
     const uint32_t ifd0Off = 8;
     const uint32_t subOff = even(ifd0Off + ifd0.size());
     const uint32_t prevOff = even(subOff + sub.size());
     const uint32_t exifOff = even(prevOff + (hasPreview ? prev.size() : 0));
-    const uint32_t thumbOff = even(exifOff + exif.size());
+    const uint32_t gpsOff = even(exifOff + exif.size());
+    const uint32_t thumbOff = even(gpsOff + (meta.hasGps ? gps.size() : 0));
     const uint32_t jpegOff = even(thumbOff + thumb.size());
     const uint32_t rawOff = even(jpegOff + (hasPreview ? meta.previewJpegSize : 0));
     ifd0.longVal(273, thumbOff);
@@ -343,6 +388,7 @@ bool writeDng(const RawFrame& raw, const DngMeta& meta, FILE* f, std::string* er
         ifd0.longVal(330, subOff);
     }
     ifd0.longVal(34665, exifOff);
+    if (meta.hasGps) ifd0.longVal(34853, gpsOff);
     sub.longVal(273, rawOff);
 
     std::vector<uint8_t> head = {'I', 'I', 42, 0};
@@ -355,6 +401,7 @@ bool writeDng(const RawFrame& raw, const DngMeta& meta, FILE* f, std::string* er
     append(sub.pack(subOff), subOff);
     if (hasPreview) append(prev.pack(prevOff), prevOff);
     append(exif.pack(exifOff), exifOff);
+    if (meta.hasGps) append(gps.pack(gpsOff), gpsOff);
     append(thumb, thumbOff);
     // The ~5 MB JPEG preview goes straight from the caller's buffer, not through [head]
     head.resize(hasPreview ? jpegOff : rawOff, 0);

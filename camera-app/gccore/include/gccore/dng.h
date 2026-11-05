@@ -1,6 +1,7 @@
 // DNG writer for M9MO raw frames (port and extension of tools/m9mo-dng.py).
 #pragma once
 
+#include <cstdint>
 #include <cstdio>
 #include <string>
 
@@ -30,6 +31,18 @@ struct DngMeta {
     std::string model = "EK-GC100";
     std::string artist;
     std::string copyright;
+
+    /** The geotag, the same as the JPEG's GPS IFD; left out when [hasGps] is false. */
+    bool hasGps = false;
+    double latitude = 0;
+    double longitude = 0;
+    bool hasAltitude = false;
+    /** Metres above sea level (negative below). */
+    double altitude = 0;
+    /** When the fix was taken, ms since the epoch (UTC). */
+    int64_t gpsTimeMs = 0;
+    /** Horizontal accuracy in metres; 0 = unknown. */
+    double gpsAccuracy = 0;
 
     /**
      * XYZ(D65) → camera matrix (ColorMatrix1), row-major. Fitted 2026-11-02 against the ISP's
