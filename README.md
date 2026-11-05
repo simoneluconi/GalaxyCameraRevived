@@ -35,7 +35,7 @@ It is built camera-first. There are no Google services and no phone apps, only w
 | Wi-Fi | 2.4 GHz works; 5 GHz does not connect yet |
 | GPS | Starts and sees satellite status; a first fix has not been seen yet |
 | 3G mobile data | Works (tested with an Italian SIM) |
-| SMS | Receiving works; no voice calls (no dialer, by design) |
+| SMS | Sending and receiving work; no voice calls (no dialer, by design) |
 | Audio | Works |
 | Bluetooth | Not checked yet |
 | Video recording | Not tested yet |

@@ -124,7 +124,7 @@ The device is a camera, not a phone, and it must be **as light as possible** (ab
 
 - **No Google services, no microG, no GApps.** Apps are installed from F-Droid or as APKs only.
 - **Keep 3G data and SMS, no voice.** Port the modem and RIL so mobile data works (verified 2026-11-04 with a Very Mobile SIM on the `internet.wind` APN).
-  - **SMS: kept on the GC100** (user, 2026-11-04). The `messaging` app is in gd1.mk; a model without a modem (GC200) removes it.
+  - **SMS: kept on the GC100** (user, 2026-11-04). The `messaging` app is in gd1.mk; a model without a modem (GC200) removes it. Sending works since 2026-11-05, after the SMSC fix in the RIL shim (docs/TODO.md).
   - No voice: no Dialer, Contacts or InCallUI, and no telephony UI beyond APN and SIM settings.
 - **Low-RAM / Go-style config.** Start from html6405's i9300 `lineage-21.0-mini-go`: `ro.config.low_ram`, zram, low dalvik heap, a Go launcher, minimal system UI effects.
 - **App set** (user decisions 2026-10-31):

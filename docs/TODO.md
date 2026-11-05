@@ -200,11 +200,12 @@ Still open:
   - `gd1-bringup.sh` runs on every userdebug boot: 3 min of dumps, world-readable, including the serial and MAC. Keep the last_kmsg copy (it caught the lens bug) and put the rest behind a persist property;
   - EFS is mounted rw with `errors=panic`, and `restorecon_recursive /efs` rewrites xattrs at every boot.
 - **Mini recovery**: rebuild it so that its built-in `flash-image` and `minirecovery-lib.sh` get the review fixes. Until then flash-adb stages the new `flash-image`, which still sources the old lib.
-- **3G: the modem boots (2026-11-01); data not tested yet, no SIM.**
-  - The status 6 exits were init failing `setexeccon(u:r:cpboot-daemon:s0)`: the domain did not exist, because no device sepolicy was built. cbd never ran.
-  - Started by hand, the i9300 cbd (same `-d` as stock, same defaults: `/dev/umts_boot0`, `mmcblk0p7`, `/efs/nv_data.bin`) boots the XMM6262. rild then reports baseband GC100XXBMC3 and a UMTS cell; the SIM shows ABSENT.
-  - Fix in gd1: `sepolicy/vendor` with a permissive `cpboot-daemon` domain. Verify after the next flash that init starts cbd on its own.
-  - Next: insert a SIM, set the APN and test data.
+- **3G: data and SMS work (2026-11-04/05, Italian SIM on the WindTre network, APN `internet.wind`).**
+  - cbd had never run: init failed `setexeccon(u:r:cpboot-daemon:s0)` (status 6) because no device sepolicy was built. gd1's `sepolicy/vendor` has a permissive `cpboot-daemon` domain now.
+  - **SMS sending was fixed in the RIL shim** (smdk4412-common f90d50e). The Samsung RIL answers `GET_SMSC_ADDRESS` with a hex PDU field (`0791…`), Android encoded that again as a number, and the network rejected every SMS with RP cause 95. The shim now reports `+39…`. Found with `strace -x -e read,write -p <rild>` on the `/dev/umts_ipc0` fd.
+  - Not done: `SET_SMSC_ADDRESS` still passes Android's number straight to the RIL, which probably wants the PDU form. Untested; nothing in our builds sets the SMSC.
+  - `/dev/umts_ipc0` has the generic `device` label, so rild's ioctls on it are denied (logged only, permissive). Label the modem nodes before enforcing.
+  - Overnight idle with the SIM (2026-11-04/05): rild stayed up, no modem reset, quiet radio log.
 - **GPS: the stack runs end to end (2026-11-01); first fix not seen yet** (tested indoors at night, 0 satellites). See "GPS" below.
 
 ## Device tree (`device/samsung/gd1`), first-boot gaps
