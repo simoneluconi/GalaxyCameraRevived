@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 package com.simoneluconi.gcgallery.ui
 
 import android.Manifest
@@ -6,6 +7,7 @@ import android.app.ActivityOptions
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
@@ -16,6 +18,7 @@ import android.provider.Settings
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -34,7 +37,9 @@ class GridActivity : Activity(), ThumbGridView.Callback {
     private lateinit var app: GalleryApp
     private lateinit var grid: ThumbGridView
     private lateinit var topBar: View
-    private lateinit var selectionBar: View
+    private lateinit var selectionBar: ViewGroup
+    private lateinit var selBottom: ViewGroup
+    private lateinit var selActions: View
     private lateinit var albums: LinearLayout
     private lateinit var emptyView: View
     private lateinit var emptyText: TextView
@@ -70,6 +75,8 @@ class GridActivity : Activity(), ThumbGridView.Callback {
         grid = findViewById(R.id.grid)
         topBar = findViewById(R.id.top_bar)
         selectionBar = findViewById(R.id.selection_bar)
+        selBottom = findViewById(R.id.sel_bottom)
+        selActions = findViewById(R.id.sel_actions)
         albums = findViewById(R.id.albums)
         emptyView = findViewById(R.id.empty)
         emptyText = findViewById(R.id.empty_text)
@@ -95,7 +102,6 @@ class GridActivity : Activity(), ThumbGridView.Callback {
         phoneChosen = savedInstanceState?.getBoolean(STATE_PHONE_CHOSEN) ?: false
         albumKey = savedInstanceState?.getString(STATE_ALBUM) ?: MediaIndex.CAMERA
         restoreIndex = savedInstanceState?.getInt(STATE_POSITION, -1) ?: -1
-        grid.setColumns(prefs.getInt(PREF_COLUMNS, 6))
         grid.callback = this
         grid.loader = app.thumbs
         grid.ratings = app.ratings
@@ -103,16 +109,23 @@ class GridActivity : Activity(), ThumbGridView.Callback {
         window.setDecorFitsSystemWindows(false)
         findViewById<View>(R.id.root).setOnApplyWindowInsetsListener { _, insets ->
             val b = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
-            val m = (8 * resources.displayMetrics.density).toInt()
+            val m = dp(8)
             for (bar in listOf(topBar, selectionBar)) {
                 (bar.layoutParams as FrameLayout.LayoutParams).setMargins(b.left + m, b.top + m, b.right + m, m)
                 bar.requestLayout()
             }
-            val barH = (52 * resources.displayMetrics.density).toInt()
-            grid.setPadding(b.left + m / 2, b.top + m + barH + m / 2, b.right + m / 2, b.bottom + m)
+            (selBottom.layoutParams as FrameLayout.LayoutParams).setMargins(b.left + m, m, b.right + m, b.bottom + m)
+            selBottom.requestLayout()
+            (message.root.layoutParams as FrameLayout.LayoutParams).bottomMargin = b.bottom + dp(16)
+            message.root.requestLayout()
+            val barH = dp(BAR_DP)
+            // Held vertically the last row can scroll clear of the bottom selection bar
+            val bottom = b.bottom + m + if (portrait) barH + m else 0
+            grid.setPadding(b.left + m / 2, b.top + m + barH + m / 2, b.right + m / 2, bottom)
             grid.topScrim = b.top
             insets
         }
+        applyOrientation()
 
         findViewById<View>(R.id.camera).setOnClickListener { Keys.openCamera(this) }
         emptyTrash.setOnClickListener { confirmEmptyTrash() }
@@ -129,6 +142,34 @@ class GridActivity : Activity(), ThumbGridView.Callback {
         app.thumbs.addListener(onThumb)
         if (hasPermission()) start() else showPermission()
     }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applyOrientation()
+    }
+
+    /** Level: the selection actions in the top bar. Vertical: in a bar of their own at the bottom, and fewer columns. */
+    private fun applyOrientation() {
+        val port = portrait
+        selActions.moveTo(if (port) selBottom else selectionBar)
+        placeSelectionBottom()
+        if (app.index.loaded) updateStorage(MediaIndex.sdMounted(this))
+        grid.setColumns(getSharedPreferences(PREFS, MODE_PRIVATE).getInt(columnsKey(), if (port) 4 else 6))
+        findViewById<View>(R.id.root).requestApplyInsets()
+    }
+
+    private fun columnsKey() = if (portrait) PREF_COLUMNS_PORTRAIT else PREF_COLUMNS
+
+    /** The bottom selection bar, and messages above it, while selecting held vertically. */
+    private fun placeSelectionBottom() {
+        val shown = portrait && grid.selecting
+        selBottom.animate().cancel()
+        selBottom.alpha = 1f
+        selBottom.visibility = if (shown) View.VISIBLE else View.GONE
+        message.root.translationY = if (shown) -dp(BAR_DP + 8).toFloat() else 0f
+    }
+
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     override fun onStart() {
         super.onStart()
@@ -288,8 +329,14 @@ class GridActivity : Activity(), ThumbGridView.Callback {
         storage.visibility = v
         storageDivider.visibility = v
         if (!sd) return
-        storageSd.text = "${getString(R.string.storage_sd)}  ${app.index.count(MediaIndex.Scope.SD)}"
-        storagePhone.text = "${getString(R.string.storage_phone)}  ${app.index.count(MediaIndex.Scope.PHONE)}"
+        // Held vertically the albums need the room: icon and count only
+        fun label(s: TextView, name: Int, scope: MediaIndex.Scope) {
+            val count = app.index.count(scope)
+            s.text = if (portrait) "$count" else "${getString(name)}  $count"
+            s.contentDescription = "${getString(name)} $count"
+        }
+        label(storageSd, R.string.storage_sd, MediaIndex.Scope.SD)
+        label(storagePhone, R.string.storage_phone, MediaIndex.Scope.PHONE)
         storageSd.isActivated = scope == MediaIndex.Scope.SD
         storagePhone.isActivated = scope == MediaIndex.Scope.PHONE
     }
@@ -383,7 +430,7 @@ class GridActivity : Activity(), ThumbGridView.Callback {
     override fun onSelectionChanged() = updateSelectionBar()
 
     override fun onColumnsChanged(columns: Int) {
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putInt(PREF_COLUMNS, columns).apply()
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putInt(columnsKey(), columns).apply()
     }
 
     private fun updateSelectionBar() {
@@ -396,14 +443,21 @@ class GridActivity : Activity(), ThumbGridView.Callback {
         }
         findViewById<View>(R.id.sel_restore).visibility = if (inTrash) View.VISIBLE else View.GONE
         crossfade(if (selecting) selectionBar else topBar, if (selecting) topBar else selectionBar)
+        if (portrait) {
+            if (selecting) crossfade(selBottom, null) else crossfade(null, selBottom)
+            message.root.translationY = if (selecting) -dp(BAR_DP + 8).toFloat() else 0f
+        }
         emptyTrash.visibility = if (inTrash && !selecting && grid.photos.isNotEmpty()) View.VISIBLE else View.GONE
     }
 
-    private fun crossfade(show: View, hide: View) {
-        show.alpha = 0f
-        show.visibility = View.VISIBLE
-        show.animate().alpha(1f).setDuration(150).start()
-        hide.animate().alpha(0f).setDuration(120).withEndAction { hide.visibility = View.GONE }.start()
+    private fun crossfade(show: View?, hide: View?) {
+        show?.apply {
+            animate().cancel()
+            alpha = 0f
+            visibility = View.VISIBLE
+            animate().alpha(1f).setDuration(150).start()
+        }
+        hide?.animate()?.alpha(0f)?.setDuration(120)?.withEndAction { hide.visibility = View.GONE }?.start()
     }
 
     // --- Actions
@@ -552,6 +606,9 @@ class GridActivity : Activity(), ThumbGridView.Callback {
     companion object {
         const val PREFS = "gallery"
         private const val PREF_COLUMNS = "columns"
+        private const val PREF_COLUMNS_PORTRAIT = "columns_portrait"
+        /** The floating bars' height. */
+        private const val BAR_DP = 52
         private const val PREF_HINTED = "manage_media_hinted"
         private const val STATE_ALBUM = "album"
         private const val STATE_POSITION = "position"

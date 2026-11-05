@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!-- The grid scrolls under a floating bar: albums as chips, or the selection actions -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
@@ -120,45 +121,69 @@
             android:contentDescription="@string/select_all"
             android:src="@drawable/ic_select_all" />
 
-        <ImageButton
-            android:id="@+id/sel_rate"
-            style="@style/BarButton"
-            android:contentDescription="@string/rate"
-            android:src="@drawable/ic_star" />
+        <!-- Held vertically these move to the bottom bar -->
+        <LinearLayout
+            android:id="@+id/sel_actions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <ImageButton
-            android:id="@+id/sel_rotate"
-            style="@style/BarButton"
-            android:contentDescription="@string/rotate_right"
-            android:src="@drawable/ic_rotate_right" />
+            <ImageButton
+                android:id="@+id/sel_rate"
+                style="@style/BarButton"
+                android:contentDescription="@string/rate"
+                android:src="@drawable/ic_star" />
 
-        <ImageButton
-            android:id="@+id/sel_share"
-            style="@style/BarButton"
-            android:contentDescription="@string/share"
-            android:src="@drawable/ic_share" />
+            <ImageButton
+                android:id="@+id/sel_rotate"
+                style="@style/BarButton"
+                android:contentDescription="@string/rotate_right"
+                android:src="@drawable/ic_rotate_right" />
 
-        <TextView
-            android:id="@+id/sel_raw"
-            style="@style/TextButton"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:contentDescription="@string/trash_raw"
-            android:text="@string/raw_button" />
+            <ImageButton
+                android:id="@+id/sel_share"
+                style="@style/BarButton"
+                android:contentDescription="@string/share"
+                android:src="@drawable/ic_share" />
 
-        <ImageButton
-            android:id="@+id/sel_restore"
-            style="@style/BarButton"
-            android:contentDescription="@string/restore"
-            android:src="@drawable/ic_restore"
-            android:visibility="gone" />
+            <TextView
+                android:id="@+id/sel_raw"
+                style="@style/TextButton"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:contentDescription="@string/trash_raw"
+                android:text="@string/raw_button" />
 
-        <ImageButton
-            android:id="@+id/sel_trash"
-            style="@style/BarButton"
-            android:contentDescription="@string/trash"
-            android:src="@drawable/ic_delete" />
+            <ImageButton
+                android:id="@+id/sel_restore"
+                style="@style/BarButton"
+                android:contentDescription="@string/restore"
+                android:src="@drawable/ic_restore"
+                android:visibility="gone" />
+
+            <ImageButton
+                android:id="@+id/sel_trash"
+                style="@style/BarButton"
+                android:contentDescription="@string/trash"
+                android:src="@drawable/ic_delete" />
+        </LinearLayout>
     </LinearLayout>
+
+    <!-- Held vertically: the selection actions, centred at the bottom -->
+    <LinearLayout
+        android:id="@+id/sel_bottom"
+        android:layout_width="wrap_content"
+        android:layout_height="52dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_margin="8dp"
+        android:background="@drawable/bar_bg"
+        android:elevation="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:visibility="gone" />
 
     <LinearLayout
         android:id="@+id/empty"

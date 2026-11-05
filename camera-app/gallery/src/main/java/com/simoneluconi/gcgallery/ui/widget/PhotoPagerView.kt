@@ -58,18 +58,22 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
     var index = 0
         private set
 
-    /** Width kept free on the right (the info panel). */
+    /** Width kept free on the right (the info panel, held level). */
     var insetRight = 0f
         private set
     /** Height kept free at the top (the bar, while the info panel is open). */
     var insetTop = 0f
         private set
+    /** Height kept free at the bottom (the info panel, held vertically). */
+    var insetBottom = 0f
+        private set
 
-    fun setInsets(right: Float, top: Float) {
+    fun setInsets(right: Float, top: Float, bottom: Float = 0f) {
         // Whether it was at fit before the space changed: after, the old scale no longer is
         val wasAtFit = isAtFit()
         insetRight = right
         insetTop = top
+        insetBottom = bottom
         if (wasAtFit) fit() else clampPan()
         invalidate()
     }
@@ -100,7 +104,7 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
     private var animator: ValueAnimator? = null
     private val gap = dp(16f)
     private val contentW get() = width - insetRight
-    private val contentH get() = height - insetTop
+    private val contentH get() = height - insetTop - insetBottom
 
     private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDown(e: MotionEvent): Boolean {
@@ -259,9 +263,9 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
     private fun panRange(size: Float, view: Float): Pair<Float, Float> =
         if (size <= view) ((view - size) / 2).let { it to it } else (view - size) to 0f
 
-    /** Centred below [insetTop] when it fits; zoomed in, it may pan up under the bar. */
+    /** Centred between the insets when it fits; zoomed in, it may pan up under the bar. */
     private fun panRangeY(size: Float): Pair<Float, Float> =
-        if (size <= contentH) (insetTop + (contentH - size) / 2).let { it to it } else (height - size) to insetTop
+        if (size <= contentH) (insetTop + (contentH - size) / 2).let { it to it } else (height - insetBottom - size) to insetTop
 
     private fun clampPan() {
         val (minX, maxX) = panRange(curW * scale, contentW)
@@ -348,7 +352,7 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
         }
         rf.set(
             max(0f, -tx / scale), max(0f, -ty / scale),
-            min(curW.toFloat(), (contentW - tx) / scale), min(curH.toFloat(), (height - ty) / scale),
+            min(curW.toFloat(), (contentW - tx) / scale), min(curH.toFloat(), (height - insetBottom - ty) / scale),
         )
         Orientation.matrix(p.orientation, p.rawW.toFloat(), p.rawH.toFloat(), o)
         o.invert(inv)
@@ -368,7 +372,10 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
     // --- Drawing
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        if (fitted) fit()
+        if (!fitted) return
+        // A turn of the device: start again from fit, the old region no longer matches
+        clearDetail()
+        fit()
     }
 
     override fun computeScroll() {

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!-- Photo full screen; a floating bar on top and the info panel on the right, like the viewfinder's panel column -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
@@ -58,52 +59,61 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- One star; the five open in a small popup -->
-        <FrameLayout
-            android:id="@+id/rate"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@drawable/round_ripple"
-            android:contentDescription="@string/rate">
+        <!-- The edit actions; held vertically they move to the bottom bar -->
+        <LinearLayout
+            android:id="@+id/actions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <ImageView
-                android:id="@+id/rate_icon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_gravity="center"
-                android:importantForAccessibility="no"
-                android:src="@drawable/ic_star" />
+            <!-- One star; the five open in a small popup -->
+            <FrameLayout
+                android:id="@+id/rate"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/round_ripple"
+                android:contentDescription="@string/rate">
 
-            <TextView
-                android:id="@+id/rate_count"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:layout_marginTop="1dp"
-                android:fontFamily="sans-serif-medium"
-                android:textColor="@color/on_accent"
-                android:textSize="9sp"
-                android:visibility="gone" />
-        </FrameLayout>
+                <ImageView
+                    android:id="@+id/rate_icon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_star" />
 
-        <!-- Left, right and flip open in a small popup -->
-        <ImageButton
-            android:id="@+id/rotate"
-            style="@style/BarButton"
-            android:contentDescription="@string/rotate"
-            android:src="@drawable/ic_rotate_right" />
+                <TextView
+                    android:id="@+id/rate_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="1dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:textColor="@color/on_accent"
+                    android:textSize="9sp"
+                    android:visibility="gone" />
+            </FrameLayout>
 
-        <ImageButton
-            android:id="@+id/share"
-            style="@style/BarButton"
-            android:contentDescription="@string/share"
-            android:src="@drawable/ic_share" />
+            <!-- Left, right and flip open in a small popup -->
+            <ImageButton
+                android:id="@+id/rotate"
+                style="@style/BarButton"
+                android:contentDescription="@string/rotate"
+                android:src="@drawable/ic_rotate_right" />
 
-        <ImageButton
-            android:id="@+id/trash"
-            style="@style/BarButton"
-            android:contentDescription="@string/trash"
-            android:src="@drawable/ic_delete" />
+            <ImageButton
+                android:id="@+id/share"
+                style="@style/BarButton"
+                android:contentDescription="@string/share"
+                android:src="@drawable/ic_share" />
+
+            <ImageButton
+                android:id="@+id/trash"
+                style="@style/BarButton"
+                android:contentDescription="@string/trash"
+                android:src="@drawable/ic_delete" />
+        </LinearLayout>
 
         <ImageButton
             android:id="@+id/info"
@@ -112,6 +122,22 @@
             android:src="@drawable/ic_info" />
     </LinearLayout>
 
+    <!-- Held vertically: the edit actions, centred at the bottom -->
+    <LinearLayout
+        android:id="@+id/bottom_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="52dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_margin="8dp"
+        android:background="@drawable/bar_bg"
+        android:elevation="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:visibility="gone" />
+
+    <!-- Right of the photo, or below it when held vertically; placed in code -->
     <LinearLayout
         android:id="@+id/info_panel"
         android:layout_width="@dimen/info_panel_width"

@@ -24,7 +24,7 @@ A photography-first gallery that goes with GC Camera and also opens any picture.
 - **Viewer**:
   - swipe between photos;
   - double tap or pinch for 100% (up to 300%), with a full-resolution decode of the visible area;
-  - the info panel on the right, with an RGB/luma histogram and blinking clipped highlights;
+  - the info panel on the right (below the photo when held vertically), with an RGB/luma histogram and blinking clipped highlights;
   - rotate left/right, flip, stars, share, trash.
 - **Info panel**: exposure (shutter, f, ISO, bias, EV100, PASM, metering, WB, flash), lens (focal length, 35 mm equivalent, zoom factor from LensSpecification), GC Camera's XMP `gc:` fields, location (decimal and DMS, altitude, accuracy, compass direction, GPS time, "open in maps", copy), file details, and for a pair the DNG facts (sensor size, CFA, black/white levels, active area).
 - **Keys**:
@@ -33,6 +33,13 @@ A photography-first gallery that goes with GC Camera and also opens any picture.
 - **Intents**: `MAIN/LAUNCHER` + `APP_GALLERY`, `ACTION_VIEW image/*`, and `android.provider.action.REVIEW(_SECURE)`.
   - GC Camera's last-shot button sends REVIEW with the JPEG's MediaStore uri; the viewer opens on that shot inside its folder.
   - A picture from another app opens alone, view and share only.
+- **Rotation** (user, 2026-11-05): the gallery follows the device into all four positions (`fullUser`), unlike GC Camera, which stays landscape and turns its controls in place.
+  - The activities handle the change themselves (`configChanges`), so the selection, the open photo and the info panel survive a turn.
+  - Held vertically:
+    - the edit actions move to a bar at the bottom: the viewer's stars, rotate, share and trash, and the grid's selection actions;
+    - the viewer's info panel opens below the photo, above that bar;
+    - the grid has its own column count (4 by default, against 6 held level);
+    - the storage switch shows icon and count only.
 - **Theme**: light/dark follows the system. Same colour tokens as GC Camera, plus `scrim` and `rating`. Floating translucent bars, with no blur (Mali-400).
 
 - **Later: the Galaxy Camera 2 (EK-GC200) too** (user, 2026-11-04). Audit of 2026-11-04 for GC100-only assumptions:
@@ -122,7 +129,7 @@ adb -s <serial> shell appops set com.simoneluconi.gcgallery MANAGE_MEDIA allow
 - `meta/PhotoInfo`: the info panel's sections.
 - `ui/`:
   - `GridActivity`, `ViewerActivity`;
-  - `MediaAccess` (MediaStore consent requests), `MessageBar`, `Keys`;
+  - `MediaAccess` (MediaStore consent requests), `MessageBar`, `Keys`, `Layout` (portrait check, moving views between bars);
   - `widget/`: `ThumbGridView`, `PhotoPagerView`, `StarsView`.
 - `:common` (`camera-app/common/`): colour tokens, `Ui.kt`, `HistogramView`, `panel_button_bg`.
 
@@ -150,7 +157,8 @@ adb -s <serial> shell appops set com.simoneluconi.gcgallery MANAGE_MEDIA allow
     - swipe, double tap 100% (detail decode in the log), zoom lever, wide at fit goes back to the grid;
     - the info panel moves the photo below the bar, with GPS rows on a geotagged shot;
     - clipping blink, RGB histogram.
-11. **Memory**: `dumpsys meminfo com.simoneluconi.gcgallery` after a fast scroll through every photo and 20 viewer swipes; no lmk kill of GC Camera.
+11. **Rotation**: turn the camera through all four positions in the grid (with a selection) and in the viewer (with the info panel open). The selection and the photo stay, the bars and panel move, and the star and rotate popups open above the bottom bar when held vertically. To force a position from adb: `settings put system accelerometer_rotation 0` and `user_rotation 0..3`, then restore `1`/`0`.
+12. **Memory**: `dumpsys meminfo com.simoneluconi.gcgallery` after a fast scroll through every photo and 20 viewer swipes; no lmk kill of GC Camera.
 
 ## 7. Milestones
 

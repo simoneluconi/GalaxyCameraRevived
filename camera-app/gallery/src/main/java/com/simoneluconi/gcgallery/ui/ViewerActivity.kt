@@ -1,6 +1,9 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 package com.simoneluconi.gcgallery.ui
 
 import android.Manifest
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.ActivityNotFoundException
@@ -9,6 +12,7 @@ import android.content.ClipboardManager
 import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.net.Uri
@@ -62,7 +66,10 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
 
     private lateinit var app: GalleryApp
     private lateinit var pager: PhotoPagerView
-    private lateinit var topBar: View
+    private lateinit var topBar: ViewGroup
+    private lateinit var bottomBar: ViewGroup
+    private lateinit var actions: View
+    private lateinit var infoButton: View
     private lateinit var titleView: TextView
     private lateinit var subtitleView: TextView
     private lateinit var rateButton: View
@@ -102,6 +109,9 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
 
     private var chromeShown = true
     private var infoOpen = false
+    /** How far the info panel is in, 0 to 1 (animated). */
+    private var infoShown = 0f
+    private var popup: PopupWindow? = null
     private var clipOn = false
     private var clipAnimator: ValueAnimator? = null
     private var screenW = 0
@@ -113,6 +123,9 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         setContentView(R.layout.activity_viewer)
         pager = findViewById(R.id.pager)
         topBar = findViewById(R.id.top_bar)
+        bottomBar = findViewById(R.id.bottom_bar)
+        actions = findViewById(R.id.actions)
+        infoButton = findViewById(R.id.info)
         titleView = findViewById(R.id.title)
         subtitleView = findViewById(R.id.subtitle)
         rateButton = findViewById(R.id.rate)
@@ -137,9 +150,11 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         }
         findViewById<View>(R.id.root).setOnApplyWindowInsetsListener { _, insets ->
             val b = insets.getInsetsIgnoringVisibility(WindowInsets.Type.displayCutout())
-            val m = (8 * resources.displayMetrics.density).toInt()
+            val m = dp(8)
             (topBar.layoutParams as FrameLayout.LayoutParams).setMargins(b.left + m, b.top + m, b.right + m, m)
+            (bottomBar.layoutParams as FrameLayout.LayoutParams).setMargins(b.left + m, m, b.right + m, b.bottom + m)
             topBar.requestLayout()
+            bottomBar.requestLayout()
             insets
         }
 
@@ -147,7 +162,7 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         findViewById<View>(R.id.rotate).setOnClickListener { showRotatePopup(it) }
         findViewById<View>(R.id.share).setOnClickListener { share() }
         findViewById<View>(R.id.trash).setOnClickListener { trash() }
-        findViewById<View>(R.id.info).setOnClickListener { setInfoOpen(!infoOpen) }
+        infoButton.setOnClickListener { setInfoOpen(!infoOpen) }
         rateButton.setOnClickListener { showRatingPopup() }
         histRgb.setOnClickListener {
             histRgb.isActivated = !histRgb.isActivated
@@ -157,8 +172,44 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
 
         pager.callback = this
         infoOpen = savedInstanceState?.getBoolean(STATE_INFO) ?: getSharedPreferences(GridActivity.PREFS, MODE_PRIVATE).getBoolean(PREF_INFO, false)
+        applyOrientation()
         resolveItems(savedInstanceState?.getLong(STATE_ID, Long.MIN_VALUE) ?: Long.MIN_VALUE)
     }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applyOrientation()
+    }
+
+    /**
+     * Level: one bar on top with the actions and the info panel on the right. Vertical: the
+     * actions in a bar at the bottom, the info panel above it and the photo in the space left.
+     */
+    private fun applyOrientation() {
+        popup?.dismiss()
+        val port = portrait
+        if (port) actions.moveTo(bottomBar) else actions.moveTo(topBar, topBar.indexOfChild(infoButton))
+        bottomBar.visibility = if (port) View.VISIBLE else View.GONE
+        bottomBar.translationY = if (chromeShown) 0f else bottomBarTravel()
+        bottomBar.alpha = if (chromeShown) 1f else 0f
+        val lp = infoPanel.layoutParams as FrameLayout.LayoutParams
+        val m = dp(8)
+        if (port) {
+            lp.width = FrameLayout.LayoutParams.MATCH_PARENT
+            lp.height = (resources.displayMetrics.heightPixels * PANEL_HEIGHT).toInt()
+            lp.gravity = Gravity.BOTTOM
+            lp.setMargins(m, m, m, m + dp(BAR_DP) + m)
+        } else {
+            lp.width = resources.getDimensionPixelSize(R.dimen.info_panel_width)
+            lp.height = FrameLayout.LayoutParams.MATCH_PARENT
+            lp.gravity = Gravity.END
+            lp.setMargins(m, m + dp(BAR_DP) + m, m, m)
+        }
+        infoPanel.layoutParams = lp
+        setInfoOpen(infoOpen, animate = false)
+    }
+
+    private fun bottomBarTravel() = dp(BAR_DP + 16).toFloat()
 
     override fun onDestroy() {
         app.index.removeWaiter(onIndexLoaded)
@@ -169,6 +220,8 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         detailer.shutdown()
         editor.shutdown()
         clipAnimator?.cancel()
+        infoAnimator?.cancel()
+        popup?.dismiss()
         super.onDestroy()
     }
 
@@ -575,36 +628,59 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         infoOpen = open
         findViewById<View>(R.id.info).isActivated = open
         getSharedPreferences(GridActivity.PREFS, MODE_PRIVATE).edit().putBoolean(PREF_INFO, open).apply()
-        val width = resources.getDimension(R.dimen.info_panel_width) + 16 * resources.displayMetrics.density
         if (open) {
             infoPanel.visibility = View.VISIBLE
             computeHistogram()
         }
-        // With the panel open the photo fits the space left of it and below the bar
-        val top = (infoPanel.layoutParams as FrameLayout.LayoutParams).topMargin.toFloat()
-        val from = if (width > 0) pager.insetRight / width else 0f
         val to = if (open) 1f else 0f
         infoPanel.animate().cancel()
+        infoAnimator?.cancel()
         if (!animate) {
-            infoPanel.translationX = if (open) 0f else width
-            pager.setInsets(to * width, to * top)
-            message.root.translationX = -to * width / 2
+            showInfoFraction(to)
             if (!open) infoPanel.visibility = View.INVISIBLE
             return
         }
-        infoPanel.translationX = if (open) width else 0f
-        infoPanel.animate().translationX(if (open) 0f else width).setDuration(220).setInterpolator(DecelerateInterpolator())
-            .withEndAction { if (!infoOpen) infoPanel.visibility = View.INVISIBLE }.start()
-        ValueAnimator.ofFloat(from, to).apply {
+        infoAnimator = ValueAnimator.ofFloat(infoShown, to).apply {
             duration = 220
             interpolator = DecelerateInterpolator()
-            addUpdateListener {
-                val f = it.animatedValue as Float
-                pager.setInsets(f * width, f * top)
-                // Messages stay centred on the photo, not under the panel
-                message.root.translationX = -f * width / 2
-            }
+            addUpdateListener { showInfoFraction(it.animatedValue as Float) }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (!infoOpen) infoPanel.visibility = View.INVISIBLE
+                }
+            })
             start()
+        }
+    }
+
+    private var infoAnimator: ValueAnimator? = null
+
+    /**
+     * The info panel [f] of the way in. With it open the photo fits the space left: beside it
+     * and below the bar when level, between the bar and the panel when vertical.
+     */
+    private fun showInfoFraction(f: Float) {
+        infoShown = f
+        val lp = infoPanel.layoutParams as FrameLayout.LayoutParams
+        if (portrait) {
+            val top = dp(BAR_DP + 16).toFloat()
+            // From the panel's top edge to the bottom of the screen
+            val bottom = lp.height + lp.bottomMargin + dp(8).toFloat()
+            infoPanel.translationX = 0f
+            infoPanel.translationY = (1 - f) * bottom
+            pager.setInsets(0f, f * top, f * bottom)
+            // Messages sit above the bottom bar, or above the panel when it is open
+            val bar = bottomBarTravel()
+            message.root.translationX = 0f
+            message.root.translationY = -(bar + f * (bottom - bar))
+        } else {
+            val width = lp.width + lp.leftMargin + lp.rightMargin.toFloat()
+            infoPanel.translationY = 0f
+            infoPanel.translationX = (1 - f) * width
+            pager.setInsets(f * width, f * lp.topMargin)
+            // Messages stay centred on the photo, not under the panel
+            message.root.translationX = -f * width / 2
+            message.root.translationY = 0f
         }
     }
 
@@ -612,6 +688,7 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         chromeShown = show
         val h = topBar.height + topBar.top.toFloat()
         topBar.animate().translationY(if (show) 0f else -h).alpha(if (show) 1f else 0f).setDuration(180).start()
+        bottomBar.animate().translationY(if (show) 0f else bottomBarTravel()).alpha(if (show) 1f else 0f).setDuration(180).start()
         if (!show && infoOpen) setInfoOpen(false)
     }
 
@@ -652,7 +729,7 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
     }
 
     private fun showRatingPopup() {
-        val (content, popup) = popupUnder(rateButton, R.layout.rating_popup)
+        val (content, popup) = popupAt(rateButton, R.layout.rating_popup)
         val stars = content.findViewById<StarsView>(R.id.stars)
         stars.rating = rating
         stars.onRate = { r ->
@@ -664,22 +741,28 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
 
     /** Left, right, flip; stays open so a photo can be turned twice in a row. */
     private fun showRotatePopup(anchor: View) {
-        val (content, _) = popupUnder(anchor, R.layout.rotate_popup)
+        val (content, _) = popupAt(anchor, R.layout.rotate_popup)
         content.findViewById<View>(R.id.rotate_left).setOnClickListener { rotate(Orientation.ROTATE_CCW) }
         content.findViewById<View>(R.id.rotate_right).setOnClickListener { rotate(Orientation.ROTATE_CW) }
         content.findViewById<View>(R.id.flip).setOnClickListener { rotate(Orientation.FLIP_H) }
     }
 
-    private fun popupUnder(anchor: View, layout: Int): Pair<View, PopupWindow> {
+    private fun popupAt(anchor: View, layout: Int): Pair<View, PopupWindow> {
         val content = layoutInflater.inflate(layout, null)
         // Not focusable, so the shutter and the zoom lever still reach the activity while it is open
         val popup = PopupWindow(content, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, false).apply {
             elevation = 6 * resources.displayMetrics.density
             isOutsideTouchable = true
-            setOnDismissListener { popupClosedAt = SystemClock.uptimeMillis() }
+            setOnDismissListener {
+                popupClosedAt = SystemClock.uptimeMillis()
+                if (this@ViewerActivity.popup === this) this@ViewerActivity.popup = null
+            }
         }
+        this.popup = popup
         content.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
-        popup.showAsDropDown(anchor, (anchor.width - content.measuredWidth) / 2, dp(6))
+        // Below the top bar; above the bottom bar when held vertically
+        val y = if (portrait) -(anchor.height + content.measuredHeight + dp(14)) else dp(6)
+        popup.showAsDropDown(anchor, (anchor.width - content.measuredWidth) / 2, y)
         return content to popup
     }
 
@@ -779,5 +862,9 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         private const val PREF_INFO = "info_open"
         private const val TAG = "GcGallery"
         private const val CLIP = 252
+        /** The floating bars' height. */
+        private const val BAR_DP = 52
+        /** Held vertically, the info panel's share of the screen height. */
+        private const val PANEL_HEIGHT = 0.42f
     }
 }
