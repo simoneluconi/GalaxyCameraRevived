@@ -204,13 +204,14 @@ Still open:
   - cbd had never run: init failed `setexeccon(u:r:cpboot-daemon:s0)` (status 6) because no device sepolicy was built. gd1's `sepolicy/vendor` has a permissive `cpboot-daemon` domain now.
   - **SMS sending was fixed in the RIL shim** (smdk4412-common f90d50e). The Samsung RIL answers `GET_SMSC_ADDRESS` with a hex PDU field (`0791…`), Android encoded that again as a number, and the network rejected every SMS with RP cause 95. The shim now reports `+39…`. Found with `strace -x -e read,write -p <rild>` on the `/dev/umts_ipc0` fd.
   - Not done: `SET_SMSC_ADDRESS` still passes Android's number straight to the RIL, which probably wants the PDU form. Untested; nothing in our builds sets the SMSC.
-  - `/dev/umts_ipc0` has the generic `device` label, so rild's ioctls on it are denied (logged only, permissive). Label the modem nodes before enforcing.
+  - The modem nodes (`/dev/umts_*`, `link_pm`, `modem_br`) are labelled `radio_device` since 2026-11-05 (in the next full build), see the SELinux entry below.
   - Overnight idle with the SIM (2026-11-04/05): rild stayed up, no modem reset, quiet radio log.
 - **GPS: first fix in 35 s (2026-11-05)**, after gd1 ab8d1ce configured Broadcom's LTO download (`/vendor/etc/gps_debug.conf`; it had never been downloaded, so every start was cold). The 7-day file keeps fixes fast offline. See "GPS" below. Still open:
-  - `/data/gps` (lto2.dat, gldata.sto) is labelled `system_data_file`; gpsd's writes are only allowed because SELinux is permissive. Label it before enforcing.
-  - libgps-shim's satellite callback logs garbage entries (svinfo with `size=1120272384`, `prn=0`, "Unknown constellation type with Svid = 0"): the GpsSvStatus conversion reads past the real satellites. Harmless for the fix, wrong satellite list in apps.
+  - The daemon's data moved to `/data/vendor/gps` (`gps_vendor_data_file`, in the next full build). Still in `/data` itself: the HAL↔daemon pipes `/data/.gps.interface.pipe.to_gpsd` / `.to_jni`, hardcoded in both blobs. Under enforcing a vendor domain may not create files there (Treble neverallow); options are binary-patching the path in both blobs, or a symlink init creates.
+  - The satellite list had garbage entries after the first one: the GC100 HAL's GpsSvInfo is 24 bytes (one extra Samsung field), the shim read 20. Fixed in libgps-shim (next full build); check the satellite list in GPSTest.
   - `IgnoreJniTime="true"` (stock value) still ignores Android's time; try `false` if fixes are slow.
 - **Stuck Home/touch (2026-11-05): a launcher race, patched in Trebuchet (local, installed as an update).** A swipe-up asks the shell for a recents transition; on this slow device the shell started it after the launcher had already dropped that gesture's listeners, so nobody finished it. The active recents transition then kept every touch and gesture: the app looked frozen, Home and the shade did nothing (also the GPSTest "touch not responding" of 13:36). The patch finishes an orphan recents animation at once. Unblock by hand: `am force-stop com.android.launcher3`. To do: push a `gd1` branch to a Trebuchet fork once the user confirms.
+- **`screencap` hung ~2 min** (futex wait) when run right after a cold start of GC Camera, while the preview surface came up and the ISP powered on (camera session, 2026-11-05); the display kept working. Not reproduced yet; next time take `debuggerd -b $(pidof surfaceflinger)` while it hangs.
 - **DocumentsUI crashes after its process was killed** (NPE in `IconHelper` on `ConfigStore.isPrivateSpaceInDocsUIEnabled()`, 2026-11-05): an AOSP bug on activity re-creation, seen because of the low memory.
 
 ## Device tree (`device/samsung/gd1`), first-boot gaps
@@ -220,7 +221,7 @@ Still open:
   - gd1 now has `sepolicy/vendor` (2026-11-01) with only what init needs to start our daemons: permissive `cpboot-daemon` and `gpsd` domains, and a label for the GNSS service.
   - rild, wpa_supplicant and other services still run in the `init` domain (their binaries lack a transition), which only works because everything is permissive.
   - Proper fix: write policy for our services (RIL/cbd, GPS, camera, sensors, Wi-Fi, power HAL), collect denials in permissive mode, then switch to enforcing.
-  - Modem device nodes: `/dev/umts_ipc0` (and the other `umts_*` nodes) carry the generic `device` label, so rild's ioctl 0x6f27 on it is denied (seen 2026-11-05, logged only). Give them a radio device type in `sepolicy/vendor` (file_contexts plus an allow for rild and cbd); under enforcing, 3G and SMS would break without it.
+  - Modem device nodes: labelled `radio_device` in `sepolicy/vendor/file_contexts` (2026-11-05). rild already has access as `hal_telephony_server`, cbd has an allow. Before that they carried the generic `device` label and rild's ioctl 0x6f27 was denied (logged only).
   - Also check that kernel 3.0 really loads the Android 14 policy (`/sys/fs/selinux/policyvers`, dmesg at boot).
 - **Root folders** are limited to `efs` (`BOARD_ROOT_EXTRA_FOLDERS`). The common tree's `misc` and `preload` have no label in UL and broke the system image.
 - **VINTF**: the device manifest declares `target-level="5"`.
@@ -465,7 +466,7 @@ The stock M9MO JPEGs look poor: heavy sharpening halos, smeary noise reduction, 
 
 **Done 2026-11-05**:
 - **ION contig heap 140 → 16 MB** (kernel 247b11e0): MemTotal 753 → 864 MB. The heap stayed at 0 bytes with the preview, a 16 MP + RAW capture and a hardware H.264 encode (`screenrecord`). **Untested: video recording**, whose HAL path (`exynos_camera_recording_output_start` → `exynos_v4l2_output_start`) allocates from ION; if recording fails, raise the heap first.
-- **cgroups work** (kernel 8cdc05d8): system_server could not move app threads (EACCES on kernel 3.4), so background apps kept all four cores. Android's `allow_attach` hook for CAP_SYS_NICE fixes it; background is cpuset 0-1. `/dev/cpuctl/background/cpu.shares` is still 1024 (nobody sets it): try 52, as older Android did.
+- **cgroups work** (kernel 8cdc05d8): system_server could not move app threads (EACCES on kernel 3.4), so background apps kept all four cores. Android's `allow_attach` hook for CAP_SYS_NICE fixes it; background is cpuset 0-1. `/dev/cpuctl/background/cpu.shares` was 1024 (nobody sets it); init.target.rc now writes 52, as older Android did (next full build).
 - **LMK test** (runtime only, lost on reboot): minfree 48/56/64/80/112/144 MB instead of AM's 72/90/108/126/144/180. Redo with the bigger MemTotal, then set it in an overlay (`config_lowMemoryKillerMinFreeKbytesAbsolute`).
 - **Leak watch**: `/data/local/tmp/memwatch.sh` logs PSS and vmstat every 10 min to `/data/local/tmp/memwatch.log` (started 18:39). Compare after a few hours of use; stop with `pkill -f memwatch.sh`.
 
