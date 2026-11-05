@@ -206,7 +206,12 @@ Still open:
   - Not done: `SET_SMSC_ADDRESS` still passes Android's number straight to the RIL, which probably wants the PDU form. Untested; nothing in our builds sets the SMSC.
   - `/dev/umts_ipc0` has the generic `device` label, so rild's ioctls on it are denied (logged only, permissive). Label the modem nodes before enforcing.
   - Overnight idle with the SIM (2026-11-04/05): rild stayed up, no modem reset, quiet radio log.
-- **GPS: the stack runs end to end (2026-11-01); first fix not seen yet** (tested indoors at night, 0 satellites). See "GPS" below.
+- **GPS: first fix in 35 s (2026-11-05)**, after gd1 ab8d1ce configured Broadcom's LTO download (`/vendor/etc/gps_debug.conf`; it had never been downloaded, so every start was cold). The 7-day file keeps fixes fast offline. See "GPS" below. Still open:
+  - `/data/gps` (lto2.dat, gldata.sto) is labelled `system_data_file`; gpsd's writes are only allowed because SELinux is permissive. Label it before enforcing.
+  - libgps-shim's satellite callback logs garbage entries (svinfo with `size=1120272384`, `prn=0`, "Unknown constellation type with Svid = 0"): the GpsSvStatus conversion reads past the real satellites. Harmless for the fix, wrong satellite list in apps.
+  - `IgnoreJniTime="true"` (stock value) still ignores Android's time; try `false` if fixes are slow.
+- **Stuck Home/touch (2026-11-05): a launcher race, patched in Trebuchet (local, installed as an update).** A swipe-up asks the shell for a recents transition; on this slow device the shell started it after the launcher had already dropped that gesture's listeners, so nobody finished it. The active recents transition then kept every touch and gesture: the app looked frozen, Home and the shade did nothing (also the GPSTest "touch not responding" of 13:36). The patch finishes an orphan recents animation at once. Unblock by hand: `am force-stop com.android.launcher3`. To do: push a `gd1` branch to a Trebuchet fork once the user confirms.
+- **DocumentsUI crashes after its process was killed** (NPE in `IconHelper` on `ConfigStore.isPrivateSpaceInDocsUIEnabled()`, 2026-11-05): an AOSP bug on activity re-creation, seen because of the low memory.
 
 ## Device tree (`device/samsung/gd1`), first-boot gaps
 
@@ -458,8 +463,14 @@ The stock M9MO JPEGs look poor: heavy sharpening halos, smeary noise reduction, 
 
 **Measure at first boot**: `/proc/meminfo`, `dumpsys meminfo`, `/sys/kernel/debug/ion/*` and lmk kills, at idle, during preview, capture and video.
 
+**Done 2026-11-05**:
+- **ION contig heap 140 → 16 MB** (kernel 247b11e0): MemTotal 753 → 864 MB. The heap stayed at 0 bytes with the preview, a 16 MP + RAW capture and a hardware H.264 encode (`screenrecord`). **Untested: video recording**, whose HAL path (`exynos_camera_recording_output_start` → `exynos_v4l2_output_start`) allocates from ION; if recording fails, raise the heap first.
+- **cgroups work** (kernel 8cdc05d8): system_server could not move app threads (EACCES on kernel 3.4), so background apps kept all four cores. Android's `allow_attach` hook for CAP_SYS_NICE fixes it; background is cpuset 0-1. `/dev/cpuctl/background/cpu.shares` is still 1024 (nobody sets it): try 52, as older Android did.
+- **LMK test** (runtime only, lost on reboot): minfree 48/56/64/80/112/144 MB instead of AM's 72/90/108/126/144/180. Redo with the bigger MemTotal, then set it in an overlay (`config_lowMemoryKillerMinFreeKbytesAbsolute`).
+- **Leak watch**: `/data/local/tmp/memwatch.sh` logs PSS and vmstat every 10 min to `/data/local/tmp/memwatch.log` (started 18:39). Compare after a few hours of use; stop with `pkill -f memwatch.sh`.
+
 **Then**:
-1. **Shrink the ION contig heap** (`CONFIG_ION_EXYNOS_CONTIGHEAP_SIZE`, 140MB). It is sized for Samsung's HAL plus DRM secure video. Our open camera HAL allocates its buffers from it (`exynos_ion.c`, `ION_HEAP_EXYNOS_CONTIG_MASK`), and gralloc uses it too, so size it from the measured peak (16MP capture plus video recording) with a margin. Possibly 60–70MB to gain.
+1. ~~Shrink the ION contig heap~~ (done, see above). Our open camera HAL allocates only its JPEG-encoder and V4L2-output buffers from it (`exynos_ion.c`).
    - Disabling `EXYNOS_CONTENT_PATH_PROTECTION` alone does not free ION, because the non-CPP layout keeps the "ion" region.
    - Check whether the MFC secure region can shrink without breaking video encode/decode.
    - Check whether FIMC0 and FIMC1 (63MB) are still used by the open HAL; it may use ION/USERPTR instead of the reserved regions.
