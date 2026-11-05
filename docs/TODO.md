@@ -215,6 +215,7 @@ Still open:
   - gd1 now has `sepolicy/vendor` (2026-11-01) with only what init needs to start our daemons: permissive `cpboot-daemon` and `gpsd` domains, and a label for the GNSS service.
   - rild, wpa_supplicant and other services still run in the `init` domain (their binaries lack a transition), which only works because everything is permissive.
   - Proper fix: write policy for our services (RIL/cbd, GPS, camera, sensors, Wi-Fi, power HAL), collect denials in permissive mode, then switch to enforcing.
+  - Modem device nodes: `/dev/umts_ipc0` (and the other `umts_*` nodes) carry the generic `device` label, so rild's ioctl 0x6f27 on it is denied (seen 2026-11-05, logged only). Give them a radio device type in `sepolicy/vendor` (file_contexts plus an allow for rild and cbd); under enforcing, 3G and SMS would break without it.
   - Also check that kernel 3.0 really loads the Android 14 policy (`/sys/fs/selinux/policyvers`, dmesg at boot).
 - **Root folders** are limited to `efs` (`BOARD_ROOT_EXTRA_FOLDERS`). The common tree's `misc` and `preload` have no label in UL and broke the system image.
 - **VINTF**: the device manifest declares `target-level="5"`.
