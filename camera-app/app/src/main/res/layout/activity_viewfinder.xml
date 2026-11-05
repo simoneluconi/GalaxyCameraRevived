@@ -139,17 +139,27 @@
             android:layout_marginTop="6dp"
             android:orientation="horizontal">
 
-            <TextView
+            <FrameLayout
                 android:id="@+id/btn_flash"
-                style="@style/PanelButton"
-                android:maxLines="2"
-                android:textSize="10sp" />
+                style="@style/PanelButton">
 
-            <TextView
+                <TextView
+                    android:id="@+id/label_flash"
+                    style="@style/PanelLabel"
+                    android:maxLines="2"
+                    android:textSize="10sp" />
+            </FrameLayout>
+
+            <FrameLayout
                 android:id="@+id/btn_format"
-                style="@style/PanelButton"
-                android:maxLines="2"
-                android:textSize="10sp" />
+                style="@style/PanelButton">
+
+                <TextView
+                    android:id="@+id/label_format"
+                    style="@style/PanelLabel"
+                    android:maxLines="2"
+                    android:textSize="10sp" />
+            </FrameLayout>
         </LinearLayout>
 
         <LinearLayout
@@ -158,17 +168,29 @@
             android:layout_marginTop="4dp"
             android:orientation="horizontal">
 
-            <TextView
+            <FrameLayout
                 android:id="@+id/btn_fn"
-                style="@style/PanelButton"
-                android:text="@string/fn" />
+                style="@style/PanelButton">
 
-            <ImageView
+                <TextView
+                    android:id="@+id/label_fn"
+                    style="@style/PanelLabel"
+                    android:text="@string/fn" />
+            </FrameLayout>
+
+            <FrameLayout
                 android:id="@+id/btn_settings"
                 style="@style/PanelButton"
-                android:contentDescription="@string/settings_title"
-                android:scaleType="center"
-                android:src="@drawable/ic_settings" />
+                android:contentDescription="@string/settings_title">
+
+                <ImageView
+                    android:id="@+id/label_settings"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_settings" />
+            </FrameLayout>
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

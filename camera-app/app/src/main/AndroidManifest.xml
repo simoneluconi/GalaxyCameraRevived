@@ -11,6 +11,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Wi-Fi indicator in the status bar -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- SaveService: keeps the process alive while a DNG is still being written -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:name=".GcApp"
@@ -44,5 +47,10 @@
             android:label="@string/settings_title"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.GcCamera.Settings" />
+
+        <service
+            android:name=".storage.SaveService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 </manifest>

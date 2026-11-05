@@ -167,12 +167,13 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         rowIso = findViewById(R.id.row_iso)
         meter = findViewById(R.id.meter)
         histogram = findViewById(R.id.histogram)
-        btnFlash = findViewById(R.id.btn_flash)
-        btnFormat = findViewById(R.id.btn_format)
+        btnFlash = findViewById(R.id.label_flash)
+        btnFormat = findViewById(R.id.label_format)
         btnLast = findViewById(R.id.btn_last)
 
         orientation = OrientationSensor(this, overlay::setRoll, ::rotateUi)
-        rotatingViews = listOf(btnFlash, btnFormat, findViewById<View>(R.id.btn_fn), findViewById<View>(R.id.btn_settings), quickMenu)
+        // The labels turn, not the buttons: a wide button turned sideways overlapped its neighbours
+        rotatingViews = listOf(btnFlash, btnFormat, findViewById<View>(R.id.label_fn), findViewById<View>(R.id.label_settings), quickMenu)
         geo = GeoTagger(this) { updateGps(it) }
 
         preview.holder.addCallback(this)
@@ -186,8 +187,8 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         rowIso.onStep = ::stepIso
         meter.onSet = ::setEv
         mode.onSelect = { i -> caps?.let { c -> setShot(normalise(shot.copy(pasm = c.pasmModes[i]), c)) } }
-        btnFlash.setOnClickListener { cycleFlash() }
-        btnFormat.setOnClickListener { toggleRaw() }
+        findViewById<View>(R.id.btn_flash).setOnClickListener { cycleFlash() }
+        findViewById<View>(R.id.btn_format).setOnClickListener { toggleRaw() }
         btnLast.setOnClickListener { openLastShot() }
         findViewById<View>(R.id.btn_fn).setOnClickListener { toggleQuickMenu() }
         findViewById<View>(R.id.btn_settings).setOnClickListener {
@@ -983,19 +984,27 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         }
         val layout = caps?.rawLayout.takeIf { raw != null }
         val jpegBytes = jpeg.size.toLong()
-        writer.saveShot(t, prefs.folderName, name, jpeg, raw, layout, meta) { uri, dngFailed, _ ->
-            raw?.let(controller::recycleRaw)
+        // Both callbacks post to the main thread in order, so this is set before done reads it
+        var jpegOk = false
+        writer.saveShot(t, prefs.folderName, name, jpeg, raw, layout, meta, jpegSaved = { uri ->
             main.post {
+                jpegOk = uri != null
                 if (uri == null) {
                     Toast.makeText(app, R.string.toast_save_failed, Toast.LENGTH_SHORT).show()
                 } else {
-                    if (dngFailed) Toast.makeText(app, R.string.toast_dng_failed, Toast.LENGTH_SHORT).show()
                     // A bracket's button shows its first frame, the one the review showed
                     if (frame.index == 0) setLastShot(uri)
                     // JPEG sizes vary with the scene; the DNG is fixed and added in shotsLeft()
                     prefs.averageShotBytes = (prefs.averageShotBytes * 7 + jpegBytes) / 8
                     if (resumed) refreshStorage()
                 }
+            }
+        }) { dngFailed ->
+            raw?.let(controller::recycleRaw)
+            main.post {
+                // A failed JPEG has had its own toast
+                if (dngFailed && jpegOk) Toast.makeText(app, R.string.toast_dng_failed, Toast.LENGTH_SHORT).show()
+                if (raw != null && resumed) refreshStorage()
             }
         }
     }
@@ -1010,9 +1019,11 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
 
     private fun refreshFormat() {
         val label = getString(if (shot.raw && caps?.rawLayout != null) R.string.format_jpeg_raw else R.string.format_jpeg)
+        val on = shot.raw && caps?.rawLayout != null
         btnFormat.text = label
-        btnFormat.isActivated = shot.raw && caps?.rawLayout != null
-        btnFormat.setTextColor(getColor(if (btnFormat.isActivated) R.color.on_accent else R.color.on_surface))
+        // The accent background is on the button, around the label
+        (btnFormat.parent as View).isActivated = on
+        btnFormat.setTextColor(getColor(if (on) R.color.on_accent else R.color.on_surface))
         status.format = label.replace('\n', ' ')
         status.shotsLeft = target?.freeBytes()?.let { (it / shotBytes()).toInt() } ?: -1
         status.invalidate()

@@ -38,6 +38,8 @@
     <string name="toast_save_failed">Could not save the photo</string>
     <string name="toast_capture_failed">The camera did not deliver the photo</string>
     <string name="toast_no_gallery">No gallery app to show the photo</string>
+    <string name="saving_channel">Saving photos</string>
+    <string name="saving_photos">Saving photos…</string>
     <string name="last_shot">Last photo</string>
 
     <!-- Quick menu -->

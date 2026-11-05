@@ -19,6 +19,8 @@
     <string name="toast_save_failed">Impossibile salvare la foto</string>
     <string name="toast_capture_failed">La fotocamera non ha consegnato la foto</string>
     <string name="toast_no_gallery">Nessuna app galleria per mostrare la foto</string>
+    <string name="saving_channel">Salvataggio foto</string>
+    <string name="saving_photos">Salvataggio delle foto…</string>
     <string name="last_shot">Ultima foto</string>
 
     <string name="qm_section_exposure">Esposizione</string>

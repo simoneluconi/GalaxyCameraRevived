@@ -381,7 +381,10 @@ $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"; .\gradlew.bat asse
 **Layout of the code**:
 - `camera/CameraController.kt`: Camera1 on its own HandlerThread. It owns open/close, AF, capture (focus priority), the zoom drive, the 500 ms parameter poll, and the preview-frame histogram (one buffer re-armed every 250 ms).
 - `camera/M9mo.kt`: PASM modes, APEX conversions, `CameraCaps` (what the HAL offers), `ShotSettings`, `ShotInfo` (exif-*), `LiveStatus` (flash-popup, live-*).
-- `storage/`: `StorageTarget` (microSD first, internal only by choice) and `PhotoWriter` (MediaStore + EXIF on a background thread).
+- `storage/`:
+  - `StorageTarget`: microSD first, internal only by choice.
+  - `PhotoWriter`: MediaStore + EXIF on a background thread. At start it deletes the app's own rows that a killed save left pending.
+  - `SaveService`: a `dataSync` foreground service that runs only while a save is in flight. A DNG needs 6-11 s after the JPEG. Leaving for the gallery or Home made the process cached (adj 700-900), and the lowmemorykiller then killed it mid-write (field report 2026-11-05). With the service the process stays at adj 50.
 - `sensors/OrientationSensor.kt` (level, EXIF orientation) and `location/GeoTagger.kt` (GPS only while the viewfinder is open).
 - `ui/ViewfinderActivity.kt`: a plain framework Activity, plus custom Canvas views in `ui/widget/`.
 - `settings/`: `Prefs` (shared with the settings screen through the androidx.preference default file) and `SettingsActivity` (AndroidX, loaded only there).

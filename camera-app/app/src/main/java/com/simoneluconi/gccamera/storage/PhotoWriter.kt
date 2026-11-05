@@ -1,11 +1,14 @@
 package com.simoneluconi.gccamera.storage
 
+import android.content.ContentResolver
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.location.Location
 import android.net.Uri
+import android.os.Bundle
 import android.os.Process
 import android.provider.MediaStore
 import android.util.Log
@@ -70,9 +73,15 @@ class PhotoWriter private constructor(private val context: Context) {
         }, "photo-writer")
     }
 
+    init {
+        // First in the queue, so it only ever sees rows no save of this process owns
+        executor.execute(::dropStalePending)
+    }
+
     /**
-     * Saves [baseName].jpg and, with [raw], [baseName].dng next to it. [done] gets the JPEG's
-     * uri (null on failure), whether a requested DNG failed, and the bytes written.
+     * Saves [baseName].jpg and, with [raw], [baseName].dng next to it. Call on the main thread.
+     * [jpegSaved] gets the JPEG's uri (null on failure) as soon as it is written, so the
+     * last-shot button need not wait for the DNG; [done] then says whether a requested DNG failed.
      */
     fun saveShot(
         target: StorageTarget.Target,
@@ -82,24 +91,57 @@ class PhotoWriter private constructor(private val context: Context) {
         raw: ByteArray?,
         layout: RawLayout?,
         meta: ShotMeta,
-        done: (jpeg: Uri?, dngFailed: Boolean, bytes: Long) -> Unit,
-    ) = executor.execute {
-        var uri: Uri? = null
-        var bytes = 0L
-        var dngFailed = raw != null
-        // [done] always runs: it hands the RAW buffer back and tells the user
-        try {
-            uri = writeJpeg(target, folder, "$baseName.jpg", jpeg, meta)
-            if (uri != null) bytes = jpeg.size.toLong()
-            if (raw != null && layout != null) {
-                val dngBytes = writeDng(target, folder, "$baseName.dng", raw, layout, jpeg, meta)
-                dngFailed = dngBytes < 0
-                if (!dngFailed) bytes += dngBytes
+        jpegSaved: (jpeg: Uri?) -> Unit,
+        done: (dngFailed: Boolean) -> Unit,
+    ) {
+        SaveService.begin(context)
+        executor.execute {
+            var jpegReported = false
+            var dngFailed = raw != null
+            // [done] always runs: it hands the RAW buffer back and tells the user
+            try {
+                val uri = writeJpeg(target, folder, "$baseName.jpg", jpeg, meta)
+                jpegReported = true
+                jpegSaved(uri)
+                if (raw != null && layout != null) {
+                    dngFailed = writeDng(target, folder, "$baseName.dng", raw, layout, jpeg, meta) < 0
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "save failed", e)
+            } finally {
+                if (!jpegReported) jpegSaved(null)
+                done(dngFailed)
+                SaveService.end()
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "save failed", e)
-        } finally {
-            done(uri, dngFailed, bytes)
+        }
+    }
+
+    /**
+     * Deletes this app's MediaStore rows still pending from an earlier process: saves cut short
+     * by a kill (0 B or truncated DNGs). The RAW frame died with the process, so there is
+     * nothing to recover; MediaStore itself would only drop them after about a week.
+     */
+    private fun dropStalePending() {
+        val resolver = context.contentResolver
+        val args = Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_ONLY)
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ?")
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, arrayOf(context.packageName))
+        }
+        for (volume in MediaStore.getExternalVolumeNames(context)) {
+            try {
+                val files = MediaStore.Files.getContentUri(volume)
+                val stale = ArrayList<Pair<Long, String?>>()
+                resolver.query(files, arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME), args, null)?.use { c ->
+                    while (c.moveToNext()) stale += c.getLong(0) to c.getString(1)
+                }
+                for ((id, name) in stale) {
+                    Log.w(TAG, "dropping unfinished save $name on $volume")
+                    resolver.delete(ContentUris.withAppendedId(files, id), null, null)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "pending clean-up failed on $volume", e)
+            }
         }
     }
 
