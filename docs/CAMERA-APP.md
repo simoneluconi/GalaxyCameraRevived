@@ -419,7 +419,13 @@ $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"; .\gradlew.bat asse
 - **The pop-up flash is the switch.** Raising it sets the last used mode (auto or on, remembered; auto by default), and closing it sets off. The button only toggles auto and on, and with the flash down it just says to raise it.
 - **Histogram off** (Settings → Display) gives its room to the shutter/aperture/ISO rows.
 - **Settings** has tabs along the top (Storage, Image, Display, Sound, Location, System). Opening it only stops the preview and keeps the lens out for 30 s, so going back is instant. Leaving the app in any other way releases the camera at once.
-- **Rotation, camera style**: the layout stays in landscape. The mode letters, the four panel buttons, the Fn menu, the countdown and the banners turn in place (animated). The level works in every hold. EXIF orientation comes from the accelerometer (clockwise hold → ORIENTATION_ROTATE_90).
+- **Rotation, camera style**: the activity stays landscape and the UI follows the accelerometer, not the system rotation.
+  - The panel's labels turn in place, animated: mode letters, the four buttons' labels (the buttons themselves stay put), the Fn menu, the countdown and the banners.
+  - Held vertically the exposure rows stack (‹, label, value, ›), and the value shrinks to fit. The meter keeps +3 at the user's top and drops its title. "More" is always the user's right or top, so a drag or tap maps to the same direction in every hold (`screenRightSign`).
+  - The viewfinder's bars (status bar, zoom, last shot, histogram) sit in a `hud` frame. Held vertically, the frame takes the viewfinder's swapped size and turns, so they land at the user's top and bottom; the frame fades through the change.
+  - The panel is always at the user's right or bottom. For a clockwise vertical hold it swaps to the screen's left.
+  - The level works in every hold. EXIF orientation comes from the accelerometer (clockwise hold → ORIENTATION_ROTATE_90).
+  - Test hook (debug builds): `am broadcast -a com.simoneluconi.gccamera.TEST_SHOT -p com.simoneluconi.gccamera --ei ui_rotation -90` (0, -90, 90, 180) turns the UI until the sensor sees the next real change.
 
 **Added later on 2026-11-02, verified on the device**:
 - **AF**:

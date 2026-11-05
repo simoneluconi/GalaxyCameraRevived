@@ -31,5 +31,16 @@ internal fun View.strokePaint(colorId: Int, widthDp: Float) = Paint(Paint.ANTI_A
     strokeWidth = dp(widthDp)
 }
 
+/** [degrees] as quarter turns: 0 upright, 1 = 90° clockwise, 2 = upside down, 3 = 90° anticlockwise. */
+internal fun quarterOf(degrees: Float) = (Math.round(degrees / 90f) % 4 + 4) % 4
+
+/**
+ * +1 when the screen's right still points to the user's "more" end (right, or up when the
+ * camera is held vertically), -1 when it points to the "less" end. Screen-right turns into
+ * the user's up at a clockwise quarter (canvas rotate 90) and into the user's down at an
+ * anticlockwise one.
+ */
+internal fun screenRightSign(degrees: Float) = if (quarterOf(degrees) <= 1) 1 else -1
+
 /** Baseline that centres [p]'s text vertically on [cy]. */
 internal fun centreBaseline(p: Paint, cy: Float) = cy - (p.descent() + p.ascent()) / 2f

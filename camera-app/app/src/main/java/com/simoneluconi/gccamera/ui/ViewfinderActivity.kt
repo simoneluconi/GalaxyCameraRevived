@@ -70,6 +70,7 @@ import com.simoneluconi.gccamera.ui.widget.ValueRowView
 import com.simoneluconi.gccamera.ui.widget.ViewfinderOverlayView
 import com.simoneluconi.gccamera.ui.widget.ViewfinderOverlayView.Af
 import com.simoneluconi.gccamera.ui.widget.ZoomBarView
+import com.simoneluconi.gccamera.ui.widget.quarterOf
 import java.util.Date
 import java.util.concurrent.Executors
 import kotlin.math.pow
@@ -91,6 +92,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     private lateinit var preview: SurfaceView
     private lateinit var review: ImageView
     private lateinit var overlay: ViewfinderOverlayView
+    private lateinit var hud: View
     private lateinit var status: StatusBarView
     private lateinit var zoomBar: ZoomBarView
     private lateinit var quickScrim: View
@@ -157,6 +159,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         preview = findViewById(R.id.preview)
         review = findViewById(R.id.review)
         overlay = findViewById(R.id.overlay)
+        hud = findViewById(R.id.hud)
         status = findViewById(R.id.status)
         zoomBar = findViewById(R.id.zoom)
         quickScrim = findViewById(R.id.quick_menu_scrim)
@@ -246,6 +249,9 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
      */
     private val testShotReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, i: Intent) {
+            // Turns the UI as if the camera were held so (0, -90, 90, 180), until the sensor
+            // sees the next real change
+            if (i.hasExtra("ui_rotation")) rotateUi(i.getIntExtra("ui_rotation", 0))
             val c = caps ?: return
             i.getStringExtra("params")?.let { list ->
                 controller.setTestParams(list.split(';').mapNotNull { kv ->
@@ -586,7 +592,8 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
 
     private fun canShoot() = target != null && caps != null && cameraError == null
 
-    // --- Rotation, camera style: the layout stays, labels and menus turn in place ---
+    // --- Rotation, camera style: the panel stays, its labels and menus turn in place; the
+    // viewfinder's bars move to the user's top and bottom ---
 
     private fun rotateUi(target: Int) {
         val from = uiRotation
@@ -594,6 +601,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         if (delta > 180f) delta -= 360f
         if (delta < -180f) delta += 360f
         val to = from + delta
+        if (to == from) return
         uiRotation = to
         for (v in rotatingViews) v.animate().rotation(to).setDuration(ROTATE_MS).start()
         rotationAnim?.cancel()
@@ -603,10 +611,55 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
                 val a = it.animatedValue as Float
                 mode.contentRotation = a
                 overlay.contentRotation = a
+                rowShutter.contentRotation = a
+                rowAperture.contentRotation = a
+                rowIso.contentRotation = a
+                meter.contentRotation = a
             }
             start()
         }
         fitQuickMenu()
+        // The bars cannot turn in place (the status bar is as wide as the viewfinder): they
+        // fade out, move to the new frame and fade back in
+        hud.animate().cancel()
+        hud.animate().alpha(0f).setDuration(HUD_FADE_MS).withEndAction {
+            layoutHud()
+            placePanel()
+            hud.animate().alpha(1f).setDuration(HUD_FADE_MS).start()
+        }.start()
+    }
+
+    /**
+     * Held vertically the panel belongs at the user's bottom. Turned anticlockwise that is the
+     * screen's right, where it always sits; turned clockwise it is the screen's left, so the
+     * panel and the viewfinder swap sides.
+     */
+    private fun placePanel() {
+        val panel = findViewById<View>(R.id.panel)
+        val root = panel.parent as ViewGroup
+        val index = if (quarterOf(uiRotation) == 1) 0 else 1
+        if (root.indexOfChild(panel) == index) return
+        root.removeView(panel)
+        root.addView(panel, index)
+    }
+
+    /** Held vertically, the bars' frame takes the viewfinder's swapped size and turns with the user. */
+    private fun layoutHud() {
+        val vf = hud.parent as View
+        if (vf.width == 0) {
+            vf.post(::layoutHud)
+            return
+        }
+        val vertical = Math.round(uiRotation / 90f) % 2 != 0
+        val lp = hud.layoutParams
+        val w = if (vertical) vf.height else ViewGroup.LayoutParams.MATCH_PARENT
+        val h = if (vertical) vf.width else ViewGroup.LayoutParams.MATCH_PARENT
+        if (lp.width != w || lp.height != h) {
+            lp.width = w
+            lp.height = h
+            hud.layoutParams = lp
+        }
+        hud.rotation = uiRotation % 360f
     }
 
     /** Turned sideways, the Fn menu has the viewfinder's height to fit in, not its width. */
@@ -1217,6 +1270,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         private const val REOPEN_DELAY_MS = 1500L
         private const val UNDER_RANGE_EV = -10f
         private const val ROTATE_MS = 250L
+        private const val HUD_FADE_MS = 120L
         /** DNG headers and the 256-px preview, on top of the 16-bit CFA. */
         private const val DNG_OVERHEAD = 200_000L
 

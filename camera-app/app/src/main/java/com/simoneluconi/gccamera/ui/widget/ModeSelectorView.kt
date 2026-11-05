@@ -68,9 +68,15 @@ class ModeSelectorView(context: Context, attrs: AttributeSet?) : View(context, a
                 c.drawRoundRect(rect, h / 2, h / 2, sel)
             }
             val cx = (edges[i] + edges[i + 1]) / 2
+            val p = if (i == selected) textSel else text
             c.save()
             c.rotate(contentRotation, cx, h / 2)
-            c.drawText(labels[i], cx, baseline, if (i == selected) textSel else text)
+            // Turned sideways, "Auto" must fit the pill's height, not its segment's width
+            if (quarterOf(contentRotation) % 2 == 1) {
+                val s = ((h - 2 * inset - dp(6f)) / p.measureText(labels[i]).coerceAtLeast(1f)).coerceAtMost(1f)
+                c.scale(s, s, cx, h / 2)
+            }
+            c.drawText(labels[i], cx, baseline, p)
             c.restore()
         }
     }

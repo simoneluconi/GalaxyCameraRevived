@@ -29,6 +29,19 @@ class ExposureMeterView(context: Context, attrs: AttributeSet?) : View(context, 
         }
 
     var onSet: ((Int) -> Unit)? = null
+
+    /**
+     * How the camera is held, in degrees. Upside down the meter turns as a whole. Held
+     * vertically the scale stays along the screen with +3 at the user's top, its numbers and
+     * the value turn in place, and the title (too long to fit across) is left out.
+     */
+    var contentRotation = 0f
+        set(v) {
+            if (field != v) {
+                field = v
+                invalidate()
+            }
+        }
     private var lastSteps = Int.MIN_VALUE
     private var lastTapUp = 0L
 
@@ -66,7 +79,7 @@ class ExposureMeterView(context: Context, attrs: AttributeSet?) : View(context, 
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
                 parent?.requestDisallowInterceptTouchEvent(true)
                 val pad = dp(8f)
-                val ev = (e.x - pad) / (width - 2 * pad) * 6f - 3f
+                val ev = ((e.x - pad) / scaleSpan() * 6f - 3f) * screenRightSign(contentRotation)
                 val steps = (ev * 3).roundToInt().coerceIn(-9, 9)
                 if (steps != lastSteps) {
                     lastSteps = steps
@@ -91,16 +104,25 @@ class ExposureMeterView(context: Context, attrs: AttributeSet?) : View(context, 
 
     override fun performClick() = super.performClick()
 
+    /** Held vertically the value sits at the scale's end, so the scale is shorter. */
+    private fun scaleSpan() = width - 2 * dp(8f) - if (quarterOf(contentRotation) % 2 == 1) dp(VALUE_ROOM_DP) else 0f
+
     override fun onDraw(c: Canvas) {
         val w = width.toFloat()
+        val h = height.toFloat()
         val pad = dp(8f)
         val top = dp(12f)
         if (interactive) {
-            rect.set(0.5f, 0.5f, w - 0.5f, height - 0.5f)
+            rect.set(0.5f, 0.5f, w - 0.5f, h - 0.5f)
             c.drawRoundRect(rect, dp(10f), dp(10f), bg)
             c.drawRoundRect(rect, dp(10f), dp(10f), border)
         }
-        c.drawText(title, pad, top, titlePaint)
+        val quarter = quarterOf(contentRotation)
+        val vertical = quarter % 2 == 1
+        // Held vertically anticlockwise, the screen's left is the user's top: +3 goes there
+        val dir = if (quarter == 3) -1f else 1f
+        c.save()
+        if (quarter == 2) c.rotate(180f, w / 2, h / 2)
         val v = ev
         val valueText = when {
             v == null -> "—"
@@ -109,19 +131,45 @@ class ExposureMeterView(context: Context, attrs: AttributeSet?) : View(context, 
             estimated -> "≈ %+.1f".format(v)
             else -> "%+.1f".format(v)
         }
-        c.drawText(valueText, w - pad, top, valuePaint)
-
         val axisY = dp(26f)
-        val span = w - 2 * pad
+        val span = scaleSpan()
+        if (vertical) {
+            // The value turned in place past the scale's end, the title left out
+            val vx = w - pad - dp(VALUE_ROOM_DP) / 2
+            c.save()
+            c.rotate(contentRotation, vx, h / 2)
+            valuePaint.textAlign = Paint.Align.CENTER
+            c.drawText(valueText, vx, centreBaseline(valuePaint, h / 2), valuePaint)
+            valuePaint.textAlign = Paint.Align.RIGHT
+            c.restore()
+        } else {
+            c.drawText(title, pad, top, titlePaint)
+            c.drawText(valueText, w - pad, top, valuePaint)
+        }
+
         for (i in -9..9) {
-            val x = pad + span * (i + 9) / 18f
+            val x = pad + span * (dir * i + 9) / 18f
             val major = i % 3 == 0
             c.drawLine(x, axisY - dp(if (major) 6f else 3f), x, axisY, if (major) tickMajor else tick)
-            if (major) c.drawText(if (i == 0) "0" else "%+d".format(i / 3), x, axisY + dp(11f), numberPaint)
+            if (major) {
+                val ny = axisY + dp(11f)
+                val label = if (i == 0) "0" else "%+d".format(i / 3)
+                if (vertical) {
+                    c.save()
+                    c.rotate(contentRotation, x, ny - dp(3f))
+                    c.drawText(label, x, centreBaseline(numberPaint, ny - dp(3f)), numberPaint)
+                    c.restore()
+                } else {
+                    c.drawText(label, x, ny, numberPaint)
+                }
+            }
         }
-        if (v == null) return
+        if (v == null) {
+            c.restore()
+            return
+        }
         val clamped = v.coerceIn(-3f, 3f)
-        val x = pad + span * (clamped + 3f) / 6f
+        val x = pad + span * (dir * clamped + 3f) / 6f
         path.reset()
         val s = dp(5f)
         path.moveTo(x, axisY - dp(7f))
@@ -134,5 +182,10 @@ class ExposureMeterView(context: Context, attrs: AttributeSet?) : View(context, 
             else -> marker
         }
         c.drawPath(path, paint)
+        c.restore()
+    }
+
+    companion object {
+        private const val VALUE_ROOM_DP = 28f
     }
 }
