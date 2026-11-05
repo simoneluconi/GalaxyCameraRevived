@@ -44,6 +44,16 @@ class Prefs(private val context: Context) {
         get() = sp.getLong(AVG_SHOT_BYTES, 5_500_000L)
         set(v) = sp.edit().putLong(AVG_SHOT_BYTES, v).apply()
 
+    /**
+     * The DNG's fixed part (the 16-bit CFA image), remembered from the last camera open so the
+     * "shots remaining" count is right before the camera answers; 0 = not known yet.
+     */
+    var dngImageBytes: Long
+        get() = sp.getLong(DNG_IMAGE_BYTES, 0L)
+        set(v) {
+            if (v != dngImageBytes) sp.edit().putLong(DNG_IMAGE_BYTES, v).apply()
+        }
+
     /** Takes the next file number, 1..9999, wrapping like a camera's DCF counter. */
     fun nextFileNumber(): Int {
         val n = sp.getInt(FILE_COUNTER, 0) % 9999 + 1
@@ -140,6 +150,7 @@ class Prefs(private val context: Context) {
         const val RESET = "reset"
         const val ABOUT = "about"
         private const val AVG_SHOT_BYTES = "avg_shot_bytes"
+        private const val DNG_IMAGE_BYTES = "dng_image_bytes"
         private const val FLASH_UP_MODE = "flash_up_mode"
 
         // The last shooting setup, restored at the next start like a real camera

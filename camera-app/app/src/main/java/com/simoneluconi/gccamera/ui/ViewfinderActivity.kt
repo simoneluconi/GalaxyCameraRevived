@@ -218,6 +218,9 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         review.setOnClickListener { hideReview() }
 
         overlay.aspect = shot.aspect
+        // Every mode until the camera says which it has (the GC100 has all of them)
+        mode.labels = Pasm.entries.map(::modeLabel)
+        status.ois = shot.ois
         refreshExposureUi()
         refreshFlash()
         refreshFormat()
@@ -391,7 +394,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
 
     override fun onCameraOpened(caps: CameraCaps) {
         this.caps = caps
-        mode.labels = caps.pasmModes.map { if (it == Pasm.AUTO) getString(R.string.mode_auto) else it.label }
+        mode.labels = caps.pasmModes.map(::modeLabel)
         val fixed = normalise(shot, caps)
         if (fixed != shot) setShot(fixed)
         controller.setFramesEnabled(framesWanted())
@@ -403,6 +406,8 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         refreshZoom()
         refreshBanner()
     }
+
+    private fun modeLabel(p: Pasm) = if (p == Pasm.AUTO) getString(R.string.mode_auto) else p.label
 
     override fun onCameraError(message: String) {
         cameraError = message
@@ -711,7 +716,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         prefs.saveShot(s)
         controller.setSettings(s)
         overlay.aspect = s.aspect
-        status.ois = caps?.hasOis == true && s.ois
+        status.ois = (caps?.hasOis ?: true) && s.ois
         status.invalidate()
         refreshExposureUi()
         refreshFlash()
@@ -879,11 +884,13 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     private fun refreshExposureUi() {
         val c = caps
         val p = shot.pasm
-        if (c != null) mode.selected = c.pasmModes.indexOf(p).coerceAtLeast(0)
+        // Until the camera answers (caps null), the saved settings as they were: no "—" for
+        // values the user set, no mode list that is empty or changes a moment later
+        mode.selected = (c?.pasmModes ?: Pasm.entries).indexOf(p).coerceAtLeast(0)
         val l = live?.takeIf { hasLiveExposure() }
         val info = lastInfo
 
-        rowShutter.active = p.userShutter && c?.shutterSpeeds?.isNotEmpty() == true
+        rowShutter.active = p.userShutter && (c == null || c.shutterSpeeds.isNotEmpty())
         rowShutter.value = if (rowShutter.active) {
             Apex.formatShutter(shot.shutter)
         } else {
@@ -893,7 +900,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
             seconds?.let { c?.nearestShutter(it) }?.let(Apex::formatShutter) ?: dash()
         }
 
-        rowAperture.active = p.userAperture && c?.apertures?.isNotEmpty() == true
+        rowAperture.active = p.userAperture && (c == null || c.apertures.isNotEmpty())
         rowAperture.value = if (rowAperture.active) {
             Apex.formatAperture(shot.aperture)
         } else {
@@ -910,14 +917,14 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
             iso?.toString() ?: getString(R.string.iso_auto)
         }
 
-        meter.interactive = p.userEv && c != null
+        meter.interactive = p.userEv
         refreshMeter()
     }
 
     private fun refreshMeter() {
         val c = caps
         if (shot.pasm != Pasm.MANUAL) {
-            val ev = if (shot.pasm.userEv && c != null) shot.ev * c.evStep else 0f
+            val ev = if (shot.pasm.userEv) shot.ev * (c?.evStep ?: DEFAULT_EV_STEP) else 0f
             meter.set(compTitle, ev, false)
             return
         }
@@ -1080,8 +1087,9 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     }
 
     private fun refreshFormat() {
-        val label = getString(if (shot.raw && caps?.rawLayout != null) R.string.format_jpeg_raw else R.string.format_jpeg)
-        val on = shot.raw && caps?.rawLayout != null
+        // Until the camera answers, the saved setting: it was valid when it was saved
+        val on = shot.raw && (caps == null || caps?.rawLayout != null)
+        val label = getString(if (on) R.string.format_jpeg_raw else R.string.format_jpeg)
         btnFormat.text = label
         // The accent background is on the button, around the label
         (btnFormat.parent as View).isActivated = on
@@ -1196,9 +1204,11 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
 
     /** Bytes one shot takes with the current format: the JPEG average, plus the DNG with RAW. */
     private fun shotBytes(): Long {
+        // Before the camera answers, the size remembered from the last open
+        val image = caps?.rawLayout?.let { it.width.toLong() * it.height * 2 }?.also { prefs.dngImageBytes = it }
+            ?: prefs.dngImageBytes.takeIf { caps == null }
         // The DNG also embeds the ISP JPEG as its full-size preview
-        val dng = caps?.rawLayout?.takeIf { shot.raw }
-            ?.let { it.width.toLong() * it.height * 2 + DNG_OVERHEAD + prefs.averageShotBytes } ?: 0L
+        val dng = image?.takeIf { shot.raw && it > 0 }?.let { it + DNG_OVERHEAD + prefs.averageShotBytes } ?: 0L
         return (prefs.averageShotBytes + dng).coerceAtLeast(1)
     }
 
@@ -1280,6 +1290,8 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         private const val UNDER_RANGE_EV = -10f
         private const val ROTATE_MS = 250L
         private const val HUD_FADE_MS = 120L
+        /** The M9MO's compensation step, shown until the camera reports its own. */
+        private const val DEFAULT_EV_STEP = 1f / 3f
         /** DNG headers and the 256-px preview, on top of the 16-bit CFA. */
         private const val DNG_OVERHEAD = 200_000L
 
