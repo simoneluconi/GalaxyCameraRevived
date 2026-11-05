@@ -31,7 +31,6 @@ class StatusBarView(context: Context, attrs: AttributeSet?) : View(context, attr
     private val bg = fillPaint(R.color.status_bar_bg)
     private val text = textPaint(12f, R.color.on_surface, true)
     private val muted = textPaint(12f, R.color.on_surface_muted)
-    private val accent = textPaint(12f, R.color.accent, true)
     private val warn = textPaint(12f, R.color.error, true)
     private val batteryLow = fillPaint(R.color.error)
     private val batteryFill = fillPaint(R.color.on_surface)
@@ -74,13 +73,15 @@ class StatusBarView(context: Context, attrs: AttributeSet?) : View(context, attr
         }
         c.drawText(time, x, base, text)
 
-        // Right, from the edge inwards: storage, GPS, Wi-Fi, OIS, format
+        // Right, from the edge inwards: storage, GPS, Wi-Fi, OIS, format. One rule for all:
+        // shown in full colour when on, grey only while still pending (GPS without a fix),
+        // red when wrong, absent when off
         var r = w - dp(10f)
         r = drawRight(c, storageText(), r, base, if (storageMissing) warn else text) - gap
-        if (gps != Gps.OFF) r = drawRight(c, "GPS", r, base, if (gps == Gps.FIX) accent else muted) - gap
+        if (gps != Gps.OFF) r = drawRight(c, "GPS", r, base, if (gps == Gps.FIX) text else muted) - gap
         if (wifi) r = drawRight(c, "Wi-Fi", r, base, text) - gap
-        if (ois) r = drawRight(c, "OIS", r, base, muted) - gap
-        if (format.isNotEmpty()) drawRight(c, format, r, base, muted)
+        if (ois) r = drawRight(c, "OIS", r, base, text) - gap
+        if (format.isNotEmpty()) drawRight(c, format, r, base, text)
     }
 
     /** A lightning bolt across the battery, outlined so it reads on the green fill. */

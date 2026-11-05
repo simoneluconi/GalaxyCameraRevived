@@ -947,7 +947,16 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
             else -> getString(R.string.flash_off)
         }
         btnFlash.text = getString(R.string.flash_button, label)
-        btnFlash.setTextColor(getColor(if (flashUp == true) R.color.on_surface else R.color.on_surface_muted))
+        // The same rule as RAW and the status bar: accent when it will fire, grey while it
+        // waits for the pop-up to be raised, plain when off
+        val wanted = shot.flash != Camera.Parameters.FLASH_MODE_OFF
+        val ready = wanted && flashUp != false
+        (btnFlash.parent as View).isActivated = ready
+        btnFlash.setTextColor(getColor(when {
+            ready -> R.color.on_accent
+            wanted -> R.color.on_surface_muted
+            else -> R.color.on_surface
+        }))
     }
 
     private fun refreshZoom() {
