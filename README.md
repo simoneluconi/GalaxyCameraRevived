@@ -33,11 +33,11 @@ It is built camera-first. There are no Google services and no phone apps, only w
 | microSD (FAT32, exFAT) | Works |
 | Rotation sensor, level, compass | Works (compass not checked against a real heading) |
 | Wi-Fi | 2.4 GHz works; 5 GHz does not connect yet |
-| GPS | Starts and sees satellite status; a first fix has not been seen yet |
+| GPS | Works: first fix in about 35 s with downloaded satellite data, which stays valid offline for a week |
 | 3G mobile data | Works (tested with an Italian SIM) |
 | SMS | Sending and receiving work; no voice calls (no dialer, by design) |
 | Audio | Works |
-| Bluetooth | Not checked yet |
+| Bluetooth | Works (pairing, sending photos to a phone) |
 | Video recording | Not tested yet |
 | Standby battery drain | About 1%/hour with Wi-Fi on; being improved |
 | Security | SELinux is permissive and the security patch level is from early 2025 |
