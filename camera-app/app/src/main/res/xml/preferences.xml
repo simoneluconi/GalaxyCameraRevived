@@ -153,6 +153,12 @@
     </PreferenceScreen>
 
     <PreferenceScreen app:key="tab_system">
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:iconSpaceReserved="false"
+            app:key="remote_shutter"
+            app:summary="@string/pref_remote_shutter_summary"
+            app:title="@string/pref_remote_shutter" />
         <Preference
             app:iconSpaceReserved="false"
             app:key="android_settings"

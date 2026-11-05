@@ -293,6 +293,12 @@ From `gpio-keys` (keylayout `device/samsung/gd1/keylayout/gpio-keys.kl`):
 - LineageOS camera-button settings are enabled (`config_deviceHardwareKeys=32`). Check that "camera button launches camera" and similar settings do not fight the app.
 - The camera keys are not wake sources (yet).
 
+**Bluetooth photo remotes** (setting "Remote shutter", on by default). Remotes are not one model, so the viewfinder takes these keys as one full press: autofocus, then the shot.
+- The keys: volume up/down (most cheap BLE remotes, e.g. the user's BT1818 sends KEY_VOLUMEUP), play/pause, play, pause, next/previous, headset hook, Enter, numpad Enter, DPAD centre, Space, gamepad A and R1, and KEYCODE_CAMERA from an external device.
+- The GC100 has no volume or media keys of its own, so these keys only ever come from outside. They are consumed, so no volume dialog shows.
+- During the self-timer, a press cancels it, as the shutter does.
+- An external KEYCODE_FOCUS is the half press, as for the camera's own key.
+
 **Pop-up flash switch**: the kernel also reports it as input `SW` 0x0f (named `SW_PEN_INSERTED` in modern headers) and as `/sys/class/sec/sec_key/strobe_insert` (1 = up). Android drops `SW_*` events, and apps cannot read that sysfs node under SELinux enforcing, so use the `flash-popup` parameter.
 
 ## 5. Building and testing on the device

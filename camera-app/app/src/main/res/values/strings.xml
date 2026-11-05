@@ -148,6 +148,8 @@
 
     <string name="pref_shutter_sound">Shutter sound</string>
     <string name="pref_af_beep">Focus beep</string>
+    <string name="pref_remote_shutter">Remote shutter</string>
+    <string name="pref_remote_shutter_summary">Bluetooth photo remotes take a photo: volume, media, Enter and Space keys</string>
 
     <string name="pref_cat_copyright">Copyright</string>
     <string name="pref_artist">Artist</string>

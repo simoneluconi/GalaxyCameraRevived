@@ -117,6 +117,8 @@
 
     <string name="pref_shutter_sound">Suono dell\'otturatore</string>
     <string name="pref_af_beep">Beep della messa a fuoco</string>
+    <string name="pref_remote_shutter">Scatto da telecomando</string>
+    <string name="pref_remote_shutter_summary">I telecomandi Bluetooth scattano una foto: tasti volume, multimediali, Invio e Spazio</string>
 
     <string name="pref_artist">Autore</string>
     <string name="pref_copyright">Nota di copyright</string>

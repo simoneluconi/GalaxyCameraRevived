@@ -482,6 +482,10 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     // --- Physical keys (docs/CAMERA-APP.md §4) ---
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (isRemoteShutter(keyCode, event)) {
+            if (event.repeatCount == 0) remotePress()
+            return true
+        }
         when (keyCode) {
             KeyEvent.KEYCODE_FOCUS -> {
                 if (event.repeatCount == 0) halfPress()
@@ -503,6 +507,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (isRemoteShutter(keyCode, event)) return true
         when (keyCode) {
             KeyEvent.KEYCODE_FOCUS -> {
                 halfRelease()
@@ -516,6 +521,46 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
             }
         }
         return super.onKeyUp(keyCode, event)
+    }
+
+    /**
+     * Any Bluetooth photo remote, not one model: they send volume keys (most of them), media
+     * keys (play/pause, next/previous on two-button ones), Enter or Space (keyboard-style),
+     * gamepad A / R1 (clickers), or, from an external device, CAMERA. The GC100 has no
+     * volume or media keys of its own, so these only ever come from outside. An external
+     * FOCUS works as the half press already. Off in the settings, they do what they normally do.
+     */
+    private fun isRemoteShutter(keyCode: Int, event: KeyEvent): Boolean {
+        if (!prefs.remoteShutter) return false
+        return when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN,
+            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_SPACE,
+            KeyEvent.KEYCODE_HEADSETHOOK, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+            KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE,
+            KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+            KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_R1 -> true
+            // The camera's own shutter is not external: it keeps its half and full press
+            KeyEvent.KEYCODE_CAMERA -> event.device?.isExternal == true
+            else -> false
+        }
+    }
+
+    /**
+     * One press with no half stage: focus, then shoot as soon as the focus ends (a press
+     * during the self-timer cancels it, as the shutter does).
+     */
+    private fun remotePress() {
+        if (countdownLeft > 0 || shot.timer > 0 || !canShoot()) {
+            fullPress()
+            return
+        }
+        hideReview()
+        hideQuickMenu()
+        main.removeCallbacks(clearTapFocus)
+        overlay.af = Af.FOCUSING
+        controller.focus()
+        controller.capture()
     }
 
     private fun zoomDirection(keyCode: Int) = if (keyCode == KeyEvent.KEYCODE_ZOOM_IN) 1 else -1

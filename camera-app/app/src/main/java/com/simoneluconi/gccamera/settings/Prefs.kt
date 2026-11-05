@@ -29,6 +29,8 @@ class Prefs(private val context: Context) {
     /** Idle time after which the viewfinder lets the screen go off (and the lens in); 0 = never. */
     val autoOffMs get() = (sp.getString(AUTO_OFF, "2")?.toLongOrNull() ?: 2L) * 60_000L
     val shutterSound get() = sp.getBoolean(SHUTTER_SOUND, true)
+    /** Bluetooth photo remotes' keys (volume, media, Enter, Space, gamepad) take a photo. */
+    val remoteShutter get() = sp.getBoolean(REMOTE_SHUTTER, true)
     val afBeep get() = sp.getBoolean(AF_BEEP, false)
     val afLamp get() = sp.getBoolean(AF_LAMP, true)
     val artist get() = sp.getString(ARTIST, null)?.trim()?.ifEmpty { null }
@@ -142,6 +144,7 @@ class Prefs(private val context: Context) {
         const val REVIEW = "review"
         const val AUTO_OFF = "auto_off"
         const val SHUTTER_SOUND = "shutter_sound"
+        const val REMOTE_SHUTTER = "remote_shutter"
         const val AF_BEEP = "af_beep"
         const val AF_LAMP = "af_lamp"
         const val ARTIST = "artist"
