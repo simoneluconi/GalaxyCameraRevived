@@ -7,7 +7,8 @@ This file tracks shortcuts taken to get the first boot working, and things that 
 The user's storage must not fill up with debug output. Keep only what explains crashes and kernel panics, all size-capped by Android itself: tombstones, ANR traces, `last_kmsg`/pstore and dropbox. Remove or switch off everything that only exists for tests:
 - HAL bring-up paths that write files: `persist.vendor.camera.raw` (raw frames and `.txt` in `/data/vendor/camera`) and `vendor.camera.test.raw_burst` (RAW burst frames in the same directory). Also the `vendor.camera.test.*` PASM overrides.
 - Logd persistence (`/data/misc/logd`, `logpersist`) and the adbd trace (`persist.adb.trace_mask`, `/data/adb/adb-*`) if enabled.
-- Leftovers in `/data/local/tmp`: logs (`camtest*.log`, `kmsg*.log`, `rawburst/`, `wpa.log`, `wd.txt`), test binaries and scripts.
+- Leftovers in `/data/local/tmp` (this unit only): test binaries, APK copies and backups removed on 2026-11-06. The logs (`camtest*.log`, `kmsg*.log`, `wpa.log`, `wd.txt`, `memwatch*.log`) and the camera session's `gctest.sh`/`gcdev` stay, at the user's request.
+- Logd persistence is on: 256 files of ~2.2 MB, about 560 MB on /data (504 MB on 2026-11-06, back to the first boot). The user wants debug logs kept; whether a public build caps it smaller is still the user's call.
 - Verbose kernel logging added for bring-up (e.g. the `m9mo_wait_capture_interrupt` per-interrupt `cam_info`), and the HAL's per-frame `ALOGD`s, down to what a user build needs.
 
 ## Kernel (`kernel/samsung/smdk4412`, branch `gd1`)
@@ -197,7 +198,7 @@ Still open:
   - the recording paths (S5C73M3 heritage) are untouched and untested;
   - `preview_window` is cleared by every preview stop.
 - **init**:
-  - `gd1-bringup.sh` runs on every userdebug boot: 3 min of dumps, world-readable, including the serial and MAC. Keep the last_kmsg copy (it caught the lens bug) and put the rest behind a persist property;
+  - `gd1-bringup.sh` runs on every userdebug boot: 3 min of dumps, including the serial and MAC (root-only since 2026-11-06, they were world-readable). Keep the last_kmsg copy (it caught the lens bug); the user wants the debug logs kept (2026-11-06), so the rest stays on too;
   - EFS is mounted rw with `errors=panic`, and `restorecon_recursive /efs` rewrites xattrs at every boot.
 - **Mini recovery**: rebuild it so that its built-in `flash-image` and `minirecovery-lib.sh` get the review fixes. Until then flash-adb stages the new `flash-image`, which still sources the old lib.
 - **3G: data and SMS work (2026-11-04/05, Italian SIM on the WindTre network, APN `internet.wind`).**
