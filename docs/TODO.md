@@ -220,7 +220,8 @@ Still open:
 
 ## Device tree (`device/samsung/gd1`), first-boot gaps
 
-- **[HIGH, security] SELinux is permissive** (`androidboot.selinux=permissive` in `BOARD_KERNEL_CMDLINE`, userdebug only).
+- **[low, security] SELinux is permissive** (`androidboot.selinux=permissive` in `BOARD_KERNEL_CMDLINE`, userdebug only).
+  - **Decision (user, 2026-11-06): stay permissive, public builds included.** It is an unofficial build for enthusiasts, the app set is tiny (ours plus F-Droid), and the 3.4 kernel and the April 2025 patch level limit what enforcing would buy. The cost would be about a day of work, plus the risk of rare denials in the camera, GPS and modem paths. The README states it. Revisit only if the user asks.
   - html6405's `smdk4412-common/selinux/` exists but no makefile references it, and it is older than the policy in his shipped i9300 build (that one labels `/vendor/bin/cbd` and has `glgps`/`tweaks`).
   - gd1 now has `sepolicy/vendor` (2026-11-01) with only what init needs to start our daemons: permissive `cpboot-daemon` and `gpsd` domains, and a label for the GNSS service.
   - rild, wpa_supplicant and other services still run in the `init` domain (their binaries lack a transition), which only works because everything is permissive.

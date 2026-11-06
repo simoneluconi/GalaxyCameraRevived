@@ -302,6 +302,6 @@ html6405's i9300 LOS21 build needs a **custom PIT** (recovery 16MB, vendor ~560M
     - The vendor blobs had the i9300's Wi-Fi and BT files. `tools/mk-blobsrc.sh` builds the blob source now. Wi-Fi works on 2.4 GHz; 5 GHz association is rejected (open).
     - GPS: the stock BCM4752 daemon and HAL behind shims (`gd1/shims`); the chip reports satellite status, a first fix is still to be seen outdoors.
     - Kernel: pegasusq with CPU hotplug.
-  - Then BT and audio checks, SELinux enforcing, and power measurements.
+  - Then BT and audio checks and power measurements. SELinux stays permissive (user, 2026-11-06: an unofficial build for enthusiasts, not worth a day of policy work; docs/TODO.md).
   - Small items are in docs/TODO.md: vibration strength, QS lag, second debloat round, Settings entries.
 - [ ] Camera HAL M9MO preset (mostly working, see step 3 above)
