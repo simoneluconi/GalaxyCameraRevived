@@ -8,7 +8,7 @@ The user's storage must not fill up with debug output. Keep only what explains c
 - HAL bring-up paths that write files: `persist.vendor.camera.raw` (raw frames and `.txt` in `/data/vendor/camera`) and `vendor.camera.test.raw_burst` (RAW burst frames in the same directory). Also the `vendor.camera.test.*` PASM overrides.
 - Logd persistence (`/data/misc/logd`, `logpersist`) and the adbd trace (`persist.adb.trace_mask`, `/data/adb/adb-*`) if enabled.
 - Leftovers in `/data/local/tmp` (this unit only): test binaries, APK copies and backups removed on 2026-11-06. The logs (`camtest*.log`, `kmsg*.log`, `wpa.log`, `wd.txt`, `memwatch*.log`) and the camera session's `gctest.sh`/`gcdev` stay, at the user's request.
-- Logd persistence is on: 256 files of ~2.2 MB, about 560 MB on /data (504 MB on 2026-11-06, back to the first boot). The user wants debug logs kept; whether a public build caps it smaller is still the user's call.
+- Logd persistence is on: 256 files of ~2.2 MB, about 560 MB on /data (504 MB on 2026-11-06, back to the first boot). The user wants debug logs kept and decided on 2026-11-06 to leave it as is for now, public builds included; revisit before the first release if storage matters.
 - Verbose kernel logging added for bring-up (e.g. the `m9mo_wait_capture_interrupt` per-interrupt `cam_info`), and the HAL's per-frame `ALOGD`s, down to what a user build needs.
 
 ## Kernel (`kernel/samsung/smdk4412`, branch `gd1`)
