@@ -1,0 +1,43 @@
+# Licences of this repository, per path (REUSE specification 3.2, https://reuse.software).
+# A licence header inside a file wins over these defaults ("closest"). The texts are in LICENSES/.
+version = 1
+SPDX-PackageName = "GalaxyCameraRevived"
+SPDX-PackageDownloadLocation = "https://github.com/simoneluconi/GalaxyCameraRevived"
+
+# Tools, the mini recovery sources and the local manifests: same licence as the device tree
+[[annotations]]
+path = ["tools/**", "minirecovery/**", "manifests/**", ".gitignore", ".gitattributes", "REUSE.toml"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 The GalaxyCameraRevived Project"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Documentation
+[[annotations]]
+path = ["README.md", "CLAUDE.md", "docs/**"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 The GalaxyCameraRevived Project"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# The lens profile: measurement data, free for any use
+[[annotations]]
+path = "profiles/**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 The GalaxyCameraRevived Project"
+SPDX-License-Identifier = "CC0-1.0"
+
+# GC Camera, GC Gallery, gccore and common
+[[annotations]]
+path = "camera-app/**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 The GalaxyCameraRevived Project"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Third-party code keeps its own licence (see its LICENSE.md); the last matching table wins
+[[annotations]]
+path = "camera-app/third_party/libjpeg-turbo/**"
+precedence = "closest"
+SPDX-FileCopyrightText = "The libjpeg-turbo Project and the Independent JPEG Group"
+SPDX-License-Identifier = "IJG AND BSD-3-Clause AND Zlib"
+
+# reference/ (Samsung's m9mo driver, Replicant's exynos_camera HAL) is not listed: every file
+# there carries its own GPL header.

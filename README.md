@@ -124,7 +124,12 @@ This port stands on the work of many people:
 | Rest of the device tree (based on LineageOS / html6405) | Apache-2.0 |
 | libjpeg-turbo (`camera-app/third_party/libjpeg-turbo`) | IJG / BSD-3-Clause / zlib, see its `LICENSE.md` |
 | GC Camera, GC Gallery and their shared modules (`camera-app/app`, `gallery`, `gccore`, `common`), and the planned PC tool built on gccore | GPL-3.0-or-later ([text](LICENSES/GPL-3.0-or-later.txt)), so that GPL-3 code from RawTherapee and darktable can be ported into them |
-| Tools, docs and the lens profile | To be confirmed before the first release |
+| Tools (`tools/`), the mini recovery sources (`minirecovery/`) and the manifests | Apache-2.0 ([text](LICENSES/Apache-2.0.txt)) |
+| Documentation (`docs/`, this README) | CC BY 4.0 ([text](LICENSES/CC-BY-4.0.txt)) |
+| Lens profile (`profiles/`) | CC0 1.0, public domain ([text](LICENSES/CC0-1.0.txt)) |
+| Reference copies (`reference/`) | Their own GPL headers |
+
+The licence of each path is declared in [`REUSE.toml`](REUSE.toml).
 
 Samsung's proprietary files (firmware, drivers, libraries) are **not** in these repositories. They are extracted from the official firmware when the system is built.
 
