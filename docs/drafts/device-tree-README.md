@@ -19,7 +19,7 @@ Project home, install guide and docs: https://github.com/simoneluconi/GalaxyCame
 | `legacy/health/` | The AOSP health@2.0 HAL and libraries, which LineageOS-UL removed but the exynos4 HAL needs. |
 | `overlay/`, `rootdir/`, `configs/`, `init/`, `system_ext/` | Overlays (no voice or SMS, no doze, landscape), fstab and init scripts, audio and GPS configs, first-boot setup. |
 | `RemovePackages/` | The camera-first debloat: phone, media and store apps overridden. |
-| `app/GcGallery/` | GC Gallery as a prebuilt APK (built from the main repo's `camera-app/`). |
+| `app/GcCamera/`, `app/GcGallery/` | GC Camera and GC Gallery as prebuilt release APKs (built from the main repo's `camera-app/`). |
 | `libstlport/` | A prebuilt `libstlport.so` that the proprietary blobs link. **Move it to the extracted vendor before publishing**: it comes from the i9300 vendor blobs. |
 | `proprietary-files.txt`, `extract-files.sh`, `setup-makefiles.sh` | The blob list. No blob is committed. |
 

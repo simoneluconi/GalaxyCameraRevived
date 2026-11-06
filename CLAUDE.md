@@ -128,7 +128,7 @@ The device is a camera, not a phone, and it must be **as light as possible** (ab
   - No voice: no Dialer, Contacts or InCallUI, and no telephony UI beyond APN and SIM settings.
 - **Low-RAM / Go-style config.** Start from html6405's i9300 `lineage-21.0-mini-go`: `ro.config.low_ram`, zram, low dalvik heap, a Go launcher, minimal system UI effects.
 - **App set** (user decisions 2026-10-31):
-  - **Camera: OpenCamera** for now (prebuilt already in smdk4412-common/app; Camera1/HAL1 friendly).
+  - **Camera: GC Camera**, our own app, in the build since 2026-11-06 as the release-APK prebuilt `app/GcCamera` in gd1 (refresh with `tools/update-camera-prebuilt.sh` after `:app:assembleRelease`; the camera session tests the release APK on the device first). OpenCamera was the bring-up app and is removed.
     - **Planned: our own dedicated camera app once the system is stable** (user, 2026-10-31). It targets the zoom lever and shutter keys, PASM dials, OIS and RAW/DNG. **`docs/CAMERA-APP.md` is the full brief for whoever builds it** (HAL parameters, capture/RAW behaviour, keys, constraints, workflow); keep it current when the HAL changes.
       - The app saves the ISP JPEG plus the DNG. RAW development is left to PC tools (Lightroom, RawTherapee): decided 2026-11-04, after our on-device development only reached parity with the ISP at ISO 160 and lost at ISO 400. gccore keeps only the DNG writer and the ISP white-balance match. See docs/RAW-PIPELINE.md.
     - Design the HAL and kernel interfaces with that app in mind: expose M9MO controls cleanly through camera parameters or vendor tags, and avoid OpenCamera-specific hacks.
