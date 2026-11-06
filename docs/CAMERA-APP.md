@@ -381,8 +381,9 @@ A standalone Gradle project in this repo, to be split into its own repo before p
 ```
 $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"; .\gradlew.bat assembleRelease
 ```
-- The release build has R8 on and is signed with the debug key; it is the one to test on the device (1.8 MB).
-- Install with push + `pm install -r` (§5).
+- The release build has R8 on and is signed with the debug key (2.4 MB). It has no test hooks (`TEST_SHOT`, `ui_rotation`): those are debuggable-only, so the scripted regression tests need the debug APK.
+- Install with push + `pm install -r` (§5). Both variants share the key, so either one updates the copy in the ROM.
+- **The ROM ships the release APK** as a system prebuilt, `device/samsung/gd1/app/GcCamera` (since 2026-11-06, first one built from 32d9177). To refresh it: `assembleRelease`, smoke-test it on the device, then run `tools/update-camera-prebuilt.sh` from WSL.
 
 **Layout of the code**:
 - `camera/CameraController.kt`: Camera1 on its own HandlerThread. It owns open/close, AF, capture (focus priority), the zoom drive, the 500 ms parameter poll, and the preview-frame histogram (one buffer re-armed every 250 ms).
