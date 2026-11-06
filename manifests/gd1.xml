@@ -1,13 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Galaxy Camera EK-GC100 (gd1) bring-up on top of LineageOS-UL 21 -->
+<!-- Galaxy Camera EK-GC100 (gd1) bring-up on top of LineageOS-UL 21.
+     Projects we patch come from our GitHub forks (branch gd1), the others
+     straight from html6405. -->
 <manifest>
   <remote name="html6405" fetch="https://github.com/html6405" />
+  <remote name="simoneluconi" fetch="https://github.com/simoneluconi" />
+
+  <!-- The GC100 device tree -->
+  <project path="device/samsung/gd1" name="android_device_samsung_gd1" remote="simoneluconi" revision="lineage-21.0" />
 
   <!-- Exynos4412 common tree; the i9300 low-RAM (Go) tree is the reference device -->
-  <project path="device/samsung/smdk4412-common" name="android_device_samsung_smdk4412-common" remote="html6405" revision="lineage-21.0" />
+  <project path="device/samsung/smdk4412-common" name="android_device_samsung_smdk4412-common" remote="simoneluconi" revision="gd1" />
   <project path="device/samsung/i9300" name="android_device_samsung_i9300" remote="html6405" revision="lineage-21.0-mini-go" />
-  <project path="kernel/samsung/smdk4412" name="android_kernel_samsung_smdk4412" remote="html6405" revision="lineage-21.0-BPF" />
-  <project path="hardware/samsung" name="android_hardware_samsung" remote="html6405" revision="lineage-21.0-exynos4" />
+  <project path="kernel/samsung/smdk4412" name="android_kernel_samsung_smdk4412" remote="simoneluconi" revision="gd1" />
+  <project path="hardware/samsung" name="android_hardware_samsung" remote="simoneluconi" revision="gd1" />
   <!-- LineageOS-UL dropped vendor.lineage.power@1.0, which html6405's exynos4
        hardware/samsung still uses: take his lineage interfaces fork instead -->
   <remove-project name="LineageOS-UL/android_hardware_lineage_interfaces" />
@@ -16,10 +22,26 @@
        and the open exynos_camera HAL is HAL1: use html6405's camera branch, the
        one his working i9300 LOS21 builds use -->
   <remove-project name="LineageOS-UL/android_frameworks_av" />
-  <project path="frameworks/av" name="android_frameworks_av" remote="html6405" revision="lineage-21.0-qpr3-camera" />
+  <project path="frameworks/av" name="android_frameworks_av" remote="simoneluconi" revision="gd1" />
   <!-- The matching frameworks/base: LineageOS-UL as of 2025-03-30 plus the
        HAL1 camera client side. Our gd1 branch merges UL's final 2025-04-04
        head on top of it -->
   <remove-project name="LineageOS-UL/android_frameworks_base" />
-  <project path="frameworks/base" name="android_frameworks_base" remote="html6405" revision="lineage-21.0-qpr3-camera_hal1-r08" />
+  <project path="frameworks/base" name="android_frameworks_base" remote="simoneluconi" revision="gd1" />
+
+  <!-- Kernel 3.4 and legacy hardware fixes on LineageOS-UL and AOSP projects -->
+  <remove-project name="LineageOS-UL/android_bionic" />
+  <project path="bionic" name="android_bionic" remote="simoneluconi" revision="gd1" />
+  <remove-project name="LineageOS-UL/android_system_core" />
+  <project path="system/core" name="android_system_core" remote="simoneluconi" revision="gd1" />
+  <remove-project name="LineageOS-UL/android_packages_modules_adb" />
+  <project path="packages/modules/adb" name="android_packages_modules_adb" remote="simoneluconi" revision="gd1" />
+  <!-- AOSP history holds a file over GitHub's size limit, so this fork's gd1
+       is a flat import of android-14.0.0_r67 plus our patch -->
+  <remove-project name="platform/system/unwinding" />
+  <project path="system/unwinding" name="android_system_unwinding" remote="simoneluconi" revision="gd1" groups="pdk" />
+  <!-- Launcher: recents animation race that left Home unable to take touches.
+       Not pinned by zz-lineage-snapshot.xml: gd1 sits on the pinned commit -->
+  <remove-project name="LineageOS/android_packages_apps_Trebuchet" />
+  <project path="packages/apps/Trebuchet" name="android_packages_apps_Trebuchet" remote="simoneluconi" revision="gd1" groups="pdk-fs,sysui-studio" />
 </manifest>

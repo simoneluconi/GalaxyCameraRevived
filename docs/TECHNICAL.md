@@ -113,7 +113,7 @@ There is no RAW development on the camera. An on-device pipeline was built and m
 
 The Android build tree combines LineageOS-UL, html6405's Exynos 4412 trees and our own changes. Our patches sit on **`gd1` topic branches** that track the upstream branch, so `repo sync` rebases them.
 
-> The `gd1` branches are published as GitHub forks under [simoneluconi](https://github.com/simoneluconi?tab=repositories) (linked below). `manifests/gd1.xml` still fetches html6405's upstream branches; switching it to the forks is still to do. `system/unwinding` has no GitHub copy to fork, so its patch is in [`patches/`](../patches/).
+> The `gd1` branches are published as GitHub forks under [simoneluconi](https://github.com/simoneluconi?tab=repositories) (linked below), and `manifests/gd1.xml` fetches every patched project from them. The local branches track the upstream branch; the forks are pushed from them.
 
 | Path | Upstream | Our branch, and what it adds |
 |---|---|---|
@@ -122,12 +122,13 @@ The Android build tree combines LineageOS-UL, html6405's Exynos 4412 trees and o
 | [`device/samsung/smdk4412-common`](https://github.com/simoneluconi/android_device_samsung_smdk4412-common/tree/gd1) | html6405 `lineage-21.0` | `gd1`: build the common modules for gd1; skip its camera HAL; LOS21 extract-utils scripts; Mali GLES modules also in `/system/lib/egl`; optional `param.sh`; no prebuilt Nfc app; ueventd without group write on PARAM, RADIO and p10. |
 | [`hardware/samsung`](https://github.com/simoneluconi/android_hardware_samsung/tree/gd1) | html6405 `lineage-21.0-exynos4` | `gd1`: `String8::c_str()` (UL's libutils made `string()` private); SamsungServiceMode include optional. |
 | [`frameworks/av`](https://github.com/simoneluconi/android_frameworks_av/tree/gd1) | html6405 `lineage-21.0-qpr3-camera` (Aug 2024, has camera HAL1) | `gd1`: UL's full camera platform flag list, which UL's frameworks/base needs. |
-| `frameworks/base` | html6405 `lineage-21.0-qpr3-camera_hal1-r08` | `gd1`: UL's final head (2025-04-04) merged on top, API files updated. **base and av must come from the same HAL1 pair.** |
+| [`frameworks/base`](https://github.com/simoneluconi/android_frameworks_base/tree/gd1) | html6405 `lineage-21.0-qpr3-camera_hal1-r08` | `gd1`: UL's final head (2025-04-04) merged on top, API files updated. **base and av must come from the same HAL1 pair.** |
 | `hardware/lineage/interfaces` | html6405 `lineage-21.0-qpr3` | none (replaces UL's, which dropped `vendor.lineage.power@1.0`). |
 | [`packages/modules/adb`](https://github.com/simoneluconi/android_packages_modules_adb/tree/gd1) | LineageOS-UL | `gd1` f31cfce: start legacy FunctionFS transports on the device. Without it adbd stays "offline" on kernels without FunctionFS AIO. Worth sending upstream. |
 | [`bionic`](https://github.com/simoneluconi/android_bionic/tree/gd1) | LineageOS-UL | `gd1`: html6405's "Ignore invalid pthread_t" (libMali passes a bad pthread_t to `pthread_join`). |
 | [`system/core`](https://github.com/simoneluconi/android_system_core/tree/gd1) | LineageOS-UL | `gd1` cf3a6bb: tombstoned works without `O_TMPFILE` (kernel 3.4). |
-| `system/unwinding` ([patch](../patches/system_unwinding/)) | AOSP | `gd1` 5b4cd57: libunwindstack falls back to `PTRACE_GETREGS` (no `PTRACE_GETREGSET` on 3.4 ARM). |
+| [`system/unwinding`](https://github.com/simoneluconi/android_system_unwinding/tree/gd1) | AOSP `android-14.0.0_r67` | `gd1`: libunwindstack falls back to `PTRACE_GETREGS` (no `PTRACE_GETREGSET` on 3.4 ARM). AOSP's history holds a 219 MB test file, over GitHub's 100 MB limit, so the fork's `gd1` is a flat import of the r67 tree plus the patch. |
+| [`packages/apps/Trebuchet`](https://github.com/simoneluconi/android_packages_apps_Trebuchet/tree/gd1) | LineageOS `lineage-21.0`, at the snapshot's pinned commit | `gd1` bc7aa77: finish a recents animation that starts after its gesture was dropped. On this slow device that race left Home and every app unable to take touches. |
 
 This repository (GalaxyCameraRevived) holds what is not part of the Android tree: the docs, `manifests/`, `tools/`, the mini recovery sources (`minirecovery/`), the apps (`camera-app/`), the lens profile (`profiles/`) and reference copies of `m9mo.c` and `exynos_camera` (`reference/`).
 

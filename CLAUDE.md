@@ -182,7 +182,7 @@ The device is a camera, not a phone, and it must be **as light as possible** (ab
 
 ## Tree state and local patches (2026-10-31)
 
-Everything lives in WSL `~/android/lineage`. Run WSL commands from **script files**: `wsl.exe -- bash -c '...'` from Git Bash loses `$VARS`. Local branches named `gd1` hold our patches, and they must become our GitHub forks before publishing.
+Everything lives in WSL `~/android/lineage`. Run WSL commands from **script files**: `wsl.exe -- bash -c '...'` from Git Bash loses `$VARS`. Local branches named `gd1` hold our patches. Since 2026-11-06 they are all on our GitHub forks (`simoneluconi/<name>`, branch `gd1`) and the published `manifests/gd1.xml` fetches them from there; after a new local commit, push the fork too. The WSL tree's own `.repo/local_manifests` still has the older html6405-based copy, so that `repo sync` keeps rebasing the local branches. `system/unwinding`'s fork is a flat import (the AOSP history has a 219 MB file): push it with the `gd1-github` ref (`git commit-tree` replay), not `gd1`.
 
 - `device/samsung/smdk4412-common` (branch `gd1`):
   1. Drop the prebuilt Nfc app (it clashes with packages/apps/Nfc; html6405 patched build/make instead).

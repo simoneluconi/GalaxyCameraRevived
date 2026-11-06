@@ -157,7 +157,6 @@
   <extend-project name="LineageOS/android_packages_apps_Stk" revision="12c0bb30b9b54820792f6245e048de42bdf4fc45" />
   <extend-project name="LineageOS/android_packages_apps_Tag" revision="2844783b03f9a500ba58b64188ce44092e77c5df" />
   <extend-project name="LineageOS/android_packages_apps_ThemePicker" revision="487dbd0f279554e86fafe054a114d89f8adcd0a0" />
-  <extend-project name="LineageOS/android_packages_apps_Trebuchet" revision="3c7843261ea11ecd5b887a983d936f4ea3b1e8aa" />
   <extend-project name="LineageOS/android_packages_apps_TvSettings" revision="479c7848028f9057dbc16c50e9585fdf62db6cea" />
   <extend-project name="LineageOS/android_packages_apps_TvSystemUI" revision="adddf3323e91d794360bcdb8b5c8bc15bfe7c042" />
   <extend-project name="LineageOS/android_packages_apps_Updater" revision="d0f28cbaa9f8f69fcc0990dfa8210e5c3c5706ab" />
