@@ -180,7 +180,9 @@ Still open:
   - Awake only 2% of the time (468 suspends; 51 failed with `alarmtimer` -EBUSY).
   - Raw fuel-gauge SoC fell from 98.42% to 89.91%: about 1.1%/h. With the 1650 mAh pack (check the stock battery) that is about 18 mA average and about 4 days of standby. It starts from a full charge, so this is slightly pessimistic.
   - About one wakeup per minute. The biggest sources:
-    - `l2_hsic` (514): the modem waking the AP. With no SIM it keeps searching for emergency service. Power the modem down when no SIM is present or mobile data is off.
+    - `l2_hsic` (514): the modem waking the AP. With no SIM it keeps searching for emergency service. Power the modem down when no SIM is present.
+  - **Second measurement (2026-11-05 20:23 → 11-06 22:15, SIM in, mobile data off, Wi-Fi connected, BT on with a remote paired):** 100% → 59% in 25 h 52 min, about 1.6%/h. Awake 3% of the time; the voltage fell steadily (4.145 → 3.79 V), and the faster % drop between 85% and 74% is the gauge's curve. `l2_hsic` 2013 wakes, `NETLINK` 10097, `wlan_*` ~2400.
+  - **3G stays as stock Android handles it** (user, 2026-11-06): the modem stays registered for SMS, mobile data follows the user's switch. No custom radio-off-on-Wi-Fi logic and no 2G-only default.
     - `mmc1_detect` (519): the microSD slot is rescanned on every resume.
     - `battery-monitor` (475): the sec battery driver polls every minute even while suspended; check whether its sleep interval can be longer.
     - `wlan_wake`/`wlan_wd_wake`: Wi-Fi keeping the connection up.
