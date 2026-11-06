@@ -106,7 +106,10 @@ The user's storage must not fill up with debug output. Keep only what explains c
   - Zoom steps 7.5, 11.3 and 13.9 mm (and 86 mm) were not captured, so they are interpolated. Re-shoot them once the HAL keeps the zoom across a reopen.
   - The wide-end fits reach only r ≈ 0.75, so k2 is uncertain near the corners.
   - Vignetting: the ISP hardly corrects it, so the real fall-off needs a flat field: a white diffuser in front of the lens, shot at every zoom step. Until then the .lcp VignetteModel and the in-app development use v1 = −0.375, chosen by the user by eye in Lightroom (slider 150).
-  - Colour: ColorMatrix1 is fitted on one series of colourful pairs under one lamp (cross-checked on a second series and the face scene). Still single-illuminant: add daylight pairs for a dual-illuminant profile.
+  - Colour: ColorMatrix1 is fitted on one series of colourful pairs under one lamp (cross-checked on a second series and the face scene).
+    - **Checked in daylight (2026-11-06, `tools/gc100-colour-fit.py`, 6 overcast pairs of 2026-11-05):** developed like a raw editor (matrix, Bradford to the shot's neutral, the ISP tone curve), it is within dE76 2.7 median of the ISP's JPEG, as good as the best 3x3 fitted on those pairs (2.4) and no worse than one derived from `camToSrgb` (2.65). So it stays, and a daylight matrix adds nothing; the ISP appears to use one matrix for both lights.
+    - What remains is the ISP's non-linear look: saturated colours (autumn yellows, C* > 20) differ by about dE 9 whatever the matrix. Reproducing it needs a HueSatMap/LookTable (a DCP, or ProfileHueSatMap in the DNG), not a matrix. Optional: Lightroom's own profiles add their own look anyway.
+    - A tungsten series would still show whether StdA needs its own matrix (dual-illuminant).
 - **The zoom is lost when the camera is fully reopened**: the lens comes out at wide while `zoom` says N. The app re-sends the zoom after startPreview, but the HAL seems to drop the unchanged value. Reported to the HAL session on 2026-11-02.
 - **DNG gaps** (gccore `dng.cpp`), to fix before calling the DNGs "Lightroom-ready":
   - ColorMatrix1 is single-illuminant (see Colour above); dual-illuminant with ForwardMatrix later.
