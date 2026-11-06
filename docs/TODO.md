@@ -510,7 +510,7 @@ The stock M9MO JPEGs look poor: heavy sharpening halos, smeary noise reduction, 
     - Powered off: a custom off-mode charger theme (camera-style, with percentage), then screen off.
     - Powered on: on a real plug-in, show our charging overlay for a few seconds and then turn the screen off. This could replace the plain wake-on-plug behaviour.
 - Reduce the low-RAM / Go profile further: background process limits, zram size, no unneeded persistent services.
-- **Camera standby / instant-on** (user request 2026-10-31). Use suspend-to-RAM, the normal Android deep sleep, not hibernation: suspend-to-disk is unsupported on this 3.0 Android kernel, and resuming from it would be as slow as booting. Plan:
+- **Camera standby / instant-on** (user request 2026-10-31; plan accepted 2026-11-06, next session, estimated 3-5 h). Start by measuring the screen-off/on cycle with GC Camera open: wake-to-first-preview time, standby drain, deep sleep reached. Use suspend-to-RAM, the normal Android deep sleep, not hibernation: suspend-to-disk is unsupported on this 3.0 Android kernel, and resuming from it would be as slow as booting. Plan:
   - A short Power press releases the camera (the M9MO retracts the lens), turns the screen off and suspends. Optionally the modem, Wi-Fi and GPS go off too.
   - On wake, our camera app (HOME, no lockscreen) is already in front. Start the M9MO (ISP boot, lens out) in parallel with the screen-on.
   - Make the shutter and zoom keys wake sources (gpio-keys `.wakeup` in the gc1 board file), like a real camera.
