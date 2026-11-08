@@ -120,6 +120,8 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     private var cameraError: String? = null
     private var reopenTried = false
     private var halfPressed = false
+    /** Below LOW_BATTERY_PCT the camera is released and stays closed until BATTERY_OK_PCT. */
+    private var batteryLow = false
     /** The zoom lever's closed contacts: scan code to direction (docs/CAMERA-APP.md §4). */
     private val zoomHeld = HashMap<Int, Int>(4)
     private var zoomLastDir = 0
@@ -388,7 +390,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     }
 
     private fun maybeOpen() {
-        if (!resumed || !surfaceReady || !hasCameraPermission()) return
+        if (!resumed || !surfaceReady || !hasCameraPermission() || batteryLow) return
         cameraError = null
         controller.setFramesEnabled(framesWanted())
         controller.open(preview.holder, shot, zoom, prefs.shutterSound)
@@ -606,7 +608,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         halfPressed = true
         hideReview()
         hideQuickMenu()
-        if (countdownLeft > 0 || caps == null) return
+        if (countdownLeft > 0 || caps == null || batteryLow) return
         main.removeCallbacks(clearTapFocus)
         overlay.af = Af.FOCUSING
         controller.focus()
@@ -639,7 +641,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
      */
     private fun tapFocus(fx: Float, fy: Float) {
         val c = caps ?: return
-        if (halfPressed || countdownLeft > 0) return
+        if (halfPressed || countdownLeft > 0 || batteryLow) return
         hideReview()
         hideQuickMenu()
         if (c.touchAf) {
@@ -675,7 +677,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         }
     }
 
-    private fun canShoot() = target != null && caps != null && cameraError == null
+    private fun canShoot() = target != null && caps != null && cameraError == null && !batteryLow
 
     // --- Rotation, camera style: the panel stays, its labels and menus turn in place; the
     // viewfinder's bars move to the user's top and bottom ---
@@ -1046,6 +1048,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
 
     private fun refreshBanner() {
         val text = when {
+            batteryLow -> getString(R.string.banner_battery_low, LOW_BATTERY_PCT, BATTERY_OK_PCT)
             !hasCameraPermission() -> getString(R.string.banner_permission)
             cameraError != null -> getString(R.string.banner_camera_error, cameraError)
             target == null -> getString(R.string.banner_no_sd)
@@ -1282,9 +1285,27 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         val level = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = i.getIntExtra(BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
         val st = i.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-        status.batteryPct = if (level >= 0) level * 100 / scale else -1
+        val pct = if (level >= 0) level * 100 / scale else -1
+        status.batteryPct = pct
         status.charging = st == BatteryManager.BATTERY_STATUS_CHARGING || st == BatteryManager.BATTERY_STATUS_FULL
         status.invalidate()
+        // An old battery can die before Android's own shutdown at 0%, and that leaves the lens
+        // out. Releasing the camera retracts it (after a shot in progress). Even when plugged
+        // in: a weak charger does not always keep up with the camera. It comes back only well
+        // above the limit, so a reading that wavers does not move the lens in and out.
+        if (pct in 0 until LOW_BATTERY_PCT && !batteryLow) {
+            batteryLow = true
+            cancelCountdown()
+            halfPressed = false
+            overlay.af = Af.NONE
+            releaseZoom()
+            controller.pause(0)
+            refreshBanner()
+        } else if (pct >= BATTERY_OK_PCT && batteryLow) {
+            batteryLow = false
+            refreshBanner()
+            maybeOpen()
+        }
     }
 
     private val clockTick: Runnable = object : Runnable {
@@ -1349,6 +1370,8 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         private const val REQ_CAMERA = 1
         private const val KEEP_WARM_MS = 30_000L
         private const val REOPEN_DELAY_MS = 1500L
+        private const val LOW_BATTERY_PCT = 5
+        private const val BATTERY_OK_PCT = 10
         private const val UNDER_RANGE_EV = -10f
         private const val ROTATE_MS = 250L
         private const val HUD_FADE_MS = 120L

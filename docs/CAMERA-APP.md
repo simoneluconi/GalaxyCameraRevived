@@ -432,6 +432,7 @@ $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"; .\gradlew.bat asse
 **UI behaviour the user chose (2026-11-02)**:
 - **There is no EV row.** The scale under the dials is the compensation control in P/A/S: drag it, tap a position, or double-tap to reset to 0. In M the same scale is the exposure meter. In Auto it is fixed at 0.
 - **The pop-up flash is the switch.** Raising it sets the last used mode (auto or on, remembered; auto by default), and closing it sets off. Since 2026-11-08 there is no flash button on the panel: while the flash is up, a chip at the viewfinder's bottom right toggles auto and on (accent fill = on), and with the flash down it is hidden.
+- **Low battery** (2026-11-08): below 5% the app releases the camera (the lens retracts, after a shot in progress) and shows a banner; it reopens at 10%. An old battery can die before Android's shutdown at 0%, with the lens out. It applies when plugged in too.
 - **The panel** (2026-11-08): the mode selector (42dp, larger letters), the dials, the scale, and one row of Fn and ⚙.
 - **Histogram off** (Settings → Display) gives its room to the shutter/aperture/ISO rows.
 - **Settings** has tabs along the top (Storage, Image, Display, Sound, Location, System). Opening it only stops the preview and keeps the lens out for 30 s, so going back is instant. Leaving the app in any other way releases the camera at once.

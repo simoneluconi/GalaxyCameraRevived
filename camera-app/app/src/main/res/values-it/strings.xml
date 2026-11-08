@@ -11,6 +11,7 @@
     <string name="status_no_sd">NO SD</string>
 
     <string name="banner_no_sd">Nessuna microSD. Inseriscila per scattare.</string>
+    <string name="banner_battery_low">Batteria sotto il %1$d%%: obiettivo rientrato. Ricarica fino al %2$d%% per scattare.</string>
     <string name="banner_camera_error">Fotocamera non disponibile: %1$s</string>
     <string name="banner_permission">Serve il permesso della fotocamera</string>
     <string name="toast_dng_failed">Il JPEG è salvato, ma il DNG non è stato scritto</string>

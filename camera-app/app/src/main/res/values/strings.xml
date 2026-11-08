@@ -29,6 +29,7 @@
 
     <!-- Banners and messages -->
     <string name="banner_no_sd">No microSD card. Insert one to take photos.</string>
+    <string name="banner_battery_low">Battery below %1$d%%: lens retracted. Charge to %2$d%% to shoot.</string>
     <string name="banner_camera_error">Camera unavailable: %1$s</string>
     <string name="banner_permission">The camera permission is needed</string>
     <string name="toast_dng_failed">The JPEG was saved, but the DNG could not be written</string>
