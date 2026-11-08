@@ -523,7 +523,7 @@ The stock M9MO JPEGs look poor: heavy sharpening halos, smeary noise reduction, 
   - Charger mode differs from normal suspend in one obvious way: `init.smdk4x12.rc` sets the `powersave` governor, so every resume runs at the lowest CPU frequency and voltage, with all four cores online (`exynos_restore_gov_freq` drops to the minimum right after the PM lock is freed). Suspend under Android (pegasusq) has shown no such crashes.
   - **The governor is the trigger** (tested 2026-11-08): with suspend back on and pegasusq instead of powersave in charger mode, 19 resumes over two runs (29 min from 92%, 62 min from 24%) had no crash. With powersave, the afternoon run had 6 crashes in about 30 resumes, and the morning one crashed after 7. Logs: `device-dump/charger-dl-20261108/test2`, `test3`. Suspect: too low a voltage at the minimum OPP just after resume (ASV table or the resume path). The fix stays "no suspend in charger mode", which has no resumes at all; the finding matters for normal use: never run the 4412 at the minimum frequency with the `powersave` governor across suspend.
   - Until then, keep an eye on unexplained native crashes right after a resume in normal use (the 2026-11-04 JIT jump to address 0 could be one).
-  - The debug rc `/vendor/etc/init/zz-charger-debug.rc` (logs to /cache, ACM console, plus the test wake lock) is on the device by hand. Remove it once a build with the fix is flashed.
+  - The fix is in the build flashed on 2026-11-08 (kernel #67), which also replaced the hand-pushed debug rc (`zz-charger-debug.rc`). The old charger logs stay in /cache (`chg-*`); copies are in device-dump.
 
 ## ART
 
