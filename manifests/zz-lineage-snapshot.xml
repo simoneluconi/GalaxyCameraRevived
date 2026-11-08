@@ -149,7 +149,6 @@
   <extend-project name="LineageOS/android_packages_apps_Profiles" revision="74780d633bd2a02f4ddd3d62e937773b130aaa28" />
   <extend-project name="LineageOS/android_packages_apps_Recorder" revision="9d5e58cabcf0fda0ca15346ba2c490e1be48ac77" />
   <extend-project name="LineageOS/android_packages_apps_Seedvault" revision="7da1a5a7d04ff30a348806efca5f0b902fd12cc7" />
-  <extend-project name="LineageOS/android_packages_apps_Settings" revision="8a0a1b7673232141f33be4870f02dbe0b0b8e648" />
   <extend-project name="LineageOS/android_packages_apps_SettingsIntelligence" revision="2f2caa0a6524248bfefb63167c4bfcec9c83630b" />
   <extend-project name="LineageOS/android_packages_apps_SetupWizard" revision="63135029da644bcccc301820138f7490902e1a1e" />
   <extend-project name="LineageOS/android_packages_apps_SimpleDeviceConfig" revision="82d31b18dd2550e05f89248f128cb571eecc863a" />

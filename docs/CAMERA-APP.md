@@ -17,7 +17,7 @@ A camera-first app for a real camera, not a phone camera app. The user's decisio
 - **RAW**:
   - every shot can save a DNG next to the ISP JPEG, for development on a PC (Lightroom, RawTherapee, darktable);
   - **no on-device development** (user, 2026-11-04): ours only reached parity with the ISP's JPEG, so the "Advanced" JPEG was removed everywhere (docs/RAW-PIPELINE.md).
-- **Later**: the app becomes the HOME launcher (the device is a camera), saving about 90MB of RAM. It also needs an instant-on standby: Power releases the camera and suspends, and waking brings the viewfinder back fast.
+- **Later**: the app becomes the HOME launcher (the device is a camera), saving about 90MB of RAM. Standby stays as it is (user, 2026-11-08): screen off releases the camera and the device suspends. Auto power off is a system setting (Settings > Battery, SystemUI), not an app feature.
 - **Code, comments, commits and docs in English.** The user talks Italian in chat. It is a separate, publishable repo (GPL/Apache compatible, no proprietary bits).
 - **No Google services** (no GMS, no microG, no Play libraries). Plain AndroidX is fine if it stays small.
 
@@ -355,7 +355,7 @@ Ask for these, or do them in the HAL (`device/samsung/gd1/camera/`), as the app 
 2. P/A/S/M UI with dials and the live readout; OIS toggle; exposure compensation.
 3. RAW: `raw-capture` in the HAL (§6.1), raw callback → DNG writer (port of `tools/m9mo-dng.py`), DNG + JPEG pair in the gallery.
 4. ~~Background development job~~: dropped on 2026-11-04 (docs/RAW-PIPELINE.md).
-5. HOME launcher role, standby/instant-on with the ISP power cycle, settable auto-standby.
+5. HOME launcher role. Standby needs nothing beyond releasing the camera in `onPause()`; auto power off is in the system (2026-11-08).
 
 ## 8. Hardware reference
 
