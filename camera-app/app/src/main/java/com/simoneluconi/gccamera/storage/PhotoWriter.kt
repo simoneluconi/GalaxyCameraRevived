@@ -29,6 +29,8 @@ class ShotMeta(
     val pasm: Pasm,
     val takenAt: Long,
     val exifOrientation: Int,
+    /** The DNG's: the RAW frame is exposed first, so the camera may have turned before the JPEG's. */
+    val rawOrientation: Int,
     val location: Location?,
     val flashFired: Boolean,
     val flashMode: String,
@@ -186,7 +188,7 @@ class PhotoWriter private constructor(private val context: Context) {
                         (i.focal35mm ?: 0).toDouble(),
                         i.biasEv ?: 0.0,
                         JpegMeta.exposureProgram(m.pasm).toDouble(),
-                        m.exifOrientation.toDouble(),
+                        m.rawOrientation.toDouble(),
                     ),
                     dateTime = SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.US).format(date),
                     offsetTime = SimpleDateFormat("XXX", Locale.US).format(date),

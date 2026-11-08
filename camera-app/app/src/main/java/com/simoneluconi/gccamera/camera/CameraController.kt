@@ -32,6 +32,9 @@ class CameraController(private val listener: Listener) {
         fun onCameraOpened(caps: CameraCaps)
         fun onCameraError(message: String)
         fun onFocusDone(success: Boolean)
+        /** takePicture is about to run: the first frame (the RAW one, if asked for) is exposed now. */
+        fun onCaptureStart()
+        /** Sent once the first frame is exposed; a RAW shot's JPEG frame is exposed after it. */
         fun onShutter()
         /** [raw] is the HAL's raw frame when RAW was asked for and delivered. */
         fun onPictureTaken(jpeg: ByteArray, raw: ByteArray?, info: ShotInfo, frame: FrameInfo)
@@ -68,6 +71,10 @@ class CameraController(private val listener: Listener) {
     private var frameArmed = false
     private var zoomDir = 0
     private var zoomFast = false
+    // The continuous zoom: the move the lever wants, and what the HAL last got (sendZoom)
+    private var zoomWantDir = 0
+    private var zoomWantFast = false
+    private var zoomSentAction = "stop"
 
     // Histogram: filled on the camera thread, copied out on the main thread
     private val histBack = IntArray(HIST_BINS)
@@ -317,10 +324,10 @@ class CameraController(private val listener: Listener) {
         val cam = camera ?: return@post
         if (state != State.IDLE) return@post
         // The HAL refuses autoFocus() while the lens is zooming
-        if (zoomDir != 0) {
+        if (zoomDir != 0 || zoomWantDir != 0) {
             zoomDir = 0
             handler.removeCallbacks(zoomStep)
-            if (caps?.zoomActions?.contains("stop") == true) setParam("zoom-action", "stop")
+            stopZoomNow()
         }
         state = State.FOCUSING
         try {
@@ -380,13 +387,10 @@ class CameraController(private val listener: Listener) {
     /** The zoom lever: drives the optical zoom until [stopZoom]. */
     fun startZoom(direction: Int, fast: Boolean) = handler.post {
         val c = caps ?: return@post
-        val action = (if (direction > 0) "tele" else "wide") + (if (fast) "-fast" else "-slow")
-        if (action in c.zoomActions) {
-            // One smooth motor move; the HAL reports the position in `zoom` meanwhile
-            if (state == State.CAPTURING || !setParam("zoom-action", action)) return@post
-            zoomDir = direction
-            handler.removeCallbacks(zoomPoll)
-            handler.postDelayed(zoomPoll, ZOOM_POLL_MS)
+        if (isContinuousZoom(c)) {
+            zoomWantDir = direction
+            zoomWantFast = fast
+            sendZoom()
             return@post
         }
         val wasStopped = zoomDir == 0
@@ -396,15 +400,43 @@ class CameraController(private val listener: Listener) {
     }
 
     fun stopZoom() = handler.post {
-        val continuous = caps?.zoomActions?.contains("stop") == true
-        zoomDir = 0
+        zoomWantDir = 0
         handler.removeCallbacks(zoomStep)
-        if (continuous && camera != null) {
-            setParam("zoom-action", "stop")
-            // One last read once the motor has settled
-            handler.removeCallbacks(zoomPoll)
-            handler.postDelayed(zoomPoll, ZOOM_POLL_MS)
-        }
+        if (caps?.let(::isContinuousZoom) == true) sendZoom() else zoomDir = 0
+    }
+
+    private fun isContinuousZoom(c: CameraCaps) = "stop" in c.zoomActions
+
+    private fun wantedZoomAction(c: CameraCaps): String {
+        if (zoomWantDir == 0) return "stop"
+        val side = if (zoomWantDir > 0) "tele" else "wide"
+        return "$side-fast".takeIf { zoomWantFast && it in c.zoomActions } ?: "$side-slow"
+    }
+
+    /*
+     * Sends zoom-action only when the wanted move changes: the driver restarts the motor on
+     * every start it gets, so a repeat is not free. Pacing the motor (stop, wait for the lens
+     * to be idle, start) is the driver's job, m9mo_set_zoom_ctrl().
+     */
+    private fun sendZoom() {
+        val c = caps ?: return
+        if (camera == null) return
+        val action = wantedZoomAction(c)
+        if (action == zoomSentAction) return
+        if (state == State.CAPTURING && action != "stop") return
+        if (!setParam("zoom-action", action)) return
+        zoomSentAction = action
+        // While it moves the HAL reports the position in `zoom`; after a stop, one last read
+        zoomDir = if (action == "stop") 0 else zoomWantDir
+        handler.removeCallbacks(zoomPoll)
+        handler.postDelayed(zoomPoll, ZOOM_POLL_MS)
+    }
+
+    /** Stops the motor before AF, a pause or a release. */
+    private fun stopZoomNow() {
+        zoomWantDir = 0
+        if (zoomSentAction != "stop" && camera != null) setParam("zoom-action", "stop")
+        zoomSentAction = "stop"
     }
 
     private val zoomPoll = object : Runnable {
@@ -453,6 +485,7 @@ class CameraController(private val listener: Listener) {
             1
         }
         val wantRaw = settings.raw && caps?.rawLayout != null && queueRawBuffer(cam)
+        main.post(listener::onCaptureStart)
         try {
             cam.takePicture(shutterCallback, if (wantRaw) rawCallback else null, jpegCallback)
             // A shot that never delivers a frame must not leave the camera stuck in CAPTURING
@@ -842,6 +875,7 @@ class CameraController(private val listener: Listener) {
         handler.removeCallbacks(rearm)
         handler.removeCallbacks(zoomStep)
         handler.removeCallbacks(zoomPoll)
+        stopZoomNow()
         zoomDir = 0
     }
 

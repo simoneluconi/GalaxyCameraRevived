@@ -288,7 +288,15 @@ From `gpio-keys` (keylayout `device/samsung/gd1/keylayout/gpio-keys.kl`):
 | Power | 0x74 | KEYCODE_POWER |
 
 - Tell slow from fast with `KeyEvent.getScanCode()`.
-- The fast stage arrives about 30 ms after the slow one and is released before it.
+- The fast stage arrives about 30 ms after the slow one and is usually released before it. Don't rely on that order or on single events:
+  - Android sends the fast contact as a **repeat** of the slow one (same keycode, `repeatCount` > 0), so a `repeatCount == 0` check drops it;
+  - on a quick flick the slow contact can open before the fast one, and on a reversal the new side can close before the old one opens.
+  - `ViewfinderActivity.driveZoom()` therefore keeps the set of closed contacts (by scan code) and derives direction and speed from it, sending only changes. Losing focus or pausing clears the set. Until 2026-11-08 a slow-before-fast release restarted the zoom with no key held, and the lens ran to the end of its travel.
+- **Pacing the motor is the kernel's job, not the app's.** The M9MO silently drops a zoom start that comes too soon after a stop, and then refuses later starts too, until the ISP is power-cycled. `m9mo_set_zoom_ctrl()` (kernel #63, 2026-11-08) handles it, measured on the device:
+  - a reversal (or a start after a stop) waits for LENS `ZOOM_STATUS` bit 0 to clear, then `zoom_settle_ms` (70; 30 failed about half the time, 50 passed 7/7);
+  - when the lens was pushed into an end and never moved, the bit stays set, so the start waits only `zoom_end_settle_ms` after the stop (100; 40 failed, 80 passed);
+  - a reversal therefore takes about 0.3 s mid-travel and 0.1 s at an end. A speed change while moving writes only `ZOOM_SPEED`.
+  - So the app sends `zoom-action` at once and never repeats one: a repeated start restarts the motor.
 - Handle the keys in the activity (`onKeyDown`/`onKeyUp`, return true) so the system does not act on them.
 - LineageOS camera-button settings are enabled (`config_deviceHardwareKeys=32`). Check that "camera button launches camera" and similar settings do not fight the app.
 - The camera keys are not wake sources (yet).

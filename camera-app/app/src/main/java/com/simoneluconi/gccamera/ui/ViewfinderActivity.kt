@@ -121,6 +121,11 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     private var cameraError: String? = null
     private var reopenTried = false
     private var halfPressed = false
+    /** The zoom lever's closed contacts: scan code to direction (docs/CAMERA-APP.md §4). */
+    private val zoomHeld = HashMap<Int, Int>(4)
+    private var zoomLastDir = 0
+    private var zoomDriveDir = 0
+    private var zoomDriveFast = false
     private var keepCameraWarm = false
     private var sequenceBase: String? = null
     private lateinit var btnLast: ImageView
@@ -133,6 +138,8 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     private var shutterAt = 0L
     /** How the camera was held when the shutter fired (the JPEG arrives 1–3 s later). */
     private var shutterOrientation = -1
+    /** How it was held when the shot started: the DNG's, since the RAW frame comes first. */
+    private var captureOrientation = -1
     private var reviewToken = 0
     private var afSound: MediaActionSound? = null
     private var wifiCallback: ConnectivityManager.NetworkCallback? = null
@@ -313,7 +320,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         hideReview()
         halfPressed = false
         overlay.af = Af.NONE
-        controller.stopZoom()
+        releaseZoom()
         // Our own settings screen keeps the lens out for a quick return; anything else retracts it
         controller.pause(if (keepCameraWarm) KEEP_WARM_MS else 0)
         keepCameraWarm = false
@@ -359,7 +366,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) hideSystemBars()
+        if (hasFocus) hideSystemBars() else releaseZoom()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -433,6 +440,10 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         }
     }
 
+    override fun onCaptureStart() {
+        captureOrientation = orientation.exifOrientation
+    }
+
     override fun onShutter() {
         shutterAt = System.currentTimeMillis()
         shutterOrientation = orientation.exifOrientation
@@ -496,9 +507,11 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
                 return true
             }
             KeyEvent.KEYCODE_ZOOM_IN, KeyEvent.KEYCODE_ZOOM_OUT -> {
-                if (event.repeatCount == 0) {
+                // The fast contact arrives as a repeat of the slow one, so repeats count too
+                if (zoomHeld.put(event.scanCode, zoomDirection(keyCode)) == null) {
                     hideReview()
-                    controller.startZoom(zoomDirection(keyCode), isFastZoom(event))
+                    zoomLastDir = zoomDirection(keyCode)
+                    driveZoom()
                 }
                 return true
             }
@@ -515,8 +528,8 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
             }
             KeyEvent.KEYCODE_CAMERA -> return true
             KeyEvent.KEYCODE_ZOOM_IN, KeyEvent.KEYCODE_ZOOM_OUT -> {
-                // The fast stage is released inside the slow one: drop back to slow
-                if (isFastZoom(event)) controller.startZoom(zoomDirection(keyCode), false) else controller.stopZoom()
+                zoomHeld.remove(event.scanCode)
+                driveZoom()
                 return true
             }
         }
@@ -565,7 +578,32 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
 
     private fun zoomDirection(keyCode: Int) = if (keyCode == KeyEvent.KEYCODE_ZOOM_IN) 1 else -1
 
-    private fun isFastZoom(e: KeyEvent) = e.scanCode == SCAN_TELE_FAST || e.scanCode == SCAN_WIDE_FAST
+    private fun isFastZoom(scanCode: Int) = scanCode == SCAN_TELE_FAST || scanCode == SCAN_WIDE_FAST
+
+    /**
+     * Drives the zoom from the lever contacts held now, not from single events: on a quick
+     * flick the slow contact can open before the fast one, and on a reversal the new side can
+     * close before the old one opens. Both directions held: the last one pressed wins.
+     */
+    private fun driveZoom() {
+        val dirs = zoomHeld.values
+        val dir = when {
+            1 in dirs && -1 in dirs -> zoomLastDir
+            dirs.isEmpty() -> 0
+            else -> dirs.first()
+        }
+        val fast = zoomHeld.any { (scan, d) -> d == dir && isFastZoom(scan) }
+        if (dir == zoomDriveDir && fast == zoomDriveFast) return
+        zoomDriveDir = dir
+        zoomDriveFast = fast
+        if (dir == 0) controller.stopZoom() else controller.startZoom(dir, fast)
+    }
+
+    /** Key ups that go to another window would leave the lever "held". */
+    private fun releaseZoom() {
+        zoomHeld.clear()
+        driveZoom()
+    }
 
     private fun halfPress() {
         halfPressed = true
@@ -1069,6 +1107,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
             pasm = shot.pasm,
             takenAt = if (shutterAt > 0) shutterAt else System.currentTimeMillis(),
             exifOrientation = if (shutterOrientation >= 0) shutterOrientation else orientation.exifOrientation,
+            rawOrientation = if (captureOrientation >= 0) captureOrientation else orientation.exifOrientation,
             location = if (prefs.geotag) geo.location() else null,
             flashFired = fired,
             flashMode = shot.flash,
@@ -1095,6 +1134,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         if (frame.index >= frame.count - 1) {
             shutterAt = 0
             shutterOrientation = -1
+            captureOrientation = -1
         }
         val layout = caps?.rawLayout.takeIf { raw != null }
         val jpegBytes = jpeg.size.toLong()
