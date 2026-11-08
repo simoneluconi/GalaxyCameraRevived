@@ -61,7 +61,29 @@ It ships with two apps of its own:
 - **GC Camera**: the camera app, built for the physical controls. [More](camera-app/README.md).
 - **GC Gallery**: a fast gallery for the camera's photos. It pairs each JPEG with its DNG and shows the exposure info, a histogram and star ratings. It is new and still being tested. [More](docs/GALLERY-APP.md).
 
-Planned: a faster HDR, the camera as the home screen, instant-on standby, and a build for the Galaxy Camera 2 (EK-GC200).
+Planned: a faster HDR, the camera as the home screen, and a build for the Galaxy Camera 2 (EK-GC200).
+
+## Screenshots
+
+Taken on an EK-GC100 running this build (1280x720 screen).
+
+**GC Camera**
+
+| ![GC Camera in Auto mode](docs/screenshots/camera-auto.jpg) | ![GC Camera in M mode](docs/screenshots/camera-manual.jpg) |
+|:---:|:---:|
+| Auto: the panel shows the exposure the camera picked | M: shutter, aperture and ISO by hand, with the exposure meter |
+| ![Zoomed in, focus locked](docs/screenshots/camera-zoom.jpg) | ![The Fn menu](docs/screenshots/camera-fn.jpg) |
+| The zoom lever drives the optical zoom; half press focuses | The Fn menu: metering, white balance, AF, drive, self-timer |
+| ![GC Camera settings](docs/screenshots/camera-settings.jpg) | |
+| Settings: JPEG quality, AF lamp, RAW (DNG) | |
+
+**GC Gallery**
+
+| ![GC Gallery grid](docs/screenshots/gallery-grid.jpg) | ![A photo in GC Gallery](docs/screenshots/gallery-viewer.jpg) |
+|:---:|:---:|
+| Photos by day, RAW badges where a DNG is paired | A photo with its exposure |
+| ![Photo info with the histogram](docs/screenshots/gallery-info.jpg) | |
+| Info: histogram with clipping, and the EXIF | |
 
 ## Install
 
