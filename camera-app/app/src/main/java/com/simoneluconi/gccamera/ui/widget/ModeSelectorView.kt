@@ -43,8 +43,8 @@ class ModeSelectorView(context: Context, attrs: AttributeSet?) : View(context, a
 
     private val bg = fillPaint(R.color.surface_variant)
     private val sel = fillPaint(R.color.accent)
-    private val text = textPaint(12f, R.color.on_surface, true, Paint.Align.CENTER)
-    private val textSel = textPaint(12f, R.color.on_accent, true, Paint.Align.CENTER)
+    private val text = textPaint(14f, R.color.on_surface, true, Paint.Align.CENTER)
+    private val textSel = textPaint(14f, R.color.on_accent, true, Paint.Align.CENTER)
     private val rect = RectF()
     private val inset = dp(3f)
 

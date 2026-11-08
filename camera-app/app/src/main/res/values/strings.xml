@@ -10,12 +10,11 @@
     <string name="iso_auto">Auto</string>
     <string name="meter_exposure">Exposure meter</string>
     <string name="meter_compensation">Compensation</string>
-    <string name="flash_button">Flash\n%1$s</string>
-    <string name="flash_off">Off</string>
+    <string name="flash_button">Flash %1$s</string>
     <string name="flash_auto">Auto</string>
     <string name="flash_on">On</string>
     <string name="format_jpeg">JPEG</string>
-    <string name="format_jpeg_raw">RAW\n+JPEG</string>
+    <string name="format_jpeg_raw">RAW+JPEG</string>
     <string name="fn">Fn</string>
     <string name="settings_title">Settings</string>
     <string name="unknown_value">—</string>
@@ -30,10 +29,8 @@
 
     <!-- Banners and messages -->
     <string name="banner_no_sd">No microSD card. Insert one to take photos.</string>
-    <string name="toast_raise_flash">Raise the flash to use it</string>
     <string name="banner_camera_error">Camera unavailable: %1$s</string>
     <string name="banner_permission">The camera permission is needed</string>
-    <string name="toast_raw_unsupported">This camera software cannot deliver RAW frames</string>
     <string name="toast_dng_failed">The JPEG was saved, but the DNG could not be written</string>
     <string name="toast_save_failed">Could not save the photo</string>
     <string name="toast_capture_failed">The camera did not deliver the photo</string>

@@ -77,6 +77,28 @@
                 android:padding="2dp"
                 android:scaleType="centerCrop"
                 android:visibility="gone" />
+
+            <!-- Only while the pop-up flash is raised (closed means off): toggles auto and on -->
+            <TextView
+                android:id="@+id/btn_flash"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_gravity="bottom|end"
+                android:layout_marginEnd="10dp"
+                android:layout_marginBottom="10dp"
+                android:background="@drawable/flash_chip_bg"
+                android:drawableStart="@drawable/ic_flash"
+                android:drawablePadding="4dp"
+                android:drawableTint="@color/overlay_line"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:minWidth="64dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="10dp"
+                android:textColor="@color/overlay_line"
+                android:textSize="13sp"
+                android:visibility="gone" />
         </FrameLayout>
 
         <FrameLayout
@@ -111,7 +133,7 @@
         <com.simoneluconi.gccamera.ui.widget.ModeSelectorView
             android:id="@+id/mode"
             android:layout_width="match_parent"
-            android:layout_height="32dp" />
+            android:layout_height="42dp" />
 
         <!-- The rows share the height left by the mode selector, the meter and the buttons -->
         <com.simoneluconi.gccamera.ui.widget.ValueRowView
@@ -142,40 +164,11 @@
             android:layout_height="48dp"
             android:layout_marginTop="4dp" />
 
-        <!-- Two rows of two: one row of four was too narrow for a finger in a 160dp panel -->
+        <!-- RAW is a setting and the flash chip sits on the viewfinder: easy to touch by accident -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="44dp"
             android:layout_marginTop="6dp"
-            android:orientation="horizontal">
-
-            <FrameLayout
-                android:id="@+id/btn_flash"
-                style="@style/PanelButton">
-
-                <TextView
-                    android:id="@+id/label_flash"
-                    style="@style/PanelLabel"
-                    android:maxLines="2"
-                    android:textSize="10sp" />
-            </FrameLayout>
-
-            <FrameLayout
-                android:id="@+id/btn_format"
-                style="@style/PanelButton">
-
-                <TextView
-                    android:id="@+id/label_format"
-                    style="@style/PanelLabel"
-                    android:maxLines="2"
-                    android:textSize="10sp" />
-            </FrameLayout>
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginTop="4dp"
             android:orientation="horizontal">
 
             <FrameLayout

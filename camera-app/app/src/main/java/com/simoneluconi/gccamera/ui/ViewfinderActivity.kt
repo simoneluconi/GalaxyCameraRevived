@@ -104,7 +104,6 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     private lateinit var meter: ExposureMeterView
     private lateinit var histogram: HistogramView
     private lateinit var btnFlash: TextView
-    private lateinit var btnFormat: TextView
 
     private val main = Handler(Looper.getMainLooper())
     private val decoder = Executors.newSingleThreadExecutor()
@@ -177,13 +176,12 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         rowIso = findViewById(R.id.row_iso)
         meter = findViewById(R.id.meter)
         histogram = findViewById(R.id.histogram)
-        btnFlash = findViewById(R.id.label_flash)
-        btnFormat = findViewById(R.id.label_format)
+        btnFlash = findViewById(R.id.btn_flash)
         btnLast = findViewById(R.id.btn_last)
 
         orientation = OrientationSensor(this, overlay::setRoll, ::rotateUi)
         // The labels turn, not the buttons: a wide button turned sideways overlapped its neighbours
-        rotatingViews = listOf(btnFlash, btnFormat, findViewById<View>(R.id.label_fn), findViewById<View>(R.id.label_settings), quickMenu)
+        rotatingViews = listOf(findViewById<View>(R.id.label_fn), findViewById<View>(R.id.label_settings), quickMenu)
         geo = GeoTagger(this) { updateGps(it) }
 
         preview.holder.addCallback(this)
@@ -197,8 +195,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         rowIso.onStep = ::stepIso
         meter.onSet = ::setEv
         mode.onSelect = { i -> caps?.let { c -> setShot(normalise(shot.copy(pasm = c.pasmModes[i]), c)) } }
-        findViewById<View>(R.id.btn_flash).setOnClickListener { cycleFlash() }
-        findViewById<View>(R.id.btn_format).setOnClickListener { toggleRaw() }
+        btnFlash.setOnClickListener { cycleFlash() }
         btnLast.setOnClickListener { openLastShot() }
         findViewById<View>(R.id.btn_fn).setOnClickListener { toggleQuickMenu() }
         findViewById<View>(R.id.btn_settings).setOnClickListener {
@@ -850,13 +847,10 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
 
     /**
      * The pop-up flash is the switch: raised means the remembered auto/on mode, closed means
-     * off. The button only toggles auto and on while the flash is up.
+     * off. The chip on the viewfinder is there only while the flash is up, and toggles auto and on.
      */
     private fun cycleFlash() {
-        if (flashUp != true) {
-            Toast.makeText(this, R.string.toast_raise_flash, Toast.LENGTH_SHORT).show()
-            return
-        }
+        if (flashUp != true) return
         val next = if (shot.flash == Camera.Parameters.FLASH_MODE_AUTO) Camera.Parameters.FLASH_MODE_ON else Camera.Parameters.FLASH_MODE_AUTO
         if (caps?.flashModes?.contains(next) != true) return
         prefs.flashUpMode = next
@@ -1034,19 +1028,14 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         val label = when (shot.flash) {
             Camera.Parameters.FLASH_MODE_AUTO -> getString(R.string.flash_auto)
             Camera.Parameters.FLASH_MODE_ON -> getString(R.string.flash_on)
-            else -> getString(R.string.flash_off)
+            else -> null
         }
-        btnFlash.text = getString(R.string.flash_button, label)
-        // The same rule as RAW and the status bar: accent when it will fire, grey while it
-        // waits for the pop-up to be raised, plain when off
-        val wanted = shot.flash != Camera.Parameters.FLASH_MODE_OFF
-        val ready = wanted && flashUp != false
-        (btnFlash.parent as View).isActivated = ready
-        btnFlash.setTextColor(getColor(when {
-            ready -> R.color.on_accent
-            wanted -> R.color.on_surface_muted
-            else -> R.color.on_surface
-        }))
+        btnFlash.visibility = if (flashUp == true && label != null) View.VISIBLE else View.GONE
+        if (label == null) return
+        btnFlash.text = label
+        btnFlash.contentDescription = getString(R.string.flash_button, label)
+        // Accent when it fires on every shot
+        btnFlash.isActivated = shot.flash == Camera.Parameters.FLASH_MODE_ON
     }
 
     private fun refreshZoom() {
@@ -1163,23 +1152,11 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         }
     }
 
-    private fun toggleRaw() {
-        if (caps?.rawLayout == null) {
-            Toast.makeText(this, R.string.toast_raw_unsupported, Toast.LENGTH_LONG).show()
-            return
-        }
-        setShot(shot.copy(raw = !shot.raw))
-    }
-
+    /** RAW is set in Settings → Image; the status bar shows the format. */
     private fun refreshFormat() {
         // Until the camera answers, the saved setting: it was valid when it was saved
         val on = shot.raw && (caps == null || caps?.rawLayout != null)
-        val label = getString(if (on) R.string.format_jpeg_raw else R.string.format_jpeg)
-        btnFormat.text = label
-        // The accent background is on the button, around the label
-        (btnFormat.parent as View).isActivated = on
-        btnFormat.setTextColor(getColor(if (on) R.color.on_accent else R.color.on_surface))
-        status.format = label.replace('\n', ' ')
+        status.format = getString(if (on) R.string.format_jpeg_raw else R.string.format_jpeg)
         status.shotsLeft = target?.freeBytes()?.let { (it / shotBytes()).toInt() } ?: -1
         status.invalidate()
     }

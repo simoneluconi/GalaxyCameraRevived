@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The flash chip over the viewfinder: the last-shot frame, filled with the accent when "on" -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/overlay_line">
+    <item>
+        <selector>
+            <item android:state_activated="true">
+                <shape android:shape="rectangle">
+                    <solid android:color="@color/accent" />
+                    <stroke
+                        android:width="2dp"
+                        android:color="@color/overlay_line" />
+                    <corners android:radius="6dp" />
+                </shape>
+            </item>
+            <item>
+                <shape android:shape="rectangle">
+                    <solid android:color="@color/overlay_shadow" />
+                    <stroke
+                        android:width="2dp"
+                        android:color="@color/overlay_line" />
+                    <corners android:radius="6dp" />
+                </shape>
+            </item>
+        </selector>
+    </item>
+</ripple>

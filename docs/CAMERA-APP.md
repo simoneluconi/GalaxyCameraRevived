@@ -416,7 +416,7 @@ $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"; .\gradlew.bat asse
   - At 4.1 mm its frame uses about 84% × 85% of the active area; the rest is the image circle's dark corners. From 16.5 mm on the JPEG is the whole frame.
   - The DNG writer embeds `crs:HasCrop/Crop*` (the inscribed rectangle) and `crs:LensManualDistortionAmount` (a first guess of −k1 × 100: 27 at the wide end) when the focal length is below 16.5 mm.
   - Repeat with the analysis scripts: drive the app with `am start … --ei zoom N`, capture RAW, develop the DNG (RawTherapee/LibRaw), then register.
-- **RAW in the app**: the panel's JPEG/RAW+JPEG button (or Settings → Image) saves `GC100_NNNN.dng` next to the JPEG.
+- **RAW in the app**: Settings → Image → RAW saves `GC100_NNNN.dng` next to the JPEG; the status bar shows JPEG or RAW+JPEG. The panel button went on 2026-11-08 (user: too easy to touch by accident).
   - It works when the HAL reports `raw-*`.
   - It sends `raw-capture=on|off` once the HAL has `raw-capture-values`. Until then RAW frames arrive only with `persist.vendor.camera.raw=1`.
 
@@ -431,11 +431,12 @@ $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"; .\gradlew.bat asse
 
 **UI behaviour the user chose (2026-11-02)**:
 - **There is no EV row.** The scale under the dials is the compensation control in P/A/S: drag it, tap a position, or double-tap to reset to 0. In M the same scale is the exposure meter. In Auto it is fixed at 0.
-- **The pop-up flash is the switch.** Raising it sets the last used mode (auto or on, remembered; auto by default), and closing it sets off. The button only toggles auto and on, and with the flash down it just says to raise it.
+- **The pop-up flash is the switch.** Raising it sets the last used mode (auto or on, remembered; auto by default), and closing it sets off. Since 2026-11-08 there is no flash button on the panel: while the flash is up, a chip at the viewfinder's bottom right toggles auto and on (accent fill = on), and with the flash down it is hidden.
+- **The panel** (2026-11-08): the mode selector (42dp, larger letters), the dials, the scale, and one row of Fn and ⚙.
 - **Histogram off** (Settings → Display) gives its room to the shutter/aperture/ISO rows.
 - **Settings** has tabs along the top (Storage, Image, Display, Sound, Location, System). Opening it only stops the preview and keeps the lens out for 30 s, so going back is instant. Leaving the app in any other way releases the camera at once.
 - **Rotation, camera style**: the activity stays landscape and the UI follows the accelerometer, not the system rotation.
-  - The panel's labels turn in place, animated: mode letters, the four buttons' labels (the buttons themselves stay put), the Fn menu, the countdown and the banners.
+  - The panel's labels turn in place, animated: mode letters, the Fn and ⚙ labels (the buttons themselves stay put), the Fn menu, the countdown and the banners.
   - Held vertically the exposure rows stack (‹, label, value, ›), and the value shrinks to fit. The meter keeps +3 at the user's top and drops its title. "More" is always the user's right or top, so a drag or tap maps to the same direction in every hold (`screenRightSign`).
   - The viewfinder's bars (status bar, zoom, last shot, histogram) sit in a `hud` frame. Held vertically, the frame takes the viewfinder's swapped size and turns, so they land at the user's top and bottom; the frame fades through the change.
   - The panel is always at the user's right or bottom. For a clockwise vertical hold it swaps to the screen's left.
