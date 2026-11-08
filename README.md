@@ -39,6 +39,7 @@ It is built camera-first. There are no Google services and no phone apps, only w
 | Audio | Works |
 | Bluetooth | Works (pairing, sending photos to a phone) |
 | Video recording | Not tested yet |
+| Micro-HDMI output | Does not work (the open-source display stack has no HDMI support for the Exynos 4412) |
 | Standby battery drain | About 1%/hour with Wi-Fi on; being improved |
 | Security | SELinux is permissive and the security patch level is from early 2025 |
 | Updates | By re-flashing; there is no over-the-air update |
