@@ -65,7 +65,8 @@ class ZoomBarView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
     private val bg = fillPaint(R.color.status_bar_bg)
     private val text = textPaint(12f, R.color.on_surface, true, Paint.Align.CENTER)
-    private val track = fillPaint(R.color.outline)
+    // Not outline: on the pill's translucent background it vanished
+    private val track = fillPaint(R.color.on_surface_muted)
     private val knob = fillPaint(R.color.accent)
     private val rect = RectF()
 
@@ -93,9 +94,13 @@ class ZoomBarView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         // Inset well past the knob, so it never touches the pill's rounded ends
         val pad = dp(22f)
         val ty = top + ph * 0.74f
+        val kx = left + pad + (pw - 2 * pad) * fraction
         rect.set(left + pad, ty - dp(1.5f), left + pw - pad, ty + dp(1.5f))
         c.drawRoundRect(rect, dp(1.5f), dp(1.5f), track)
-        c.drawCircle(left + pad + (pw - 2 * pad) * fraction, ty, dp(4.5f), knob)
+        // The travelled part in the accent, from the wide end to the knob
+        rect.right = kx
+        c.drawRoundRect(rect, dp(1.5f), dp(1.5f), knob)
+        c.drawCircle(kx, ty, dp(4.5f), knob)
     }
 
     companion object {
