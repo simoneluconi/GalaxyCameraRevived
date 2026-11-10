@@ -1,0 +1,28 @@
+#!/sbin/sh
+# Root command runner for the adb shell (busybox sh, started by init).
+#
+# The GC200's stock 2014 kernel refuses setuid(0) from the shell uid (it
+# returns EACCES), so /sbin/su cannot work there. init runs this as root
+# instead: rootcmd (as the shell user) drops a command into /tmp/rootd/cmd,
+# this runs it and leaves the output and exit code next to it. Only in the
+# mini recovery, where adb is meant to be root anyway (ro.secure=0).
+
+d=/tmp/rootd
+mkdir -p $d
+# numeric ids: the ramdisk has no /etc/group for busybox (2000 = shell)
+chown 0:2000 $d
+chmod 0770 $d
+
+while true; do
+    if [ -f $d/cmd ]; then
+        mv $d/cmd $d/run
+        rm -f $d/out $d/rc
+        sh $d/run > $d/out.tmp 2>&1
+        echo $? > $d/rc.tmp
+        chmod 0644 $d/out.tmp $d/rc.tmp
+        mv $d/out.tmp $d/out
+        mv $d/rc.tmp $d/rc
+        rm -f $d/run
+    fi
+    sleep 1
+done

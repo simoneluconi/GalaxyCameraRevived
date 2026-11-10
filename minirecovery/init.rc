@@ -50,3 +50,7 @@ service adbd /sbin/adbd recovery
 
 service recovery /sbin/sh /sbin/recovery.sh
     oneshot
+
+# Root commands for the adb shell where su cannot work (the GC200's stock
+# kernel refuses setuid(0)): rootcmd "<command>"
+service rootd /sbin/sh /sbin/rootd

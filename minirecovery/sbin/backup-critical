@@ -2,11 +2,14 @@
 # Copy the small critical partitions to /tmp/backup (RAM), with SHA-1 sums.
 # On the PC: adb pull /tmp/backup
 # BOTA0/BOTA1 (bootloader) and PARAM are only ever read, never written.
+# TDATA (200 MB, /tdata on stock) exists only on the GC200.
 
 . /sbin/minirecovery-lib.sh
 
 mkdir -p /tmp/backup && cd /tmp/backup || exit 1
-for p in BOTA0 BOTA1 EFS PARAM BOOT RECOVERY RADIO OTA; do
+parts="BOTA0 BOTA1 EFS PARAM BOOT RECOVERY RADIO OTA"
+[ -e "$BYNAME/TDATA" ] && parts="$parts TDATA"
+for p in $parts; do
     dev=$(part $p) || exit 1
     echo "$p <- $dev"
     dd if="$dev" of=$p.img bs=1048576 2>/dev/null || exit 1

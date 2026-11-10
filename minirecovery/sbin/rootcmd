@@ -1,0 +1,14 @@
+#!/sbin/sh
+# Run one command as root through rootd, for kernels where su cannot work.
+# Usage: rootcmd "<command>"   (prints its output, exits with its code)
+
+d=/tmp/rootd
+[ -d $d ] || { echo "rootcmd: rootd is not running" >&2; exit 1; }
+[ -e $d/cmd ] || [ -e $d/run ] && { echo "rootcmd: busy" >&2; exit 1; }
+rm -f $d/out $d/rc
+echo "$*" > $d/cmd.tmp && mv $d/cmd.tmp $d/cmd || exit 1
+while [ ! -f $d/rc ]; do
+    sleep 1
+done
+cat $d/out
+exit $(cat $d/rc)
