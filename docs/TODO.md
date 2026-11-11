@@ -178,6 +178,8 @@ Verified on the device:
 
 Still open:
 - **[power] CPU hotplug: on since 2026-11-01.** Verified at idle with the screen on: only CPU0 online at 500 MHz, and cpuidle's `LOW_POWER` (AFTR) state in use.
+  - **Fixed 2026-11-11: hotplug could panic either camera** with a false "Watchdog detected hard LOCKUP" from the other-cpu lockup detector (kernel 58e0e25b; details in docs/GC200.md). The GC100 hit it after 77 rounds of a pegasusq burst-load test; with the fix it ran far past that without a panic. If a "hard LOCKUP" shows up again in a `last_kmsg`, look at the detector first.
+  - pegasusq only samples while CPU0 is awake (deferrable timer): on a quiet system the frequency and the online mask stay where the last burst left them until something wakes CPU0. The CPUs are in WFI meanwhile, but not in AFTR. Measure whether that costs idle power with the screen on.
 - **[power] Screen-off drain, first measurement (night of 2026-11-01).**
   - Conditions: 7 h 55 min unplugged, screen off 99.8%, Wi-Fi connected (2.4 GHz), modem on without a SIM, GPS idle.
   - Awake only 2% of the time (468 suspends; 51 failed with `alarmtimer` -EBUSY).

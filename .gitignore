@@ -36,8 +36,9 @@ adbkey.pub
 # The device serials, the Wi-Fi MAC and the local setup (CLAUDE.md imports it)
 /CLAUDE.local.md
 /.claude/
-# This camera's adb serials for tools/flash-adb.sh
+# This camera's adb serials for tools/flash-adb.sh (one file per model)
 /tools/flash-adb.local
+/tools/flash-adb-*.local
 
 # --- Build outputs ---
 camera-app/**/build/
