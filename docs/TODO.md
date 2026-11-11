@@ -195,11 +195,11 @@ Still open:
 - **[power] Earlysuspend.** The defconfig keeps `CONFIG_EARLYSUSPEND`/`HAS_EARLYSUSPEND=y` (from the i9300) with no implementation, so s3cfb and bcmdhd compile out their normal suspend paths. Check that FIMD really suspends. Touch (`mms_ts_gc`) has no earlysuspend and scans with the screen off whenever a wakelock is held; blank it through an fb notifier.
 - **[power] Defconfig debug options**: `SCHED_DEBUG`, `SCHEDSTATS`, `TIMER_STATS`, `PM_DEBUG`, `PROFILING`/`PERF_EVENTS`. `BOOTPARAM_HUNG_TASK_PANIC` and `SOFTLOCKUP_PANIC` are 1: decide on purpose.
 - **Sensors**:
-  - timestamps are evdev's `CLOCK_REALTIME`, but Android expects `CLOCK_BOOTTIME`. The 3.4 kernel only accepts `EVIOCSCLOCKID` with `CLOCK_MONOTONIC`; set that and add the boottime−monotonic offset;
+  - ~~timestamps are evdev's `CLOCK_REALTIME`, but Android expects `CLOCK_BOOTTIME`~~ fixed in gd1 ac213dd (2026-11-12): each event is shifted by the current BOOTTIME − REALTIME difference, checked with `dumpsys sensorservice` and the orientation listener;
   - AKFS load/save races with the compass thread in activate/deactivate;
   - deinit frees the data while the detached thread lives.
 - **Camera HAL**:
-  - the AF thread notifies FOCUS before its AF_OFF/unlock ioctls, and destroys its own mutex. Make it joinable like the others;
+  - the AF thread notifies FOCUS before its AF_OFF/unlock ioctls, and destroys its own mutex. Make it joinable like the others. Left alone on 2026-11-12: the order also decides when AE/AWB unlock after a half-press focus, so change it only with someone at the viewfinder to check the AF and focus-lock behaviour;
   - the recording paths (S5C73M3 heritage) are untouched and untested;
   - `preview_window` is cleared by every preview stop.
 - **init**:
