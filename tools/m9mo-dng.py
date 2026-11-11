@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Convert a Galaxy Camera (EK-GC100) M9MO raw frame to DNG.
+"""Convert a Galaxy Camera (EK-GC100 or EK-GC200) M9MO raw frame to DNG.
 
 The camera HAL saves each RAW shot (persist.vendor.camera.raw=1) as
 /data/vendor/camera/IMG_<time>.raw, plus IMG_<time>.raw.txt with the frame
 layout (raw-*) and the exposure the ISP used (exif-*). This writes an
 uncompressed 16-bit CFA DNG that darktable, RawTherapee and Lightroom open.
+
+Formats: raw10be (GC100: 4736x3452 plus a 4160-byte tail) and raw12be
+(GC200: 4736x3494, no tail), both continuous big-endian bit streams.
 
 Known gaps, see docs/TODO.md ("Image quality and RAW"):
   - ColorMatrix1 is a placeholder that treats the sensor as linear sRGB;
@@ -84,6 +87,21 @@ def unpack_raw10be(data, width, height):
     return out.reshape(height, width)
 
 
+def unpack_raw12be(data, width, height):
+    """2 pixels in 3 bytes, MSB first (the GC200's ISP, measured 2026-11-11)."""
+    stride = width * 12 // 8
+    g = data[: stride * height].reshape(height, stride // 3, 3).astype(np.uint16)
+    out = np.empty((height, stride // 3, 2), np.uint16)
+    out[:, :, 0] = (g[:, :, 0] << 4) | (g[:, :, 1] >> 4)
+    out[:, :, 1] = ((g[:, :, 1] & 0x0F) << 8) | g[:, :, 2]
+    return out.reshape(height, width)
+
+
+UNPACK = {"raw10be": unpack_raw10be, "raw12be": unpack_raw12be}
+# The camera each format comes from, for the Model tags
+MODEL = {"raw10be": "EK-GC100", "raw12be": "EK-GC200"}
+
+
 def rational(x, den=10000):
     """A float as an (num, den) rational."""
     return (int(round(x * den)), den)
@@ -142,15 +160,17 @@ def main():
     a = ap.parse_args()
 
     meta = read_sidecar(a.raw)
-    if meta["raw-format"] != "raw10be":
-        sys.exit(f"unsupported raw-format {meta['raw-format']}")
+    fmt = meta["raw-format"]
+    if fmt not in UNPACK:
+        sys.exit(f"unsupported raw-format {fmt}")
+    model = MODEL[fmt]
     width, height = (int(x) for x in meta["raw-size"].split("x"))
     left, top, right, bottom = (int(x) for x in meta["raw-active-area"].split(","))
     black = a.black if a.black is not None else float(meta["raw-black-level"])
     white = a.white if a.white is not None else float(meta["raw-white-level"])
     cfa = [CFA_CODES[c] for c in meta["raw-cfa"].lower()]
 
-    img = unpack_raw10be(np.fromfile(a.raw, np.uint8), width, height)
+    img = UNPACK[fmt](np.fromfile(a.raw, np.uint8), width, height)
 
     # Gray-world white balance on the central part of the active area, clear
     # of the dark corners of the uncorrected image circle
@@ -212,7 +232,7 @@ def main():
     ifd.add(259, "SHORT", 1)
     ifd.add(262, "SHORT", 32803)
     ifd.add(271, "ASCII", "Samsung")
-    ifd.add(272, "ASCII", "EK-GC100")
+    ifd.add(272, "ASCII", model)
     ifd.add(273, "LONG", 0)  # strip offset, patched below
     ifd.add(274, "SHORT", 1)
     ifd.add(277, "SHORT", 1)
@@ -226,7 +246,7 @@ def main():
     ifd.add(34665, "LONG", 0)  # Exif IFD offset, patched below
     ifd.add(50706, "BYTE", [1, 4, 0, 0])
     ifd.add(50707, "BYTE", [1, 1, 0, 0])
-    ifd.add(50708, "ASCII", "Samsung EK-GC100")
+    ifd.add(50708, "ASCII", "Samsung " + model)
     ifd.add(50710, "BYTE", [0, 1, 2])
     ifd.add(50711, "SHORT", 1)
     ifd.add(50713, "SHORT", [1, 1])
