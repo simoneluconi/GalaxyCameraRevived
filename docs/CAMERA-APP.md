@@ -237,7 +237,7 @@ Verified in M at 1/60 f/4 ISO200: the room meters −0.7, a lamp +2.3 (it blows 
 | raw-format | **raw12be**: a continuous big-endian 12-bit stream, 2 pixels in 3 bytes, MSB first (p0 = b0<<4 \| b1>>4, p1 = (b1&15)<<8 \| b2). Not MIPI RAW12 |
 | raw-cfa | grbg (as on the GC100: greens at (0,0) and (1,1), red at (0,1)) |
 | raw-active-area | 2,0,4666,3494: the same zero columns as the GC100, image in every row |
-| raw-black-level | 256 (about 64 × 4; no dark frame measured yet) |
+| raw-black-level | 256 (dark frames 2026-11-11 at 1/30: 255.6 at ISO 100, 254.2 at 400, 249.1 at 1600, 242.0 at 3200; the same small drop with ISO as the GC100's 64 → 60.5) |
 | raw-white-level | 4095 |
 
 ### 3.3 Capture behaviour
@@ -381,7 +381,7 @@ Ask for these, or do them in the HAL (`device/samsung/gd1/camera/`), as the app 
 The user wants the app (and GC Gallery) to run on the GC200 later. It has the same lens, an M9MO-family ISP (kernel driver `m9mo_sf2`) and 2 GB of RAM, but no 3G and an extra zoom ring around the lens. Audit of 2026-11-04:
 
 - **On the bench since 2026-11-11** (docs/GC200.md): preview, AF, zoom, P/A/S/M and the JPEG work with the app as it is; `Build.MODEL` is EK-GC200 and files go to `DCIM/GC200`.
-- **`raw-format=raw12be` is supported (2026-11-11)** (§3.2, GC200 table). `RawLayout` takes raw10be and raw12be with their bit depth, `frameBytes` follows it, and gccore's `RawFrame.bits` picks the unpacking, passed as the 7th `layout` element through JNI (and from the sidecar's `raw-format` in `gcdng`). Checked on a GC200 frame on the PC: gcdng's DNG matches a numpy raw12be unpack pixel for pixel (4736x3494, black 256, white 4095). Not yet shot on the GC200 itself. `matchIsp` (the ISP white balance in the DNG) still uses the GC100's lens map and tone curve, see below.
+- **`raw-format=raw12be` is supported (2026-11-11)** (§3.2, GC200 table). `RawLayout` takes raw10be and raw12be with their bit depth, `frameBytes` follows it, and gccore's `RawFrame.bits` picks the unpacking, passed as the 7th `layout` element through JNI (and from the sidecar's `raw-format` in `gcdng`). Checked on a GC200 frame on the PC: gcdng's DNG matches a numpy raw12be unpack pixel for pixel (4736x3494, black 256, white 4095). Shot on the GC200 itself on 2026-11-11 (dark frames at four ISOs, 4664x3494 DNGs that LibRaw reads with black 256 and white 4095). `matchIsp` (the ISP white balance in the DNG) still uses the GC100's lens map and tone curve, see below.
 - **Already read from the HAL, nothing to do**:
   - the RAW layout (`raw-size`, `raw-active-area`, levels, CFA) and the RAW buffer size, once raw12be is known;
   - picture sizes, zoom steps (`max-zoom`, `zoom-ratios`, `zoom-action-values`), and the PASM/shutter/aperture/ISO/WB/flash/bracket value lists;
