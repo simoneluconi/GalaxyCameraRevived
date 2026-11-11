@@ -177,7 +177,9 @@ class PhotoWriter private constructor(private val context: Context) {
             resolver.openFileDescriptor(uri, "w")!!.use { pfd ->
                 NativeDng.write(
                     raw = raw,
-                    layout = intArrayOf(layout.width, layout.height, layout.left, layout.top, layout.right, layout.bottom),
+                    layout = intArrayOf(
+                        layout.width, layout.height, layout.left, layout.top, layout.right, layout.bottom, layout.bits,
+                    ),
                     levels = doubleArrayOf(layout.black, layout.white),
                     cfa = layout.cfa,
                     exposure = doubleArrayOf(

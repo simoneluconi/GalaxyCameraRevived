@@ -26,8 +26,8 @@ std::string str(JNIEnv* env, jstring s) {
 }  // namespace
 
 /**
- * NativeDng.write: writes [raw] (the HAL's raw10be frame) as a DNG to [fd].
- * layout = {width, height, left, top, right, bottom}; levels = {black, white};
+ * NativeDng.write: writes [raw] (the HAL's raw10be or raw12be frame) as a DNG to [fd].
+ * layout = {width, height, left, top, right, bottom, bits (10 or 12)}; levels = {black, white};
  * exposure = {iso, seconds, fNumber, focalMm, focal35mm, biasEv, program, orientation};
  * model = the TIFF Model ("EK-GC100"; null keeps that default);
  * xmp = the app's XMP properties (DngMeta::xmpProperties; may be null);
@@ -42,8 +42,8 @@ Java_com_simoneluconi_gccamera_raw_NativeDng_write(JNIEnv* env, jclass, jbyteArr
                                                    jstring dateTime, jstring offsetTime, jstring software,
                                                    jstring artist, jstring copyright, jstring model,
                                                    jstring xmp, jdoubleArray gps, jbyteArray preview, jint fd) {
-    jint l[6];
-    env->GetIntArrayRegion(layout, 0, 6, l);
+    jint l[7];
+    env->GetIntArrayRegion(layout, 0, 7, l);
     jdouble lv[2];
     env->GetDoubleArrayRegion(levels, 0, 2, lv);
     jdouble ex[8];
@@ -60,6 +60,7 @@ Java_com_simoneluconi_gccamera_raw_NativeDng_write(JNIEnv* env, jclass, jbyteArr
     frame.top = l[3];
     frame.right = l[4];
     frame.bottom = l[5];
+    frame.bits = l[6];
     frame.black = lv[0];
     frame.white = lv[1];
     std::string cfaStr = str(env, cfa);

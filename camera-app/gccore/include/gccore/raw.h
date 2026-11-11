@@ -1,4 +1,5 @@
-// The M9MO raw frame: a continuous big-endian 10-bit stream (docs/CAMERA-APP.md §3.2).
+// The M9MO raw frame: a continuous big-endian 10-bit (GC100) or 12-bit (GC200) stream
+// (docs/CAMERA-APP.md §3.2).
 #pragma once
 
 #include <cstddef>
@@ -19,8 +20,10 @@ struct RawFrame {
     double white = 1023;
     /** raw-cfa, row-major 2x2 (grbg → 1,0,2,1). */
     uint8_t cfa[4] = {1, 0, 2, 1};
+    /** Bits per pixel: 10 (raw10be) or 12 (raw12be). */
+    int bits = 10;
 
-    size_t rowBytes() const { return static_cast<size_t>(width) * 10 / 8; }
+    size_t rowBytes() const { return static_cast<size_t>(width) * bits / 8; }
     bool valid() const;
 
     /** Unpacks row [y] into [out] (width pixels). */
@@ -32,5 +35,8 @@ struct RawFrame {
 
 /** Parses "grbg"-style CFA strings. Returns false on anything else. */
 bool parseCfa(const char* s, uint8_t out[4]);
+
+/** Bits per pixel of a raw-format ("raw10be" → 10, "raw12be" → 12), or 0 if unknown. */
+int formatBits(const char* s);
 
 }  // namespace gccore

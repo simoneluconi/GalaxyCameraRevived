@@ -63,6 +63,10 @@ int main(int argc, char** argv) {
     if (meta.count("raw-active-area")) {
         std::sscanf(meta["raw-active-area"].c_str(), "%d,%d,%d,%d", &raw.left, &raw.top, &raw.right, &raw.bottom);
     }
+    if (meta.count("raw-format") && !(raw.bits = gccore::formatBits(meta["raw-format"].c_str()))) {
+        std::fprintf(stderr, "unsupported raw-format %s\n", meta["raw-format"].c_str());
+        return 1;
+    }
     raw.black = intOf(meta, "raw-black-level", 64);
     raw.white = intOf(meta, "raw-white-level", 1023);
     if (meta.count("raw-cfa") && !gccore::parseCfa(meta["raw-cfa"].c_str(), raw.cfa)) {

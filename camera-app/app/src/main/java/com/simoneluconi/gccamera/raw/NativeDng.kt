@@ -7,7 +7,7 @@ object NativeDng {
     }
 
     /**
-     * Writes [raw] (the HAL's raw10be frame) as a DNG to [fd]. Returns null on success, or
+     * Writes [raw] (the HAL's raw10be or raw12be frame) as a DNG to [fd]. Returns null on success, or
      * the error. See gcjni.cpp for the array layouts.
      */
     @JvmStatic

@@ -112,7 +112,10 @@ class CameraCaps(p: Camera.Parameters) {
     }
 }
 
-/** The raw-* parameters: a raw10be frame with margins (docs/CAMERA-APP.md §3.2). */
+/**
+ * The raw-* parameters: a raw10be (GC100) or raw12be (GC200) frame with margins
+ * (docs/CAMERA-APP.md §3.2).
+ */
 data class RawLayout(
     val width: Int,
     val height: Int,
@@ -123,12 +126,16 @@ data class RawLayout(
     val black: Double,
     val white: Double,
     val cfa: String,
+    /** Bits per pixel: 10 or 12. */
+    val bits: Int,
 ) {
-    val frameBytes get() = width.toLong() * height * 10 / 8
+    val frameBytes get() = width.toLong() * height * bits / 8
 
     companion object {
+        private val FORMAT_BITS = mapOf("raw10be" to 10, "raw12be" to 12)
+
         fun from(p: Camera.Parameters): RawLayout? {
-            if (p.get("raw-format") != "raw10be") return null
+            val bits = FORMAT_BITS[p.get("raw-format")] ?: return null
             val size = p.get("raw-size")?.split('x')?.mapNotNull { it.trim().toIntOrNull() } ?: return null
             val area = p.get("raw-active-area")?.split(',')?.mapNotNull { it.trim().toIntOrNull() } ?: return null
             if (size.size != 2 || area.size != 4) return null
@@ -142,6 +149,7 @@ data class RawLayout(
                 black = p.get("raw-black-level")?.toDoubleOrNull() ?: 64.0,
                 white = p.get("raw-white-level")?.toDoubleOrNull() ?: 1023.0,
                 cfa = p.get("raw-cfa") ?: "grbg",
+                bits = bits,
             )
         }
     }
