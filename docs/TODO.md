@@ -285,10 +285,18 @@ Still open:
         - `per_chan_info` for ch40 and ch149 is 0x7 (valid HW/SW, 5 GHz; not passive, radar or restricted);
         - qtxpower is 127 (no limit), with one tx/rx chain.
       - Forcing the antenna before the join (`gd1_wl_ant` 0, 1 or 3) changes nothing.
-    - **Most likely a hardware fault of this unit's 5 GHz transmit path.** Only a test on stock 4.1.2 would rule the driver out completely (Odin, deferred by the user).
+    - ~~Most likely a hardware fault of this unit's 5 GHz transmit path.~~ **Not a fault of this unit (2026-11-11): the GC200 fails exactly the same way** (`JOIN: authentication failure, no ack` on 5200 MHz with RSSI -47 dBm, its own firmware 6.10.58.115 B2 and its own calibration), so it is something in our software. Ruled out on the GC200 the same day:
+      - the driver: **Samsung's own GC200 bcmdhd** (from its 3.4.39 kernel, built into ours on a test branch with wakelock stubs) fails the same way;
+      - the board WLAN code (`board-midas-wlan.c` is identical to Samsung's apart from a TAB3 IRQ flag) and the country tables (IT → IT/1 in ours and Samsung's);
+      - the nvram: `aa5g=1` added, the factory `nvram_mfg.txt` differs only in `ccode`; the default vs Murata file choice (`.cid.info` is "0") cannot explain the GC100, whose two files are identical;
+      - Bluetooth on (BT_REG_ON high) or off;
+      - the AP: two APs on the GC100, a strong signal on the GC200.
+    - **What is still common to both cameras and differs from stock**: the rest of our kernel (MMC/SDIO host, regulators) and the Android 14 userspace (wpa_supplicant, Wi-Fi HAL). The firmware does the 802.11 auth itself, so the supplicant should not matter. **Next, decisive**: check 5 GHz on stock firmware (GC200 stock 4.3 via Odin, then reflash) to learn whether it ever worked on these units; if it does, bisect kernel-side (SDIO clock and drive strength, PMIC rails of the module).
+    - The user decided (2026-11-11): no forced fallback to 2.4 GHz; Android handles the band choice, and 5 GHz must be fixed.
   - Side effects:
     - every 5 GHz attempt fails, and after two failures Android temporarily disables the whole network, so Wi-Fi can stay down until the user taps it;
-    - a Wi-Fi hotspot on 5 GHz fails too ("Failed to set country code" in SoftApManager, a separate HAL issue).
+    - a Wi-Fi hotspot on 5 GHz fails too ("Failed to set country code" in SoftApManager, a separate HAL issue). A 2.4 GHz hotspot works.
+  - **Country code by location (user request 2026-11-11)**: the Wi-Fi country must follow where the user is. The GC100 gets it from the SIM (MCC). The GC200 has no SIM and there are no Google services (no network geocoder), so Android has no country at all (`updateCountryCode to null`); the driver stays on its default. Ideas: take it from the APs' 802.11d country element in scan results, or from a GPS fix. The HAL's set-country path used by SoftAp fails, while the supplicant path (`COUNTRY` → `wldev_set_country`) works.
   - Workaround to decide: lock the driver to 2.4 GHz (`WLC_SET_BAND` 2G at init), so Android never tries 5 GHz.
 - **Recovery is our own mini recovery, not LineageOS recovery.** `TARGET_NO_RECOVERY := true` because the 8MB partition is too small (LOS21 recovery is 15.7MB). The mini recovery (`minirecovery/`, docs/RECOVERY.md) is built and **not yet tested on the device**.
   - **No UI**: adb only, plus status screens. A key-driven menu (zoom lever and shutter) could be added later by reading `/dev/input` from the script.
