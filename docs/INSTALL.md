@@ -104,7 +104,7 @@ The adb serial changes with the mode (the stock adbd and ours report different n
   adb push gccamera.apk /data/local/tmp/gccamera.apk
   adb shell pm install -r /data/local/tmp/gccamera.apk
   ```
-- **Wi-Fi**: use a 2.4 GHz network for now.
+- **Wi-Fi**: use a 2.4 GHz network. 5 GHz access points reject the camera's radio. On a dual-band network with a single name, the camera tries 5 GHz once and then connects on 2.4 GHz by itself.
 - Default time zone is Europe/Rome; change it in Settings → System → Date & time.
 
 ## 8. Updating to a newer build

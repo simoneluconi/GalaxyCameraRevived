@@ -5,7 +5,7 @@ A custom ROM that brings Android 14 (LineageOS 21) to the **Samsung Galaxy Camer
 | Model | Support |
 |---|---|
 | Galaxy Camera **EK-GC100** (3G, 2012) | Working, see below |
-| Galaxy Camera 2 **EK-GC200** (Wi-Fi, 2013) | In progress, no build to download yet. LineageOS runs and the camera shows a live preview with optical zoom; capture, GPS and several checks are still open. It shares almost all of its hardware with the GC100 and reuses the GC100's build; see [docs/GC200.md](docs/GC200.md). |
+| Galaxy Camera 2 **EK-GC200** (Wi-Fi, 2013) | In progress, no build to download yet. LineageOS runs. The camera works (zoom, autofocus, P/A/S/M, JPEG, 12-bit RAW, flash), and so do Wi-Fi, Bluetooth, GPS, audio and rotation. Battery checks are still open. It shares almost all of its hardware with the GC100 and reuses the GC100's build; see [docs/GC200.md](docs/GC200.md). |
 | Other variants (GC110, GC120) | Not supported |
 
 Everything below describes the GC100 unless it says otherwise.
@@ -32,13 +32,13 @@ It is built camera-first. There are no Google services and no phone apps, only w
 | Lens retracts when the camera closes or reboots | Works |
 | microSD (FAT32, exFAT) | Works |
 | Rotation sensor, level, compass | Works (compass not checked against a real heading) |
-| Wi-Fi | 2.4 GHz works; 5 GHz does not connect yet |
+| Wi-Fi | 2.4 GHz works. 5 GHz access points reject the camera (on Samsung's own firmware too), so on a dual-band network it switches to 2.4 GHz by itself. The country code comes from nearby access points |
 | GPS | Works: first fix in about 35 s with downloaded satellite data, which stays valid offline for a week |
 | 3G mobile data | Works (tested with an Italian SIM) |
 | SMS | Sending and receiving work; no voice calls (no dialer, by design) |
 | Audio | Works |
 | Bluetooth | Works (pairing, sending photos to a phone) |
-| Video recording | Not tested yet |
+| Video recording | Not yet: GC Camera takes photos only |
 | Micro-HDMI output | Not yet: a connected TV shows a placeholder screen. HDMI support (photo playback and live view) is coming in a future release |
 | Standby battery drain | About 1%/hour with Wi-Fi on; being improved |
 | Security | SELinux is permissive and the security patch level is from early 2025 |
