@@ -234,11 +234,8 @@ Still open:
 - **Root folders** are limited to `efs` (`BOARD_ROOT_EXTRA_FOLDERS`). The common tree's `misc` and `preload` have no label in UL and broke the system image.
 - **VINTF**: the device manifest declares `target-level="5"`.
 
-- **[HIGH, UX] Sensors HAL missing, so no auto-rotate.** The user wants landscape by default and portrait as an option; landscape is now fixed via `ro.surface_flinger.primary_display_orientation`.
-  - Portrait needs the accelerometer in Android. Port the i9300 libsensors for the LSM330 (same chip) first.
-  - The camera app also needs it for EXIF orientation and a level.
-- **Sensors HAL missing.** The GC100 has an LSM330DLC (accel/gyro, same as the i9300) and an AK8963C compass (the i9300 has AK8975), with no light, proximity or barometer. Port the i9300 libsensors with an AK8963 backend, then re-add `android.hardware.sensors` to `manifest.xml`.
-- **GPS** (port of 2026-11-01: the chip powers up and reports satellite status every second through the whole stack; a real fix is still to be seen outdoors). This camera reads `/sys/class/sec/gps/hwrev` = `b`, so it has a **BCM4752** (`gpsd_4752` + `gps_4752.xml`). Revisions 0–a use `gpsd_47511`, the i9300's chip.
+- ~~Sensors HAL missing, so no auto-rotate~~ **Done 2026-11-01** (gd1 d4dcd1a, `libsensors/`): LSM330DLC accel and gyro plus the AK8963C compass, rotated into the landscape frame. Auto-rotation, the level and EXIF orientation work. The compass is still unchecked against a real heading.
+- **GPS** (port of 2026-11-01; fixes outdoors since, about 35 s with downloaded assistance data, see the README). This camera reads `/sys/class/sec/gps/hwrev` = `b`, so it has a **BCM4752** (`gpsd_4752` + `gps_4752.xml`). Revisions 0–a use `gpsd_47511`, the i9300's chip.
   - Same layout as the i9300: GNSS 1.0 legacy service → `gps.smdk4x12` (i9300's Apache `libgps-shim`, copied to `gd1/shims`) → the stock HAL as `gps.exynos4.vendor.so` → socket → the stock daemon, installed as `/vendor/bin/gpsd`.
   - The daemon links the Android 4.1 `SensorManager` API. `gd1/shims/libgpsd_shim` (LD_PRELOAD) stubs it with no sensors, and `configs/gps.xml` sets `SensorsEnable="false"`. It also provides `SSLv3_client_method`. Sensor-aided navigation is lost; a real bridge to the Android 14 sensor API would bring it back.
   - The vendor service had also been missing from the VINTF manifest. With it declared but failing, system_server waits for it forever and the boot hangs on the animation: keep the GNSS HAL working or out of the manifest.
@@ -247,7 +244,7 @@ Still open:
   - gpsd's `RILClient` (AGPS through libsecril-client) gets "connection refused" from rild; harmless without a SIM, check with one.
   - `LbsServer`/`gllto.glpals.com` (Broadcom assistance and LTO download) may no longer exist; check what the daemon does without them.
 - **Audio mixer paths** (`configs/tiny_hw.xml`) are the i9300's. The WM1811 codec is the same, but the GC100 has no earpiece and has a different mic/speaker layout; check against stock.
-- **Keys**: `gpio-keys` still need a GC100 keylayout and keyhandler mapping. Codes recorded on 2026-10-31 with our kernel:
+- **Keys: done 2026-11-01** (gd1 a56d14e, `keylayout/gpio-keys.kl`; see CLAUDE.md). Codes recorded on 2026-10-31 with our kernel:
   - shutter: half press `0x210` (KEY_CAMERA_FOCUS), full press `0x220` with 0x210 still held;
   - zoom T: `0x215` (KEY_CAMERA_ZOOMIN), then `0x221` about 30 ms later (second contact or speed);
   - zoom W: `0x216` (KEY_CAMERA_ZOOMOUT), then `0x222`;
@@ -292,17 +289,16 @@ Still open:
     - **Decisive test, same evening: the whole stock Wi-Fi stack fails the same way.** In the GC200 mini recovery with the **stock 3.0.31 kernel** (`device-dump/gc200-tests/rec-stockk`), Samsung's stock `dhd.ko` 1.28.19.28 from the stock ramdisk, the stock firmware and nvram, and the stock `wpa_supplicant` 2.1 with its libraries (`device-dump/gc200-tests/stockwifi`, driven by a small static control client because the dump has no `wpa_cli`; Samsung's supplicant only scans after `USE_NETWORK ON`): 2.4 GHz reaches COMPLETED at once, 5200 MHz gets `ASSOC-REJECT status_code=1` over and over. **So it is not our software**: what is left is the 5 GHz radio of these cameras (both units) or the radio environment. Stock Android adds nothing to the Wi-Fi path beyond what this test ran.
     - **Fallback to 2.4 GHz (user decision 2026-11-11, after the stock test): done** in gd1's `rro_overlays/WifiOverlayGalaxyCamera` (gd1 a38fd1d, 346fb13). A rejecting BSSID is blocked at the first rejection, the network is disabled only after 20 rejections, and the pause after 5 consecutive failures (hardcoded in ClientModeImpl) is 15 s instead of 5 min. The GC200 connects on 2462 MHz after one 5200 MHz rejection, the GC100 within seconds of a Wi-Fi restart. 5 GHz stays enabled, so another router or a fixed radio would still use it.
   - Side effects:
-    - every 5 GHz attempt fails, and after two failures Android temporarily disables the whole network, so Wi-Fi can stay down until the user taps it;
+    - ~~after two failures Android temporarily disables the whole network~~ solved by the fallback overlay above;
     - a Wi-Fi hotspot on 5 GHz fails too ("Failed to set country code" in SoftApManager, a separate HAL issue). A 2.4 GHz hotspot works.
   - **Country code by location (user request 2026-11-11): done** with Android's own `config_wifiUpdateCountryCodeFromScanResultGeneric` in the same overlay: without a telephony country, the country comes from the 802.11d element of nearby access points (several, all agreeing). The GC200 reads IT at home; the GC100 keeps its SIM's. Still open: the HAL's set-country path used by SoftAp fails ("Failed to set country code"), so a 5 GHz hotspot cannot start; the supplicant path (`COUNTRY` → `wldev_set_country`) works.
-  - Workaround to decide: lock the driver to 2.4 GHz (`WLC_SET_BAND` 2G at init), so Android never tries 5 GHz.
-- **Recovery is our own mini recovery, not LineageOS recovery.** `TARGET_NO_RECOVERY := true` because the 8MB partition is too small (LOS21 recovery is 15.7MB). The mini recovery (`minirecovery/`, docs/RECOVERY.md) is built and **not yet tested on the device**.
+- **Recovery is our own mini recovery, not LineageOS recovery.** `TARGET_NO_RECOVERY := true` because the 8MB partition is too small (LOS21 recovery is 15.7MB). The mini recovery (`minirecovery/`, docs/RECOVERY.md) is in RECOVERY on both cameras and in daily use since 2026-10-31 (backups, wipes, whole-build flashes over adb).
   - **No UI**: adb only, plus status screens. A key-driven menu (zoom lever and shutter) could be added later by reading `/dev/input` from the script.
   - **No zip install**: updates go through Odin tars (boot, system, and vendor as `hidden.img`) or through `flash-image`/`adb sync`. Public users will need Odin.
   - **Optional: measure a slimmed LOS recovery.** Use a recovery-only kernel config with no camera, Mali, MFC, Wi-Fi, BT, audio or modem, and a ramdisk without fastbootd. Keep it only if it fits in 8MB.
   - **Repartition (PIT) only as a last resort, and with an explicit exception to anti-brick rule 1.** RECOVERY (p6) sits before RADIO, CACHE and SYSTEM, so growing it moves all of them. The firmware package has no PIT, so the stock PIT would first have to be read from download mode (e.g. `heimdall download-pit`).
   - The busybox binary is fetched by hand from Alpine. Script that fetch (with the docker `apk fetch` command from docs/RECOVERY.md) before publishing.
-- **[BLOCKER] SurfaceFlinger aborts with "EGLContext creation failed"** (2026-10-31, 64 times in 5 minutes; logs in `device-dump/bootlog-2/`).
+- ~~SurfaceFlinger aborts with "EGLContext creation failed"~~ **Fixed on 2026-10-31** by copying the Mali GLES modules into /system/lib/egl (see "First full boot" below). History (logs in `device-dump/bootlog-2/`):
   - EGL initializes (Mali r3p2, kernel and user API 29), but the EGL extension string has only the loader's own extensions; Mali's KHR_image/fence/native_buffer are missing.
   - The Mali, UMP and gralloc blobs are bit-identical to the working i9300 LOS21 build, and frameworks/native matches html6405's r08 in the EGL loader and RenderEngine. Suspect the kernel side (gd1 defconfig/board: Mali/UMP/ION/fb) or device config.
   - `gd1-bringup.sh` saves the live dmesg and device permissions to `/data/bringup/` for the next attempt.
@@ -370,7 +366,7 @@ Still open:
   - **preview latency** (user, 2026-11-01: noticeable lag). Fewer capture buffers (`EXYNOS_CAMERA_CAPTURE_BUFFERS_COUNT` is 6, up to ~200 ms at 30 fps; try 3-4), and a fixed 30 fps preview through `V4L2_CID_CAMERA_FRAME_RATE` (OpenCamera asks 15-30 fps, and in low light the ISP drops to 15). Measure before and after.
 - **Kernel oops on a fast camera close/reopen** (2026-11-01, old kernel without m9mo_shutdown). Likely related: every close then took 5 s, because the lens-off waited for a masked interrupt; kernel abbe35eb brings that to ~1 s. Re-test a fast close/reopen.
   Original notes: `klist_put` NULL dereference in the FIMC/i2c release path (`i2c_unregister_device` → `klist_del`). It happened a second after the first close, while the camera provider restarted and opened the camera again. The close before it logged `m9mo_set_lens_off: M9MO_INT_LENS_INIT isn't issued, 0x0`, yet the lens did retract. Log: `/data/bringup/last_kmsg/last_kmsg-20261101-163635.txt` on the device (copy it to device-dump). The HAL's lazy power-up avoids that sequence, but the FIMC open/release path needs a race review (two opens of FIMC0 at once?).
-- **[HIGH, debugging] No native crash backtraces on this kernel** (found 2026-11-01).
+- ~~No native crash backtraces on this kernel~~ (found 2026-11-01, **fixed the same day**, see below).
   - tombstoned fails with "failed to create temporary tombstone in /data/tombstones: Is a directory". That is the EISDIR a kernel without `O_TMPFILE` returns, and 3.4 has none.
   - crash_dump also fails to read thread registers ("failed to fetch registers ... I/O error"), probably no `PTRACE_GETREGSET` on 3.4 ARM.
   - **Fixed and verified 2026-11-01**: system/core cf3a6bb (tombstoned, named temp file) and system/unwinding 5b4cd57 (PTRACE_GETREGS fallback). Root cause of the second: `PTRACE_GETREGSET` is under `CONFIG_HAVE_ARCH_TRACEHOOK` in kernel/ptrace.c, and 3.4 ARM does not select it.
