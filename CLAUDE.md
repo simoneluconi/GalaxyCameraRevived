@@ -305,3 +305,8 @@ html6405's i9300 LOS21 build needs a **custom PIT** (recovery 16MB, vendor ~560M
   - Then BT and audio checks and power measurements. SELinux stays permissive (user, 2026-11-06: an unofficial build for enthusiasts, not worth a day of policy work; docs/TODO.md).
   - Small items are in docs/TODO.md: vibration strength, QS lag, second debloat round, Settings entries.
 - [ ] Camera HAL M9MO preset (mostly working, see step 3 above)
+- [ ] **First public release (GC100), prepared 2026-11-12, not published.** Publishing it needs the user's explicit OK.
+  - The packages are in the git-ignored `device-dump/release-20261111/`: the Odin tar, `minirecovery-gd1.tar.md5`, the lens profile, `SHA256SUMS` and `RELEASE-NOTES.md`.
+  - The build has no developer adb key, so a release build is made with `GALAXYCAMERA_DEV_ADB_KEYS` unset.
+  - Its system is the one flashed on this GC100.
+  - The mini recovery in the package is rebuilt from the current `minirecovery/` sources. This GC100's RECOVERY still holds the 2026-10-31 build, so test the new one there before publishing; writing RECOVERY needs the user's OK.
