@@ -551,6 +551,15 @@ The stock M9MO JPEGs look poor: heavy sharpening halos, smeary noise reduction, 
     - the dual-view (memfd) JIT code cache on the 3.4 kernel, i.e. instruction cache maintenance of the executable alias.
   - Fallbacks if it recurs: `dalvik.vm.usejit=false` (apps rely on AOT, slower first runs), or a JIT option that avoids the failing path, once found.
 
+## GC200 NFC tag (looked at 2026-11-11, postponed by the user)
+
+- **Hardware**: an NXP NTAG213 (NFC Forum Type 2, 144 user bytes) that only a phone can read or write. The AP sees just its field-detect line, `GPIO_NFC_IRQ` = GPF0(0) (gpio 47 on our kernel, already an input in gc1-gpio.c). It idles high and drops for 0.1-0.2 s about once a second while a phone's field is on it, which matches the phone polling for tags. Samsung's `drivers/nfc/sf2_nfc_tag.c` (GC200 kernel, `CONFIG_SF2_NFC_TAG`) only turns the falling edge into a uevent on `/devices/virtual/nfc/NFC_TAG`. Stock services.odex rebroadcasts it as `com.android.nfc.nfc_interrupt`, which the stock camera and gallery used for "Tag & Go".
+- **Tag content as shipped**: a MIME record `application/com.samsungimaging.connectionmanager` holding the camera's stock Wi-Fi Direct SSID (`AP_SSC_GC200_0-` plus the end of the unit's MAC, so don't copy it into tracked files), and an AAR for the dead Samsung app, so a tap opens the Play Store. The tag is not locked and has no password. Back it up from the phone before rewriting it, and never lock it: making it read-only is permanent.
+- **Plan when we pick it up**:
+  - kernel: map the field-detect edge to a key (`MACRO_1`, Android 14) for GC Camera and GC Gallery, with no background service;
+  - first use: tapping the phone sends the last photo over Bluetooth OPP to the paired phone (no phone app needed); rewrite the tag with a link to the project page;
+  - alternative: a Wi-Fi WSC record on the tag, a camera hotspot and a web gallery (faster for RAW, much more work).
+
 ## Updates over the air (user wish, 2026-11-04)
 
 - **Our APKs first** (GC Camera, GC Gallery): an update check against GitHub Releases, with the download installed through PackageInstaller. The system copies are presigned with our key, so a same-key APK installs on top of them, as `pm install -r` already does. Options: an F-Droid repo of our own (the F-Droid client is in the build), or a small updater inside each app.
