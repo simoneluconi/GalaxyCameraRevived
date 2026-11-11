@@ -5,7 +5,7 @@ A custom ROM that brings Android 14 (LineageOS 21) to the **Samsung Galaxy Camer
 | Model | Support |
 |---|---|
 | Galaxy Camera **EK-GC100** (3G, 2012) | Working, see below |
-| Galaxy Camera 2 **EK-GC200** (Wi-Fi, 2013) | Planned. It shares almost all of its hardware with the GC100, and the build is organised so that it can reuse the GC100's work; see [docs/GC200.md](docs/GC200.md). |
+| Galaxy Camera 2 **EK-GC200** (Wi-Fi, 2013) | In progress, no build to download yet. LineageOS runs and the camera shows a live preview with optical zoom; capture, GPS and several checks are still open. It shares almost all of its hardware with the GC100 and reuses the GC100's build; see [docs/GC200.md](docs/GC200.md). |
 | Other variants (GC110, GC120) | Not supported |
 
 Everything below describes the GC100 unless it says otherwise.
