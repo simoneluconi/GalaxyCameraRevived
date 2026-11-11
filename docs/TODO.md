@@ -13,9 +13,7 @@ The user's storage must not fill up with debug output. Keep only what explains c
 
 ## Kernel (`kernel/samsung/smdk4412`, branch `gd1`)
 
-- **[HIGH, power] Touchscreen `mms_ts_gc.c` has no screen-off suspend.** The battery is old, so fix this before calling the build usable.
-  - html6405's kernel removed the earlysuspend implementation but kept `CONFIG_HAS_EARLYSUSPEND=y`. We `#undef` it locally, so the driver only suspends with the whole system, not when the screen turns off. That costs battery and could cause ghost touches with the screen off.
-  - Proper fix: convert to an fb notifier (`FB_EVENT_BLANK`), as html6405 did for `mms_ts.c`.
+- ~~Touchscreen `mms_ts_gc.c` has no screen-off suspend.~~ **Fixed 2026-11-11 (kernel 4b7ff31c)**: an fb notifier powers the controller down when fb0 blanks and up when it unblanks; system resume leaves it off while the screen is blank. Checked on both cameras over adb (power off/on, I2C answers after resume); touch by finger after a blank still to be confirmed by hand.
 - **External display `s3cfb_extdsp` has the same earlysuspend `#undef`.**
   - Its `!CONFIG_HAS_EARLYSUSPEND` suspend/resume had never been compiled by Samsung. They were rewritten to mirror the earlysuspend ones and are untested.
   - Check whether the GC1 actually needs `CONFIG_FB_S5P_EXTDSP` (Samsung enabled it). If not, disable it.
@@ -139,8 +137,8 @@ The user's storage must not fill up with debug output. Keep only what explains c
 - **AN30259A LED driver disabled** (2026-10-31). It panicked the kernel: samsung_battery calls `enable_led_an30259a()` on charge state changes, but the GC100 has no AN30259A on i2c-21 (the init write fails), so the client is NULL.
   - Samsung's gc1pq_00_defconfig had it enabled too, maybe harmless with their driver.
   - If the GC100's front lamp (AF assist / self-timer) turns out to be on another driver, wire it up separately.
-- **[power] Camera regulators stay on from boot.** Our kernel logs "CAM_ISP_1.2V / CAM_ISP_1.8V / CAM_SENSOR_1.8V / CAM_SENSOR_2.8V / CAM_SENSOR_CORE_1.2V: incomplete constraints, leaving on". Measure the idle drain. If it matters, give them `REGULATOR_CHANGE_STATUS` so `regulator_init_complete` turns them off, and let m9mo power them on demand.
-- **[boot time] Crypto self-tests at boot**: dozens of "alg: ... Failed to load transform" lines, from testmgr. Check `CONFIG_CRYPTO_MANAGER_DISABLE_TESTS` / tcrypt and turn them off.
+- ~~Camera regulators stay on from boot.~~ Not the case any more (checked 2026-11-11): on both cameras, right after boot and with the camera never opened, CAM_ISP_1.2V/1.8V, CAM_SENSOR_*, MOT_3.3V and OIS_1.5V read `disabled` with no users.
+- **[boot time] Crypto self-tests at boot**: dozens of "alg: ... Failed to load transform" lines, from testmgr. Measured 2026-11-11 on the GC200: they take about 0.13 s (0.535 → 0.660 s). Left on: Samsung's FIPS code reports through them, and the gain is small.
 - **First boot of our kernel** (2026-10-31, in RECOVERY with the mini ramdisk): it works. Log in `device-dump/ourkernel-dmesg-1.txt`.
   - Working: panel and mDNIe, Melfas touch, AK8963 and LSM330, MAX77693 charger/MUIC with the MAX17047 fuel gauge, bcmdhd, Mali/UMP, the FIMC/M9MO sysfs nodes, and the xmm6262 modem_if with its HSIC link.
   - MemTotal is 753516 kB.
