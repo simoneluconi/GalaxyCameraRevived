@@ -144,17 +144,18 @@ bool writeAll(FILE* f, const void* p, size_t n) { return std::fwrite(p, 1, n, f)
 
 /**
  * Camera Raw settings (the crs namespace Lightroom and Camera Raw read on import): turn on the
- * GC100 lens profile (tools/gc100-lcp.py) and crop to what it leaves, like "Enable Profile
+ * camera's lens profile (tools/gc100-lcp.py) and crop to what it leaves, like "Enable Profile
  * Corrections" + "Constrain Crop". The user can switch both off; the pixels are untouched.
  */
 /** The Lightroom settings (crs:) of the lens profile and its crop, as rdf:Description attributes. */
-std::string lensXmp(const RawFrame& raw, double focalMm) {
+std::string lensXmp(const RawFrame& raw, double focalMm, const std::string& model) {
     // The crop is in the profile-corrected image, i.e. the DefaultCrop image after correction
     const double w = raw.right - raw.left - 2 * kCropMargin;
     const double h = raw.bottom - raw.top - 2 * kCropMargin;
+    const OpticalCentre centre = opticalCentreOf(model);
     double crop[4] = {0, 0, 1, 1};
     if (focalMm > 0) {
-        ispFrameAfterProfile(lensAt(focalMm), w, h, kOpticalCentreX - kCropMargin, kOpticalCentreY - kCropMargin, crop);
+        ispFrameAfterProfile(lensAt(focalMm), w, h, centre.x - kCropMargin, centre.y - kCropMargin, crop);
     }
     char buf[1536];
     std::snprintf(buf, sizeof buf,
@@ -188,7 +189,7 @@ std::string xmpPacket(const RawFrame& raw, const DngMeta& meta) {
         "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n"
         " <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n"
         "  <rdf:Description rdf:about=\"\"\n";
-    if (meta.lensSettings) x += lensXmp(raw, meta.focalMm);
+    if (meta.lensSettings) x += lensXmp(raw, meta.focalMm, meta.model);
     x += meta.xmpProperties.empty() ? "   xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\"\n   xmp:Rating=\"0\"\n"
                                     : meta.xmpProperties;
     x += "  />\n </rdf:RDF>\n</x:xmpmeta>\n";

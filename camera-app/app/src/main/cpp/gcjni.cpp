@@ -115,7 +115,7 @@ Java_com_simoneluconi_gccamera_raw_NativeDng_write(JNIEnv* env, jclass, jbyteArr
             if (meta.previewJpeg) {
                 gccore::IspParams p;
                 if (gccore::matchIsp(frame, meta.previewJpeg, meta.previewJpegSize,
-                                     meta.focalMm > 0 ? meta.focalMm : 4.1, p)) {
+                                     meta.focalMm > 0 ? meta.focalMm : 4.1, gccore::opticalCentreOf(meta.model), p)) {
                     for (int c = 0; c < 3; c++) meta.neutral[c] = p.neutral[c];
                 }
             }

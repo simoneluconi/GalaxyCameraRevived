@@ -390,7 +390,8 @@ The user wants the app (and GC Gallery) to run on the GC200 later. It has the sa
 - **Still GC100 constants**, to switch per model once a GC200 is on the bench:
   - keys: the scan codes of the lever's fast stage (545/546 in `ViewfinderActivity`). The GC200's zoom ring needs its own codes from its gpio-keys map, probably as relative steps;
   - lens: the EXIF lens strings and LensSpecification, and `BASE_35MM_MM` = 23 for the zoom bar's mm. It is the same lens, so these probably hold, but check `exif-fl` / `exif-fl-35mm` on a GC200;
-  - gccore's lens and colour calibration: `lens.h` (optical centre, model radius, the ISP frame 4608x3456), `lens.cpp` (distortion/vignetting per focal length), `isp.cpp` (the ISP's tone curve and matrix, for `matchIsp`), `dng.h` ColorMatrix1, and the `tools/gc100-lcp.py` profile. These were measured on this GC100 and its sensor/ISP firmware. A GC200 needs its own RAW+JPEG pairs and a per-model table;
+  - **The optical centre is per camera since 2026-11-12**: `opticalCentreOf(model)` in `lens.cpp` gives the GC200 (2321, 1694), the same as its `.lcp`. It sets both the DNG's Lightroom crop (`crs:Crop*`) and the RAW↔JPEG mapping of `matchIsp`. `gcdng` picks the model from the frame's bit depth;
+  - gccore's lens and colour calibration: `lens.h` (model radius, the ISP frame 4608x3456), `lens.cpp` (distortion/vignetting per focal length), `isp.cpp` (the ISP's tone curve and matrix, for `matchIsp`), `dng.h` ColorMatrix1, and the `tools/gc100-lcp.py` profile. These were measured on this GC100 and its sensor/ISP firmware. A GC200 needs its own RAW+JPEG pairs and a per-model table;
   - RAM: `MAX_RAW_BUFFERS = 2` is sized for 768 MB. On 2 GB a third RAW buffer would allow faster RAW bursts;
   - `rear_camfw` (ISP firmware in Settings → About) is the GC100 sysfs path; it shows "unknown" if missing.
 
@@ -471,7 +472,7 @@ $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"; .\gradlew.bat asse
 - **Zoom bar**: a text-only pill at rest. While the lever moves it grows into the bar with the position, then shrinks back after 2 s.
 - **DNG for Lightroom**:
   - The ISP JPEG is embedded as the full-size preview (Windows and file browsers show that).
-  - A lens profile `profiles/Samsung EK-GC100.lcp` (from `tools/gc100-lcp.py`) carries the measured distortion. Install it in `%APPDATA%\Adobe\CameraRaw\LensProfiles\1.0\`.
+  - Lens profiles `profiles/EK-GC100-lens-profile.lcp` and `profiles/EK-GC200-lens-profile.lcp` (from `tools/gc100-lcp.py --camera ...`) carry the measured distortion; the GC200's has its own frame and optical centre (2321, 1694). Install it in `%APPDATA%\Adobe\CameraRaw\LensProfiles\1.0\`.
   - The DNG's XMP turns the profile on, and crops to the ISP frame after the profile's own rescale, using `gccore::ispFrameAfterProfile`.
   - Checked in Lightroom by the user and in RawTherapee: about 1–2 px from the ISP JPEG's geometry. Lightroom rejects a whole .lcp that has an all-zero entry, so the tele entries use a negligible k1.
 - **RAW over Camera1** needs `Camera.addRawImageCallbackBuffer` (§3.4).

@@ -1,6 +1,8 @@
 // The GC100 lens, measured against the ISP's own JPEGs (docs/CAMERA-APP.md §9, calibration).
 #pragma once
 
+#include <string>
+
 namespace gccore {
 
 /** What the ISP does to its JPEG at one focal length, in the RAW active area's terms. */
@@ -23,23 +25,34 @@ struct LensCorrection {
  */
 LensCorrection lensAt(double focalMm);
 
-/** Shared with tools/gc100-lcp.py: the model's centre and radius unit. */
-constexpr double kOpticalCentreX = 2331.0;  // in the RAW active area
-constexpr double kOpticalCentreY = 1739.0;
-constexpr double kModelRadiusPx = 2880.0;   // the ISP frame's half diagonal, 1:1 with the RAW
+/** The optical centre in the RAW active area. Per camera: the lens sits differently on each. */
+struct OpticalCentre {
+    double x = 2331.0, y = 1739.0;
+};
+
+/**
+ * The centre for a TIFF Model, shared with tools/gc100-lcp.py: EK-GC100 (2331, 1739) from the
+ * RAW/JPEG registration, EK-GC200 (2321, 1694) from the black border of a wide-end RAW.
+ * Anything else gets the GC100's.
+ */
+OpticalCentre opticalCentreOf(const std::string& model);
+
+/** Shared with tools/gc100-lcp.py: the model's radius unit. */
+constexpr double kModelRadiusPx = 2880.0;  // the ISP frame's half diagonal, 1:1 with the RAW
 
 /** The ISP JPEG's frame, 1:1 with the RAW at the centre. */
 constexpr int kIspWidth = 4608;
 constexpr int kIspHeight = 3456;
 
 /** Where point (ox, oy) of the ISP frame comes from in the RAW active area. */
-inline void ispToActive(const LensCorrection& lens, double ox, double oy, double& sx, double& sy) {
+inline void ispToActive(const LensCorrection& lens, const OpticalCentre& centre, double ox, double oy, double& sx,
+                        double& sy) {
     const double u = (ox - kIspWidth / 2.0) / kModelRadiusPx;
     const double v = (oy - kIspHeight / 2.0) / kModelRadiusPx;
     const double r2 = u * u + v * v;
     const double f = 1 + lens.k1 * r2 + lens.k2 * r2 * r2;
-    sx = kOpticalCentreX + kModelRadiusPx * u * f;
-    sy = kOpticalCentreY + kModelRadiusPx * v * f;
+    sx = centre.x + kModelRadiusPx * u * f;
+    sy = centre.y + kModelRadiusPx * v * f;
 }
 
 /**

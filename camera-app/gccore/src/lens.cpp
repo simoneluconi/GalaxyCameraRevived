@@ -25,6 +25,11 @@ double mix(double a, double b, double t) { return a + (b - a) * t; }
 
 }  // namespace
 
+OpticalCentre opticalCentreOf(const std::string& model) {
+    if (model == "EK-GC200") return {2321.0, 1694.0};
+    return {};
+}
+
 LensCorrection lensAt(double focalMm) {
     const LensCorrection* first = std::begin(kTable);
     const LensCorrection* last = std::end(kTable) - 1;

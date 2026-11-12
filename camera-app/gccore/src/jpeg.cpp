@@ -72,7 +72,8 @@ double median(std::vector<double>& v) {
 
 }  // namespace
 
-bool matchIsp(const RawFrame& raw, const uint8_t* jpeg, size_t size, double focalMm, IspParams& params) {
+bool matchIsp(const RawFrame& raw, const uint8_t* jpeg, size_t size, double focalMm, const OpticalCentre& centre,
+              IspParams& params) {
     if (!raw.valid() || !jpeg || size == 0) return false;
     std::vector<uint8_t> img;
     int dw = 0, dh = 0;
@@ -123,7 +124,7 @@ bool matchIsp(const RawFrame& raw, const uint8_t* jpeg, size_t size, double foca
 
             // The same place in the RAW: per-colour means over a small even-aligned box
             double sx, sy;
-            ispToActive(lens, (jx + 0.5) * scale, (jy + 0.5) * scale, sx, sy);
+            ispToActive(lens, centre, (jx + 0.5) * scale, (jy + 0.5) * scale, sx, sy);
             const int bx = (static_cast<int>(sx) - kBox / 2) & ~1;
             const int by = (static_cast<int>(sy) - kBox / 2) & ~1;
             if (bx < 0 || by < 0 || bx + kBox > aw || by + kBox > ah) continue;

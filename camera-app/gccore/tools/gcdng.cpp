@@ -76,6 +76,8 @@ int main(int argc, char** argv) {
 
     gccore::DngMeta dm;
     dm.software = "gccore gcdng";
+    // The format tells the cameras apart, as in tools/m9mo-dng.py
+    dm.model = raw.bits == 12 ? "EK-GC200" : "EK-GC100";
     dm.iso = intOf(meta, "exif-iso");
     if (int tv = intOf(meta, "exif-tv")) dm.exposureSeconds = std::pow(2.0, -tv / 100.0);
     if (int av = intOf(meta, "exif-av")) dm.fNumber = std::pow(2.0, av / 200.0);
