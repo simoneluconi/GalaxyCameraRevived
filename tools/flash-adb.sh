@@ -3,11 +3,12 @@
 # Run it in WSL, from the build tree's out directory or with OUT set.
 #
 #   tools/flash-adb.sh prepare   raw + gzip the images, write <img>.info
-#   tools/flash-adb.sh push      copy them to /data/flash (LineageOS running)
+#   tools/flash-adb.sh push      copy them to /data/local/tmp/flash
+#                                (LineageOS running)
 #   tools/flash-adb.sh flash     reboot to the mini recovery, write and
 #                                verify BOOT, SYSTEM and HIDDEN, reboot,
-#                                then delete /data/flash (about 600MB)
-#   tools/flash-adb.sh clean     delete /data/flash (LineageOS running)
+#                                then delete the staged files (about 600MB)
+#   tools/flash-adb.sh clean     delete the staged files (LineageOS running)
 #
 # It writes only BOOT, SYSTEM and HIDDEN (/vendor), through the mini
 # recovery's flash-image, which refuses the bootloader, PARAM and TZ and
@@ -53,7 +54,10 @@ if [ -z "${ADB:-}" ]; then
     ADB="$(wslpath "$(cmd.exe /c 'echo %LOCALAPPDATA%' 2>/dev/null | tr -d '\r')")/Android/Sdk/platform-tools/adb.exe"
 fi
 SIMG2IMG=${SIMG2IMG:-$HOME/android/lineage/out/host/linux-x86/bin/simg2img}
-DEVDIR=/data/flash
+# Writable by adb's shell user, so push and clean need no root adb (release
+# builds run adbd as shell). The mini recovery sees it under /mnt/data.
+DEVDIR=/data/local/tmp/flash
+RECDIR=/mnt/data/local/tmp/flash
 
 : "${SERIAL_LOS:?set SERIAL_LOS (see the header)}"
 : "${SERIAL_REC:?set SERIAL_REC (see the header)}"
@@ -117,7 +121,7 @@ flash() {
     # and does not return exit codes, so every step is checked on its output.
     # On any failure the camera stays in the mini recovery, never rebooted
     # into a half-written system.
-    out=$($adb shell "$ROOT_RUN 'mkdir -p /mnt/data && mount -t ext4 -o ro /dev/block/platform/dw_mmc/by-name/USERDATA /mnt/data && cp /mnt/data/flash/flash-image /tmp/flash-image && chmod 0755 /tmp/flash-image && echo STAGED'" | tr -d '\r')
+    out=$($adb shell "$ROOT_RUN 'mkdir -p /mnt/data && mount -t ext4 -o ro /dev/block/platform/dw_mmc/by-name/USERDATA /mnt/data && cp $RECDIR/flash-image /tmp/flash-image && chmod 0755 /tmp/flash-image && echo STAGED'" | tr -d '\r')
     echo "$out"
     if ! echo "$out" | grep -q STAGED; then
         echo "could not mount /data read-only or find the staged files; staying in recovery" >&2
@@ -126,7 +130,7 @@ flash() {
     for e in $IMAGES; do
         f=${e%%:*}; p=${e##*:}
         echo "writing $p"
-        out=$($adb shell "$ROOT_RUN '/tmp/flash-image $p /mnt/data/flash/$f 2>&1'" | tr -d '\r')
+        out=$($adb shell "$ROOT_RUN '/tmp/flash-image $p $RECDIR/$f 2>&1'" | tr -d '\r')
         echo "$out"
         if ! echo "$out" | grep -q "^$p written and verified"; then
             echo "$p FAILED; staying in recovery. Fix it there or flash with Odin." >&2

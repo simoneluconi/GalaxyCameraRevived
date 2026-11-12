@@ -94,7 +94,6 @@ The same mini recovery works on the GC200, built from its own stock recovery: `D
 
 - **su does not work.** The stock 2014 kernel (3.0.31) refuses `setuid(0)` from the shell uid with EACCES. init starts `rootd` as root instead, and `rootcmd "<command>"` runs a command through it, for example `adb shell rootcmd backup-critical`.
 - **Stock Android restores its own recovery at every boot** (`/system/etc/install-recovery.sh` patches RECOVERY from BOOT). After an Odin flash, untick Auto Reboot and enter the mini recovery directly: hold Power until the camera switches off, then zoom lever towards T + Power (verified 2026-11-10).
-- **After writing our kernel from a stock-kernel boot, pull the battery before its first boot.** A warm reboot from Samsung's 2014 kernel (stock Android, or the mini recovery on its stock kernel) into our 3.4 kernel leaves the eMMC and the Wi-Fi SDIO card unusable (`mmc0: cmd_strt_bit not released`, `error -110 whilst initialising MMC card`, no `mmcblk0`). Tested 2026-11-10: the same kernel finds both after a battery pull, and a warm reboot from our kernel to our kernel works too. So: flash, power off, take the battery out for a few seconds, then boot. The first GC200 install guide must say this.
 - The download mode screen shows only the Android robot and "Downloading", with no product name or counters.
 - The stock recovery has no exFAT modules, so the microSD needs FAT32 there.
 - `backup-critical` also saves TDATA (200 MB, mounted as `/tdata` on stock).
@@ -113,7 +112,7 @@ If a new kernel does not boot, enter the mini recovery (combo or `adb reboot rec
 A full build (BOOT, SYSTEM, HIDDEN/vendor) can be flashed without Odin. Run the script in WSL:
 
 1. `tools/flash-adb.sh prepare`: converts the sparse `system.img`/`vendor.img` to raw ext4 with `simg2img`, gzips them, and writes `<img>.info` (raw size and SHA-1) into `~/android/flash-stage`.
-2. `tools/flash-adb.sh push` (LineageOS running): copies the images, the `.info` files and the current `flash-image` script to `/data/flash`.
+2. `tools/flash-adb.sh push` (LineageOS running): copies the images, the `.info` files and the current `flash-image` script to `/data/local/tmp/flash`, which adb's shell user can write (release builds run adbd as shell, not root).
 3. `tools/flash-adb.sh flash`: reboots into the mini recovery and mounts `/data` read-only. Not with `noload`: on the stock 3.0 kernel there, `umount` of a `noload` mount never returns (seen 2026-11-01). It then runs `flash-image` from `/tmp` for SYSTEM, HIDDEN and BOOT, in that order, and reboots only if every partition reads back with the expected SHA-1. On any failure the camera stays in the mini recovery. Back in LineageOS it deletes `/data/flash` (about 600MB). `ONLY_BOOT=1` handles the kernel alone.
 
 `flash-image` accepts SYSTEM and HIDDEN only as raw ext4 (it checks the superblock magic and refuses sparse images), decompresses `.gz` images onto the partition, and still refuses the bootloader, PARAM and TZ. Data and settings are kept. The new `flash-image` is staged at runtime, so the mini recovery image itself is not rewritten. Its built-in copy, and `minirecovery-lib.sh` (whose `is_mounted` now also sees by-name mounts), get the changes at the next mini recovery build.

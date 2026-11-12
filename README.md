@@ -1,20 +1,20 @@
 # Galaxy Camera Revived
 
-A custom ROM that brings Android 14 (LineageOS 21) to the **Samsung Galaxy Camera**, the 2012 Android camera with a 21x optical zoom.
+A custom ROM that brings Android 14 (LineageOS 21) to the **Samsung Galaxy Camera** and **Galaxy Camera 2**, the Android cameras with a 21x optical zoom.
 
 | Model | Support |
 |---|---|
-| Galaxy Camera **EK-GC100** (3G, 2012) | Working, see below |
-| Galaxy Camera 2 **EK-GC200** (Wi-Fi, 2013) | In progress, no build to download yet. See [docs/GC200.md](docs/GC200.md). |
+| Galaxy Camera **EK-GC100** (3G) | **Supported** |
+| Galaxy Camera 2 **EK-GC200** (Wi-Fi) | **Supported** |
 | Other variants (GC110, GC120) | Not supported |
 
-Everything below describes the GC100 unless it says otherwise.
+**Download**: [Releases page](https://github.com/simoneluconi/GalaxyCameraRevived/releases). Each model has its own files: never flash one model's files on the other.
 
-Samsung stopped at Android 4.1.2. The camera still takes good pictures, but apps no longer install, nothing syncs, and half of the stock services are dead. This project puts a modern, lightweight Android on it and keeps what makes it a camera: the zoom lever, the shutter button, manual exposure, optical stabilisation and the pop-up flash. It also adds something Samsung never offered: **RAW photos (DNG)**.
+Samsung's own firmware is stuck on Android 4.1 and 4.3: apps no longer install, nothing syncs, and many stock services are dead. This project puts a modern, lightweight Android on these cameras and keeps what makes them cameras: the zoom lever, the shutter button, manual exposure, optical stabilisation and the pop-up flash. It also adds something Samsung never offered: **RAW photos (DNG)**.
 
-It is built camera-first. There are no Google services and no phone apps, only what a camera needs, because the device has only about 750 MB of usable RAM.
+It is built camera-first: no Google services and no phone apps, only what a camera needs.
 
-> **Status: first public build (November 2026).** The author uses it every day on a GC100. It is an enthusiast build, still under development: read the [known limits](#what-works) before you flash. Downloads are on the [Releases page](https://github.com/simoneluconi/GalaxyCameraRevived/releases).
+> **An enthusiast build.** It is used every day, but it is not a finished product: read [what works](#what-works) before you flash.
 
 ## What works
 
@@ -27,20 +27,21 @@ It is built camera-first. There are no Google services and no phone apps, only w
 | P / A / S / M exposure modes | Works |
 | Optical image stabilisation (OIS) | Works |
 | Pop-up flash, self-timer lamp, AF assist lamp | Works |
-| RAW (DNG) next to the JPEG | Works (colour profile still being refined) |
-| Exposure and HDR bracketing (3 frames) | Works (the HDR merge itself is not written yet) |
+| RAW (DNG) next to the JPEG | Works |
+| Exposure bracketing (3 frames) | Works |
 | Lens retracts when the camera closes or reboots | Works |
 | microSD (FAT32, exFAT) | Works |
 | Rotation sensor, level, compass | Works |
 | Wi-Fi | 2.4 GHz works. 5 GHz does not connect (on Samsung's own firmware either); on a dual-band network the camera uses 2.4 GHz by itself |
 | GPS | Works |
-| 3G mobile data | Works |
-| SMS | Sending and receiving work; no voice calls (no dialer, by design) |
+| 3G mobile data (GC100) | Works |
+| SMS (GC100) | Sending and receiving work; no voice calls (no dialer, by design) |
 | Audio | Works |
-| Bluetooth | Works (pairing, sending photos to a phone) |
-| Video recording | Not yet: GC Camera takes photos only |
-| Micro-HDMI output | Not yet: a connected TV shows a placeholder screen. HDMI support (photo playback and live view) is coming in a future release |
-| Standby battery drain | About 1%/hour with Wi-Fi on |
+| Bluetooth | Works (pairing, sending photos to a phone, photo remotes) |
+| NFC (GC200) | Not supported: a phone near the tag shows a notice |
+| Video recording | Not supported: GC Camera takes photos only |
+| Micro-HDMI output | Not supported: a connected TV shows a placeholder screen |
+| Standby battery drain | About 1%/hour with Wi-Fi on (GC100) |
 | Security | SELinux is permissive and the security patch level is from early 2025 |
 | Updates | By re-flashing; there is no over-the-air update |
 
@@ -52,17 +53,15 @@ The full list of open items is in [docs/TODO.md](docs/TODO.md).
 - **A real shutter button.** Half press to focus, full press to shoot. A tap on the screen sets the focus point; centre, multi-area and face AF are in the Fn menu.
 - **P, A, S and M.** Set aperture, shutter speed (16 s to 1/2000 s) and ISO (100–3200). The camera shows the exposure it plans to use, and M mode has an exposure meter.
 - **RAW (DNG).** Every shot can save a DNG next to the JPEG. The DNG is the sensor's own data, before Samsung's heavy noise reduction and sharpening. It opens in Lightroom, Camera Raw and RawTherapee, among others.
-- **A lens profile for the GC100.** With it, Lightroom and RawTherapee correct the lens's barrel distortion and corner shading in the DNGs. See [Downloads](#downloads).
+- **A lens profile.** With it, Lightroom and RawTherapee correct the lens's barrel distortion and corner shading in the DNGs. See [Downloads](#downloads).
 - **OIS on or off**, metering (matrix, centre, spot), white balance presets, self-timer with the front lamp, and 3-frame exposure bracketing.
 - **The pop-up flash works as a switch.** Raise it to use the flash, close it to turn the flash off.
 - **Full EXIF.** Shutter, aperture, ISO, focal length (and 35 mm equivalent), GPS when available, orientation, artist and copyright.
-- **Photos go to the microSD card** by default, in `DCIM/GC100/`.
+- **Photos go to the microSD card**, in `DCIM/`.
 
 It ships with two apps of its own:
 - **GC Camera**: the camera app, built for the physical controls. [More](camera-app/README.md).
-- **GC Gallery**: a fast gallery for the camera's photos. It pairs each JPEG with its DNG and shows the exposure info, a histogram and star ratings. It is new and still being tested. [More](docs/GALLERY-APP.md).
-
-Planned: a faster HDR, the camera as the home screen, and a build for the Galaxy Camera 2 (EK-GC200).
+- **GC Gallery**: a fast gallery for the camera's photos. It pairs each JPEG with its DNG and shows the exposure info, a histogram and star ratings. [More](docs/GALLERY-APP.md).
 
 ## Screenshots
 
@@ -91,10 +90,10 @@ Taken on an EK-GC100 running this build (1280x720 screen).
 **Read [docs/INSTALL.md](docs/INSTALL.md) before you start.** It starts with a one-page quick guide, then explains every step and how to go back to Samsung's firmware.
 
 In short:
-1. **You need**: an EK-GC100 (not the GC110, GC120 or Galaxy Camera 2), a Windows PC with Odin 3.10.7, Samsung's USB drivers and adb, a good USB cable, a microSD card, and the battery at 50% or more.
+1. **You need**: an EK-GC100 or EK-GC200, a Windows PC with Odin 3.10.7, Samsung's USB drivers and adb, a good USB cable, a microSD card, and the battery at 50% or more.
 2. **Download Samsung's official firmware** for your camera first, and keep it. With it, Odin can always bring the camera back to stock.
-3. **Flash the mini recovery** (`minirecovery-gd1.tar.md5`) with Odin, then **back up** the camera's own partitions with one adb command. The backup holds your IMEI, Wi-Fi and Bluetooth addresses and calibration; without it, a damaged EFS partition cannot be repaired.
-4. **Flash the system** (`lineage-gd1-<date>-odin.tar.md5`) with Odin, then do a factory reset from the mini recovery. The first boot takes a few minutes.
+3. **Flash the mini recovery** for your model with Odin, then **back up** the camera's own partitions with one adb command. The backup holds the camera's identity (Wi-Fi and Bluetooth addresses, IMEI on the GC100) and calibration; without it, a damaged EFS partition cannot be repaired.
+4. **Flash the system** for your model with Odin, then do a factory reset from the mini recovery. The first boot takes a few minutes.
 
 **Warnings**
 - Flashing a custom system always has some risk. You do it at your own risk.
@@ -105,9 +104,9 @@ In short:
 
 ## Downloads
 
-**Builds**: on the [Releases page](https://github.com/simoneluconi/GalaxyCameraRevived/releases). Each release has the mini recovery, the system as an Odin package, the lens profile and SHA-256 checksums.
+**Builds**: on the [Releases page](https://github.com/simoneluconi/GalaxyCameraRevived/releases). Each release has, for each model, the mini recovery and the system as Odin packages, plus the lens profile and SHA-256 checksums.
 
-**Lens profile**: [`profiles/Samsung EK-GC100.lcp`](profiles/Samsung%20EK-GC100.lcp), an Adobe lens profile for the GC100's zoom lens (measured on a GC100; the GC200 has the same lens, but needs its own check). It corrects barrel distortion at the wide end and evens out the corner shading. It is meant for **RAW (DNG) files only**: the camera's JPEGs are already corrected by the camera.
+**Lens profile**: [`profiles/Samsung EK-GC100.lcp`](profiles/Samsung%20EK-GC100.lcp), an Adobe lens profile for the zoom lens, measured on a GC100 (the GC200 has the same lens). It corrects barrel distortion at the wide end and evens out the corner shading. It is meant for **RAW (DNG) files only**: the camera's JPEGs are already corrected by the camera.
 
 - **Lightroom Classic / Camera Raw (Photoshop)**:
   1. Copy the `.lcp` file to:

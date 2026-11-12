@@ -8,6 +8,7 @@
 
   <!-- The GC100 device tree -->
   <project path="device/samsung/gd1" name="android_device_samsung_gd1" remote="simoneluconi" revision="lineage-21.0" />
+  <project path="device/samsung/sf2wifi" name="android_device_samsung_sf2wifi" remote="simoneluconi" revision="lineage-21.0" />
 
   <!-- Exynos4412 common tree; the i9300 low-RAM (Go) tree is the reference device -->
   <project path="device/samsung/smdk4412-common" name="android_device_samsung_smdk4412-common" remote="simoneluconi" revision="gd1" />
