@@ -1,0 +1,106 @@
+:root {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --surface-2: #e8eaee;
+  --text: #1a1c20;
+  --muted: #6b7280;
+  --line: #d5d8de;
+  --accent: #2563eb;
+  --on-accent: #ffffff;
+  --ok: #16a34a;
+  --warn: #d97706;
+  --radius: 14px;
+  --max: 1080px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1013;
+    --surface: #181a1e;
+    --surface-2: #25282d;
+    --text: #e8eaee;
+    --muted: #9ca3af;
+    --line: #2f3338;
+    --accent: #4f86f7;
+    --ok: #22c55e;
+    --warn: #f59e0b;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+a { color: var(--accent); }
+img { max-width: 100%; height: auto; display: block; }
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 16px; }
+
+header.top {
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+header.top .wrap { display: flex; align-items: center; gap: 12px; height: 56px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text); text-decoration: none; }
+.brand img { width: 28px; height: 28px; }
+nav { margin-left: auto; display: flex; gap: 18px; font-size: 15px; }
+nav a { color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--text); }
+@media (max-width: 640px) { nav .hide-sm { display: none; } }
+
+.hero { padding: 56px 0 32px; }
+.hero h1 { font-size: clamp(30px, 5vw, 48px); line-height: 1.15; margin: 0 0 14px; letter-spacing: -0.02em; }
+.hero p.lead { font-size: clamp(17px, 2.2vw, 20px); color: var(--muted); max-width: 720px; margin: 0 0 24px; }
+.buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 18px; border-radius: 999px; font-weight: 600; text-decoration: none;
+  border: 1px solid var(--line); color: var(--text); background: var(--surface);
+}
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.models { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.chip {
+  font-size: 14px; padding: 5px 12px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.chip b { color: var(--ok); }
+
+.shot-hero { margin-top: 36px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); }
+
+section { padding: 40px 0; }
+section h2 { font-size: 28px; margin: 0 0 18px; letter-spacing: -0.01em; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 18px;
+}
+.card h3 { margin: 0 0 6px; font-size: 17px; }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+.shots { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.shots figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.shots figcaption { padding: 10px 14px; font-size: 14px; color: var(--muted); }
+
+table.status { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+table.status td { padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: top; font-size: 15px; }
+table.status tr:first-child td { border-top: 0; }
+table.status td:last-child { color: var(--muted); }
+.ok { color: var(--ok); font-weight: 600; }
+.no { color: var(--warn); font-weight: 600; }
+
+ol.steps { padding-left: 22px; }
+ol.steps li { margin: 8px 0; }
+.note {
+  border-left: 4px solid var(--warn); background: var(--surface); padding: 12px 16px;
+  border-radius: 0 var(--radius) var(--radius) 0; margin: 18px 0; font-size: 15px;
+}
+details { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 16px; margin: 8px 0; }
+summary { cursor: pointer; font-weight: 600; }
+details p { margin: 8px 0 2px; color: var(--muted); }
+
+footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
+footer a { color: var(--muted); }
+code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-size: 0.92em; }

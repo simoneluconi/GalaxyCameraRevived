@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galaxy Camera Revived: Android 14 per la Samsung Galaxy Camera (EK-GC100, EK-GC200)</title>
+<meta name="description" content="Una custom ROM gratuita che porta Android 14 (LineageOS 21) sulla Samsung Galaxy Camera EK-GC100 e sulla Galaxy Camera 2 EK-GC200: zoom ottico 21x con la levetta, P/A/S/M, stabilizzatore, flash a scomparsa e foto RAW (DNG).">
+<link rel="canonical" href="https://simoneluconi.github.io/GalaxyCameraRevived/it/">
+<link rel="alternate" hreflang="en" href="https://simoneluconi.github.io/GalaxyCameraRevived/">
+<link rel="alternate" hreflang="it" href="https://simoneluconi.github.io/GalaxyCameraRevived/it/">
+<link rel="alternate" hreflang="x-default" href="https://simoneluconi.github.io/GalaxyCameraRevived/">
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Galaxy Camera Revived: Android 14 per la Samsung Galaxy Camera">
+<meta property="og:description" content="LineageOS 21 per la Galaxy Camera EK-GC100 e la Galaxy Camera 2 EK-GC200: zoom 21x, modalità manuali, stabilizzatore, RAW (DNG).">
+<meta property="og:url" content="https://simoneluconi.github.io/GalaxyCameraRevived/it/">
+<meta property="og:image" content="https://simoneluconi.github.io/GalaxyCameraRevived/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:locale" content="it_IT">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Galaxy Camera Revived: Android 14 per la Samsung Galaxy Camera">
+<meta name="twitter:description" content="LineageOS 21 per la EK-GC100 e la EK-GC200: zoom 21x, modalità manuali, stabilizzatore, RAW (DNG).">
+<meta name="twitter:image" content="https://simoneluconi.github.io/GalaxyCameraRevived/social-preview.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Galaxy Camera Revived",
+  "inLanguage": "it",
+  "description": "Una custom ROM (LineageOS 21, Android 14) per la Samsung Galaxy Camera EK-GC100 e la Galaxy Camera 2 EK-GC200, con le sue app fotocamera e galleria e il supporto RAW (DNG).",
+  "applicationCategory": "OperatingSystem",
+  "operatingSystem": "Android 14 (LineageOS 21)",
+  "softwareVersion": "20261112",
+  "url": "https://simoneluconi.github.io/GalaxyCameraRevived/it/",
+  "downloadUrl": "https://github.com/simoneluconi/GalaxyCameraRevived/releases/latest",
+  "codeRepository": "https://github.com/simoneluconi/GalaxyCameraRevived",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "author": { "@type": "Person", "name": "Simone Luconi", "url": "https://github.com/simoneluconi" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "it",
+  "mainEntity": [
+    { "@type": "Question", "name": "Quali modelli di Galaxy Camera sono supportati?",
+      "acceptedAnswer": { "@type": "Answer", "text": "La Galaxy Camera EK-GC100 e la Galaxy Camera 2 EK-GC200. Ognuna ha i suoi file. GC110 e GC120 non sono supportate." } },
+    { "@type": "Question", "name": "Posso tornare al firmware Samsung?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Sì. Il firmware ufficiale Samsung si può riflashare con Odin in qualsiasi momento. La guida spiega come, e chiede prima un backup delle partizioni della camera." } },
+    { "@type": "Question", "name": "C'è Google Play?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Non ci sono servizi Google né store; le altre app si installano da file APK." } },
+    { "@type": "Question", "name": "Come si aggiorna?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Si flasha con Odin il nuovo pacchetto di sistema del proprio modello. Foto, app e impostazioni restano." } },
+    { "@type": "Question", "name": "Scatta in RAW?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Sì. GC Camera può salvare un DNG accanto a ogni JPEG. I DNG si aprono in Lightroom, Camera Raw e RawTherapee, ed è incluso un profilo dell'obiettivo." } }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="../icon.svg" alt="">Galaxy Camera Revived</a>
+    <nav>
+      <a class="hide-sm" href="#funzioni">Funzioni</a>
+      <a class="hide-sm" href="#installazione">Installazione</a>
+      <a href="https://github.com/simoneluconi/GalaxyCameraRevived">GitHub</a>
+      <a href="../" hreflang="en" lang="en">English</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Android 14 per la Samsung Galaxy Camera</h1>
+    <p class="lead">Una LineageOS 21 leggera per la Galaxy Camera e la Galaxy Camera 2 che tiene quello che le rende fotocamere: la levetta dello zoom, il pulsante di scatto, l'esposizione manuale, lo stabilizzatore ottico e il flash a scomparsa. E aggiunge le foto RAW.</p>
+    <div class="buttons">
+      <a class="btn primary" href="https://github.com/simoneluconi/GalaxyCameraRevived/releases/latest">Scarica</a>
+      <a class="btn" href="https://github.com/simoneluconi/GalaxyCameraRevived/blob/main/docs/INSTALL.md">Guida all'installazione (inglese)</a>
+      <a class="btn" href="https://github.com/simoneluconi/GalaxyCameraRevived">Codice sorgente</a>
+    </div>
+    <div class="models">
+      <span class="chip"><b>✓</b> Galaxy Camera EK-GC100</span>
+      <span class="chip"><b>✓</b> Galaxy Camera 2 EK-GC200</span>
+    </div>
+    <div class="shot-hero"><img src="../screenshots/camera-zoom.jpg" alt="GC Camera con lo zoom e la messa a fuoco bloccata, su una Galaxy Camera con Galaxy Camera Revived" width="1280" height="720"></div>
+  </section>
+
+  <section id="funzioni">
+    <h2>Fatta per fotografare</h2>
+    <div class="grid">
+      <div class="card"><h3>La levetta zooma</h3><p>Velocità lenta e veloce sullo zoom ottico 21x, come con il firmware originale.</p></div>
+      <div class="card"><h3>Un vero pulsante di scatto</h3><p>Mezza pressione per mettere a fuoco, pressione piena per scattare. Tocca lo schermo per scegliere il punto di fuoco.</p></div>
+      <div class="card"><h3>P, A, S e M</h3><p>Diaframma, tempo e ISO a mano, con l'esposimetro in M.</p></div>
+      <div class="card"><h3>RAW (DNG)</h3><p>I dati del sensore accanto a ogni JPEG, per Lightroom, Camera Raw e RawTherapee. Profilo dell'obiettivo incluso.</p></div>
+      <div class="card"><h3>Stabilizzatore e flash</h3><p>Stabilizzazione ottica attiva o no. Alza il flash per usarlo, chiudilo per spegnerlo.</p></div>
+      <div class="card"><h3>Prima di tutto una fotocamera</h3><p>Niente servizi Google e niente app da telefono: solo quello che serve a una fotocamera, con le sue app per scattare e rivedere le foto.</p></div>
+    </div>
+  </section>
+
+  <section id="schermate">
+    <h2>GC Camera e GC Gallery</h2>
+    <div class="shots">
+      <figure><img src="../screenshots/camera-auto.jpg" alt="GC Camera in modalità Auto" loading="lazy" width="1280" height="720"><figcaption>Auto: la camera mostra l'esposizione che ha scelto</figcaption></figure>
+      <figure><img src="../screenshots/camera-manual.jpg" alt="GC Camera in modalità manuale" loading="lazy" width="1280" height="720"><figcaption>M: tempo, diaframma e ISO a mano</figcaption></figure>
+      <figure><img src="../screenshots/camera-fn.jpg" alt="Il menu Fn di GC Camera" loading="lazy" width="1280" height="720"><figcaption>Il menu Fn: esposimetro, bilanciamento del bianco, AF, scatto</figcaption></figure>
+      <figure><img src="../screenshots/gallery-grid.jpg" alt="La griglia di GC Gallery" loading="lazy" width="1280" height="720"><figcaption>GC Gallery: foto per giorno, JPEG e DNG abbinati</figcaption></figure>
+    </div>
+  </section>
+
+  <section id="stato">
+    <h2>Cosa funziona</h2>
+    <table class="status">
+      <tr><td>Fotocamera, zoom, autofocus, P/A/S/M, stabilizzatore, flash, RAW</td><td class="ok">Funziona</td></tr>
+      <tr><td>Wi-Fi, Bluetooth, GPS, audio, sensori, microSD</td><td class="ok">Funziona (Wi-Fi a 2,4 GHz)</td></tr>
+      <tr><td>Dati mobili 3G e SMS</td><td class="ok">Funziona sulla GC100</td></tr>
+      <tr><td>Registrazione video, micro-HDMI, NFC</td><td class="no">Non supportati</td></tr>
+      <tr><td>Aggiornamenti</td><td>Riflashando una release più recente; i dati restano</td></tr>
+    </table>
+    <p>L'elenco completo è nel <a href="https://github.com/simoneluconi/GalaxyCameraRevived#what-works">README</a> (in inglese).</p>
+  </section>
+
+  <section id="installazione">
+    <h2>Installazione</h2>
+    <ol class="steps">
+      <li>Scarica il firmware ufficiale Samsung per la tua camera e conservalo: è la tua strada per tornare indietro.</li>
+      <li>Flasha con Odin la <b>mini recovery</b> del tuo modello e fai il backup delle partizioni della camera.</li>
+      <li>Flasha con Odin il <b>sistema</b> del tuo modello, poi fai il reset di fabbrica dalla mini recovery.</li>
+      <li>Il primo avvio richiede qualche minuto. Inserisci una microSD e inizia a scattare.</li>
+    </ol>
+    <div class="note">Leggi tutta la <a href="https://github.com/simoneluconi/GalaxyCameraRevived/blob/main/docs/INSTALL.md">guida all'installazione</a> prima di flashare qualsiasi cosa. Non flashare mai un file PIT né un bootloader. Installare un sistema modificato comporta sempre qualche rischio: lo fai a tuo rischio.</div>
+  </section>
+
+  <section id="domande">
+    <h2>Domande</h2>
+    <details><summary>Quali modelli sono supportati?</summary><p>La Galaxy Camera EK-GC100 e la Galaxy Camera 2 EK-GC200. Ognuna ha i suoi file: non flashare mai i file di un modello sull'altro. GC110 e GC120 non sono supportate.</p></details>
+    <details><summary>Posso tornare al firmware Samsung?</summary><p>Sì, con Odin, in qualsiasi momento. La guida spiega come.</p></details>
+    <details><summary>C'è Google Play?</summary><p>No. Non ci sono servizi Google né store; le altre app si installano da file APK.</p></details>
+    <details><summary>Come si aggiorna?</summary><p>Si flasha con Odin il nuovo pacchetto di sistema del proprio modello. Foto, app e impostazioni restano.</p></details>
+    <details><summary>Dove segnalo un problema?</summary><p>Apri una <a href="https://github.com/simoneluconi/GalaxyCameraRevived/issues">issue su GitHub</a>, indicando il modello e i passi che portano al problema.</p></details>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Galaxy Camera Revived si basa su LineageOS, LineageOS-UL, i sorgenti Exynos 4412 di html6405 e Replicant. <a href="https://github.com/simoneluconi/GalaxyCameraRevived#credits">Crediti</a> · <a href="https://github.com/simoneluconi/GalaxyCameraRevived#licences">Licenze</a></p>
+    <p>Questo progetto non è affiliato a Samsung. "Samsung" e "Galaxy" sono marchi di Samsung Electronics.</p>
+  </div>
+</footer>
+</body>
+</html>
