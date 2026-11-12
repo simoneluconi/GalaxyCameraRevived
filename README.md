@@ -53,7 +53,7 @@ The full list of open items is in [docs/TODO.md](docs/TODO.md).
 - **A real shutter button.** Half press to focus, full press to shoot. A tap on the screen sets the focus point; centre, multi-area and face AF are in the Fn menu.
 - **P, A, S and M.** Set aperture, shutter speed (16 s to 1/2000 s) and ISO (100–3200). The camera shows the exposure it plans to use, and M mode has an exposure meter.
 - **RAW (DNG).** Every shot can save a DNG next to the JPEG. The DNG is the sensor's own data, before Samsung's heavy noise reduction and sharpening. It opens in Lightroom, Camera Raw and RawTherapee, among others.
-- **A lens profile.** With it, Lightroom and RawTherapee correct the lens's barrel distortion and corner shading in the DNGs. See [Downloads](#downloads).
+- **Lens profiles for both cameras.** With them, Lightroom and RawTherapee correct the lens's barrel distortion and corner shading in the DNGs. See [Downloads](#downloads).
 - **OIS on or off**, metering (matrix, centre, spot), white balance presets, self-timer with the front lamp, and 3-frame exposure bracketing.
 - **The pop-up flash works as a switch.** Raise it to use the flash, close it to turn the flash off.
 - **Full EXIF.** Shutter, aperture, ISO, focal length (and 35 mm equivalent), GPS when available, orientation, artist and copyright.
@@ -110,18 +110,19 @@ In short:
 |---|---|---|
 | Mini recovery | `EK-GC100-minirecovery.tar.md5` | `EK-GC200-minirecovery.tar.md5` |
 | System | `EK-GC100-system-<date>.tar.md5` | `EK-GC200-system-<date>.tar.md5` |
+| Lens profile | `EK-GC100-lens-profile.lcp` | `EK-GC200-lens-profile.lcp` |
 
-Each release also has the lens profile and the SHA-256 checksums, for both models.
+Each release also has the SHA-256 checksums of all its files.
 
-**Lens profile**: [`profiles/Samsung EK-GC100.lcp`](profiles/Samsung%20EK-GC100.lcp), an Adobe lens profile for the zoom lens, measured on a GC100 (the GC200 has the same lens). It corrects barrel distortion at the wide end and evens out the corner shading. It is meant for **RAW (DNG) files only**: the camera's JPEGs are already corrected by the camera.
+**Lens profiles**: [`EK-GC100-lens-profile.lcp`](profiles/EK-GC100-lens-profile.lcp) and [`EK-GC200-lens-profile.lcp`](profiles/EK-GC200-lens-profile.lcp), Adobe lens profiles for the zoom lens, one per camera. They correct barrel distortion at the wide end and even out the corner shading. They are meant for **RAW (DNG) files only**: the camera's JPEGs are already corrected by the camera.
 
 - **Lightroom Classic / Camera Raw (Photoshop)**:
-  1. Copy the `.lcp` file to:
+  1. Copy the `.lcp` file of your camera (or both) to:
      - Windows: `%APPDATA%\Adobe\CameraRaw\LensProfiles\1.0\`
      - macOS: `~/Library/Application Support/Adobe/CameraRaw/LensProfiles/1.0/`
   2. Restart Lightroom or Photoshop.
-  3. DNGs from GC Camera turn the profile on by themselves. For other DNGs: Develop → Lens Corrections → Profile → Enable Profile Corrections, Make "Samsung", Model "Samsung 4.1-86.1mm f/2.8-5.9".
-- **RawTherapee**: in the Transform tab, open "Profiled Lens Correction", choose "LCP file" and pick the `.lcp`. At the wide end, crop the dark corners by hand: RawTherapee does not read the crop that GC Camera stores in the DNG.
+  3. DNGs from GC Camera turn the profile on by themselves, and Lightroom picks the one for the camera that took the photo. For other DNGs: Develop → Lens Corrections → Profile → Enable Profile Corrections, Make "Samsung", Model "Samsung 4.1-86.1mm f/2.8-5.9".
+- **RawTherapee**: in the Transform tab, open "Profiled Lens Correction", choose "LCP file" and pick the `.lcp` of your camera. At the wide end, crop the dark corners by hand: RawTherapee does not read the crop that GC Camera stores in the DNG.
 
 How it was measured, and its limits: [docs/LENS-PROFILE.md](docs/LENS-PROFILE.md).
 

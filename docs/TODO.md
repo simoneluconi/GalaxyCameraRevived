@@ -112,7 +112,7 @@ The user's storage must not fill up with debug output. Keep only what explains c
 - **DNG gaps** (gccore `dng.cpp`), to fix before calling the DNGs "Lightroom-ready":
   - ColorMatrix1 is single-illuminant (see Colour above); dual-illuminant with ForwardMatrix later.
   - AsShotNeutral is still grey world, which comes out too warm. gccore's `matchIsp` now reads the ISP's white balance from the JPEG preview that the DNG embeds anyway: use it in `writeDng`.
-  - No lens opcodes, by the user's choice: the DNG stays raw. The removable correction comes from the Adobe lens profile (`profiles/Samsung EK-GC100.lcp`, distortion + vignetting) plus an XMP crop.
+  - No lens opcodes, by the user's choice: the DNG stays raw. The removable correction comes from the Adobe lens profile (`profiles/EK-GC100-lens-profile.lcp` / `EK-GC200-lens-profile.lcp`, distortion + vignetting) plus an XMP crop.
   - No NoiseProfile.
   - Uncompressed (33 MB); lossless JPEG (DNG compression 7) would roughly halve it.
   - Not yet opened in Lightroom/ACR; run Adobe's `dng_validate` too.

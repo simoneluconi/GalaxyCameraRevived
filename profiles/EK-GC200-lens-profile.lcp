@@ -1,0 +1,246 @@
+<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.6-c140 79.160451, 2017/05/06-01:08:21        ">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about=""
+    xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"
+    xmlns:stCamera="http://ns.adobe.com/photoshop/1.0/camera-profile">
+   <photoshop:CameraProfiles>
+    <rdf:Seq>
+     <rdf:li>
+      <rdf:Description
+       stCamera:Author="GalaxyCameraRevived"
+       stCamera:Make="Samsung"
+       stCamera:Model="EK-GC200"
+       stCamera:CameraRawProfile="True"
+       stCamera:Lens="4.1-86.1mm f/2.8-5.9"
+       stCamera:LensInfo="41/10 861/10 28/10 59/10"
+       stCamera:CameraPrettyName="Samsung EK-GC200"
+       stCamera:LensPrettyName="Samsung 4.1-86.1mm f/2.8-5.9"
+       stCamera:ProfileName="Samsung EK-GC200"
+       stCamera:SensorFormatFactor="5.61"
+       stCamera:ImageWidth="4648"
+       stCamera:ImageLength="3478"
+       stCamera:FocalLength="4.1"
+       stCamera:FocusDistance="10000"
+       stCamera:ApertureValue="2.970854">
+      <stCamera:PerspectiveModel>
+       <rdf:Description
+        stCamera:Version="2"
+        stCamera:FocalLengthX="0.619621"
+        stCamera:FocalLengthY="0.619621"
+        stCamera:ImageXCenter="0.497633"
+        stCamera:ImageYCenter="0.484761"
+        stCamera:RadialDistortParam1="-0.269000"
+        stCamera:RadialDistortParam2="0.117000"
+        stCamera:RadialDistortParam3="0.000000">
+       <stCamera:VignetteModel
+        stCamera:FocalLengthX="0.619621"
+        stCamera:FocalLengthY="0.619621"
+        stCamera:ImageXCenter="0.497633"
+        stCamera:ImageYCenter="0.484761"
+        stCamera:VignetteModelParam1="-0.375000"
+        stCamera:VignetteModelParam2="0.000000"
+        stCamera:VignetteModelParam3="0.000000"/>
+       </rdf:Description>
+      </stCamera:PerspectiveModel>
+      </rdf:Description>
+     </rdf:li>
+     <rdf:li>
+      <rdf:Description
+       stCamera:Author="GalaxyCameraRevived"
+       stCamera:Make="Samsung"
+       stCamera:Model="EK-GC200"
+       stCamera:CameraRawProfile="True"
+       stCamera:Lens="4.1-86.1mm f/2.8-5.9"
+       stCamera:LensInfo="41/10 861/10 28/10 59/10"
+       stCamera:CameraPrettyName="Samsung EK-GC200"
+       stCamera:LensPrettyName="Samsung 4.1-86.1mm f/2.8-5.9"
+       stCamera:ProfileName="Samsung EK-GC200"
+       stCamera:SensorFormatFactor="5.61"
+       stCamera:ImageWidth="4648"
+       stCamera:ImageLength="3478"
+       stCamera:FocalLength="5.0"
+       stCamera:FocusDistance="10000"
+       stCamera:ApertureValue="3.111035">
+      <stCamera:PerspectiveModel>
+       <rdf:Description
+        stCamera:Version="2"
+        stCamera:FocalLengthX="0.619621"
+        stCamera:FocalLengthY="0.619621"
+        stCamera:ImageXCenter="0.497633"
+        stCamera:ImageYCenter="0.484761"
+        stCamera:RadialDistortParam1="-0.177000"
+        stCamera:RadialDistortParam2="0.050000"
+        stCamera:RadialDistortParam3="0.000000">
+       <stCamera:VignetteModel
+        stCamera:FocalLengthX="0.619621"
+        stCamera:FocalLengthY="0.619621"
+        stCamera:ImageXCenter="0.497633"
+        stCamera:ImageYCenter="0.484761"
+        stCamera:VignetteModelParam1="-0.375000"
+        stCamera:VignetteModelParam2="0.000000"
+        stCamera:VignetteModelParam3="0.000000"/>
+       </rdf:Description>
+      </stCamera:PerspectiveModel>
+      </rdf:Description>
+     </rdf:li>
+     <rdf:li>
+      <rdf:Description
+       stCamera:Author="GalaxyCameraRevived"
+       stCamera:Make="Samsung"
+       stCamera:Model="EK-GC200"
+       stCamera:CameraRawProfile="True"
+       stCamera:Lens="4.1-86.1mm f/2.8-5.9"
+       stCamera:LensInfo="41/10 861/10 28/10 59/10"
+       stCamera:CameraPrettyName="Samsung EK-GC200"
+       stCamera:LensPrettyName="Samsung 4.1-86.1mm f/2.8-5.9"
+       stCamera:ProfileName="Samsung EK-GC200"
+       stCamera:SensorFormatFactor="5.61"
+       stCamera:ImageWidth="4648"
+       stCamera:ImageLength="3478"
+       stCamera:FocalLength="6.2"
+       stCamera:FocusDistance="10000"
+       stCamera:ApertureValue="3.262984">
+      <stCamera:PerspectiveModel>
+       <rdf:Description
+        stCamera:Version="2"
+        stCamera:FocalLengthX="0.619621"
+        stCamera:FocalLengthY="0.619621"
+        stCamera:ImageXCenter="0.497633"
+        stCamera:ImageYCenter="0.484761"
+        stCamera:RadialDistortParam1="-0.090000"
+        stCamera:RadialDistortParam2="0.008000"
+        stCamera:RadialDistortParam3="0.000000">
+       <stCamera:VignetteModel
+        stCamera:FocalLengthX="0.619621"
+        stCamera:FocalLengthY="0.619621"
+        stCamera:ImageXCenter="0.497633"
+        stCamera:ImageYCenter="0.484761"
+        stCamera:VignetteModelParam1="-0.375000"
+        stCamera:VignetteModelParam2="0.000000"
+        stCamera:VignetteModelParam3="0.000000"/>
+       </rdf:Description>
+      </stCamera:PerspectiveModel>
+      </rdf:Description>
+     </rdf:li>
+     <rdf:li>
+      <rdf:Description
+       stCamera:Author="GalaxyCameraRevived"
+       stCamera:Make="Samsung"
+       stCamera:Model="EK-GC200"
+       stCamera:CameraRawProfile="True"
+       stCamera:Lens="4.1-86.1mm f/2.8-5.9"
+       stCamera:LensInfo="41/10 861/10 28/10 59/10"
+       stCamera:CameraPrettyName="Samsung EK-GC200"
+       stCamera:LensPrettyName="Samsung 4.1-86.1mm f/2.8-5.9"
+       stCamera:ProfileName="Samsung EK-GC200"
+       stCamera:SensorFormatFactor="5.61"
+       stCamera:ImageWidth="4648"
+       stCamera:ImageLength="3478"
+       stCamera:FocalLength="9.2"
+       stCamera:FocusDistance="10000"
+       stCamera:ApertureValue="3.541758">
+      <stCamera:PerspectiveModel>
+       <rdf:Description
+        stCamera:Version="2"
+        stCamera:FocalLengthX="0.619621"
+        stCamera:FocalLengthY="0.619621"
+        stCamera:ImageXCenter="0.497633"
+        stCamera:ImageYCenter="0.484761"
+        stCamera:RadialDistortParam1="-0.025000"
+        stCamera:RadialDistortParam2="0.010000"
+        stCamera:RadialDistortParam3="0.000000">
+       <stCamera:VignetteModel
+        stCamera:FocalLengthX="0.619621"
+        stCamera:FocalLengthY="0.619621"
+        stCamera:ImageXCenter="0.497633"
+        stCamera:ImageYCenter="0.484761"
+        stCamera:VignetteModelParam1="-0.375000"
+        stCamera:VignetteModelParam2="0.000000"
+        stCamera:VignetteModelParam3="0.000000"/>
+       </rdf:Description>
+      </stCamera:PerspectiveModel>
+      </rdf:Description>
+     </rdf:li>
+     <rdf:li>
+      <rdf:Description
+       stCamera:Author="GalaxyCameraRevived"
+       stCamera:Make="Samsung"
+       stCamera:Model="EK-GC200"
+       stCamera:CameraRawProfile="True"
+       stCamera:Lens="4.1-86.1mm f/2.8-5.9"
+       stCamera:LensInfo="41/10 861/10 28/10 59/10"
+       stCamera:CameraPrettyName="Samsung EK-GC200"
+       stCamera:LensPrettyName="Samsung 4.1-86.1mm f/2.8-5.9"
+       stCamera:ProfileName="Samsung EK-GC200"
+       stCamera:SensorFormatFactor="5.61"
+       stCamera:ImageWidth="4648"
+       stCamera:ImageLength="3478"
+       stCamera:FocalLength="16.5"
+       stCamera:FocusDistance="10000"
+       stCamera:ApertureValue="3.954392">
+      <stCamera:PerspectiveModel>
+       <rdf:Description
+        stCamera:Version="2"
+        stCamera:FocalLengthX="0.619621"
+        stCamera:FocalLengthY="0.619621"
+        stCamera:ImageXCenter="0.497633"
+        stCamera:ImageYCenter="0.484761"
+        stCamera:RadialDistortParam1="-0.000100"
+        stCamera:RadialDistortParam2="0.000000"
+        stCamera:RadialDistortParam3="0.000000">
+       <stCamera:VignetteModel
+        stCamera:FocalLengthX="0.619621"
+        stCamera:FocalLengthY="0.619621"
+        stCamera:ImageXCenter="0.497633"
+        stCamera:ImageYCenter="0.484761"
+        stCamera:VignetteModelParam1="-0.375000"
+        stCamera:VignetteModelParam2="0.000000"
+        stCamera:VignetteModelParam3="0.000000"/>
+       </rdf:Description>
+      </stCamera:PerspectiveModel>
+      </rdf:Description>
+     </rdf:li>
+     <rdf:li>
+      <rdf:Description
+       stCamera:Author="GalaxyCameraRevived"
+       stCamera:Make="Samsung"
+       stCamera:Model="EK-GC200"
+       stCamera:CameraRawProfile="True"
+       stCamera:Lens="4.1-86.1mm f/2.8-5.9"
+       stCamera:LensInfo="41/10 861/10 28/10 59/10"
+       stCamera:CameraPrettyName="Samsung EK-GC200"
+       stCamera:LensPrettyName="Samsung 4.1-86.1mm f/2.8-5.9"
+       stCamera:ProfileName="Samsung EK-GC200"
+       stCamera:SensorFormatFactor="5.61"
+       stCamera:ImageWidth="4648"
+       stCamera:ImageLength="3478"
+       stCamera:FocalLength="86.1"
+       stCamera:FocusDistance="10000"
+       stCamera:ApertureValue="5.121430">
+      <stCamera:PerspectiveModel>
+       <rdf:Description
+        stCamera:Version="2"
+        stCamera:FocalLengthX="0.619621"
+        stCamera:FocalLengthY="0.619621"
+        stCamera:ImageXCenter="0.497633"
+        stCamera:ImageYCenter="0.484761"
+        stCamera:RadialDistortParam1="-0.000100"
+        stCamera:RadialDistortParam2="0.000000"
+        stCamera:RadialDistortParam3="0.000000">
+       <stCamera:VignetteModel
+        stCamera:FocalLengthX="0.619621"
+        stCamera:FocalLengthY="0.619621"
+        stCamera:ImageXCenter="0.497633"
+        stCamera:ImageYCenter="0.484761"
+        stCamera:VignetteModelParam1="-0.375000"
+        stCamera:VignetteModelParam2="0.000000"
+        stCamera:VignetteModelParam3="0.000000"/>
+       </rdf:Description>
+      </stCamera:PerspectiveModel>
+      </rdf:Description>
+     </rdf:li>
+    </rdf:Seq>
+   </photoshop:CameraProfiles>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>

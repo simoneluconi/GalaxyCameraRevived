@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Write the Adobe lens profile (.lcp) of the Galaxy Camera EK-GC100's zoom lens.
+"""Write the Adobe lens profile (.lcp) of the Galaxy Camera's zoom lens, for the EK-GC100 or
+the EK-GC200 (the same lens and sensor; each camera has its own frame size and optical centre).
 
 Lightroom, Camera Raw (Photoshop) and RawTherapee read .lcp files ("Enable Profile
 Corrections"). The distortion per focal length comes from the calibration against the ISP's
@@ -9,7 +10,7 @@ an ideal (corrected) point at (x - x0)/fx comes from the image at x * (1 + k1 r^
 Our fit normalises r by the ISP frame's half diagonal (2880 px at 1:1 with the RAW), so the
 profile's focal length is that, in units of the image's longest side.
 
-Usage: gc100-lcp.py [out.lcp] [--model "Samsung EK-GC100"] [--name "Samsung EK-GC100 (B)"]
+Usage: gc100-lcp.py [out.lcp] [--camera EK-GC100|EK-GC200] [--name "Samsung EK-GC100 (B)"]
 Install: copy it to %APPDATA%\\Adobe\\CameraRaw\\LensProfiles\\1.0\\ and restart Lightroom.
 """
 import sys
@@ -27,12 +28,16 @@ TABLE = [
     (86.1, NO_CORRECTION, 0.0),
 ]
 
-# The DNG's image after DefaultCrop (8 px inside the 4670x3452 active area)
-WIDTH, HEIGHT = 4654, 3436
 HALF_DIAGONAL = 2880.0  # the ISP frame's, in RAW pixels
-# Optical centre measured in the active area, (2331, 1739), moved into the cropped image
-CENTRE_X = (2331 - 8) / WIDTH
-CENTRE_Y = (1739 - 8) / HEIGHT
+CROP_MARGIN = 8  # the DNG's DefaultCrop starts 8 px inside the active area
+# Per camera: the DNG's image after DefaultCrop, and the optical centre in the RAW active area.
+# EK-GC100: active area 4670x3452, centre from the RAW/JPEG registration (docs/LENS-PROFILE.md).
+# EK-GC200: active area 4664x3494; centre from the symmetric black border of a wide-end RAW,
+# a method that finds the GC100's centre within (-1, +7) px, corrected by that offset.
+CAMERAS = {
+    "EK-GC100": {"size": (4654, 3436), "centre": (2331, 1739)},
+    "EK-GC200": {"size": (4648, 3478), "centre": (2321, 1694)},
+}
 # f-numbers at the zoom ends, for the ApertureValue (APEX) of each entry
 F_WIDE, F_TELE, FOCAL_WIDE, FOCAL_TELE = 2.8, 5.9, 4.1, 86.1
 
@@ -48,7 +53,7 @@ ENTRY = """     <rdf:li>
        stCamera:CameraRawProfile="True"
        stCamera:Lens="4.1-86.1mm f/2.8-5.9"
        stCamera:LensInfo="41/10 861/10 28/10 59/10"
-       stCamera:CameraPrettyName="Samsung EK-GC100"
+       stCamera:CameraPrettyName="Samsung {model}"
        stCamera:LensPrettyName="Samsung 4.1-86.1mm f/2.8-5.9"
        stCamera:ProfileName="{name}"
        stCamera:SensorFormatFactor="5.61"
@@ -91,12 +96,19 @@ def main():
     import argparse
     import math
     ap = argparse.ArgumentParser()
-    ap.add_argument("out", nargs="?", default="Samsung EK-GC100.lcp")
-    # EXIF Model of our DNGs; their UniqueCameraModel is "Samsung EK-GC100"
-    ap.add_argument("--model", default="EK-GC100")
-    ap.add_argument("--name", default="Samsung EK-GC100")
+    ap.add_argument("out", nargs="?")
+    # EXIF Model of our DNGs; their UniqueCameraModel is "Samsung <model>"
+    ap.add_argument("--camera", choices=sorted(CAMERAS), default="EK-GC100")
+    ap.add_argument("--name")
     a = ap.parse_args()
-    out = a.out
+    a.model = a.camera
+    a.name = a.name or f"Samsung {a.camera}"
+    out = a.out or f"{a.camera}-lens-profile.lcp"
+    WIDTH, HEIGHT = CAMERAS[a.camera]["size"]
+    ox, oy = CAMERAS[a.camera]["centre"]
+    # the optical centre, moved into the cropped image
+    CENTRE_X = (ox - CROP_MARGIN) / WIDTH
+    CENTRE_Y = (oy - CROP_MARGIN) / HEIGHT
     fx = HALF_DIAGONAL / max(WIDTH, HEIGHT)
     entries = []
     for focal, k1, k2 in TABLE:
