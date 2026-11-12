@@ -193,13 +193,20 @@ Still open:
   - smdk4412-common sets `pegasusq/min_cpu_lock` to 2 at boot; gd1 now resets it to 0 right after. Watch for UI lag; 1 is the fallback.
   - Measure: idle `online` mask, time in AFTR (`/sys/devices/system/cpu/cpu0/cpuidle`), screen-off drain.
 - **[power] Earlysuspend.** The defconfig keeps `CONFIG_EARLYSUSPEND`/`HAS_EARLYSUSPEND=y` (from the i9300) with no implementation, so s3cfb and bcmdhd compile out their normal suspend paths. Check that FIMD really suspends. Touch (`mms_ts_gc`) has no earlysuspend and scans with the screen off whenever a wakelock is held; blank it through an fb notifier.
-- **[power] Defconfig debug options**: `SCHED_DEBUG`, `SCHEDSTATS`, `TIMER_STATS`, `PM_DEBUG`, `PROFILING`/`PERF_EVENTS`. `BOOTPARAM_HUNG_TASK_PANIC` and `SOFTLOCKUP_PANIC` are 1: decide on purpose.
+- **Defconfig debug and panic options: decided 2026-11-12.**
+  - Hung task: no panic (kernel cef55d75). The likely hung task here is a write to a slow or failing microSD, and a reboot then loses the photo and leaves the lens out; the warning and its stack reach the persisted kernel log. Android already writes `hung_task_panic 0` at boot (`llkd.rc`, `khungtask.enable=false`), so builds before cef55d75 behave the same once init is up.
+  - Soft and hard lockups still panic (a real hang; `last_kmsg` keeps the cause; the false hard lockup is fixed since 58e0e25b).
+  - `SCHED_DEBUG`, `SCHEDSTATS`, `TIMER_STATS`, `PM_DEBUG` and `PROFILING`/`PERF_EVENTS` stay: their cost is negligible and they help with the debug logs the user wants kept.
 - **Sensors**:
   - ~~timestamps are evdev's `CLOCK_REALTIME`, but Android expects `CLOCK_BOOTTIME`~~ fixed in gd1 ac213dd (2026-11-12): each event is shifted by the current BOOTTIME − REALTIME difference, checked with `dumpsys sensorservice` and the orientation listener;
   - AKFS load/save races with the compass thread in activate/deactivate;
   - deinit frees the data while the detached thread lives.
 - **Camera HAL**:
-  - the AF thread notifies FOCUS before its AF_OFF/unlock ioctls, and destroys its own mutex. Make it joinable like the others. Left alone on 2026-11-12: the order also decides when AE/AWB unlock after a half-press focus, so change it only with someone at the viewfinder to check the AF and focus-lock behaviour;
+  - **the AF thread** (`exynos_camera_auto_focus_thread`, detached) calls `auto_focus_thread_stop()` on itself when the AF ends. After clearing `auto_focus_enabled`, that sends AF off and the AE/AWB unlock and then destroys `auto_focus_mutex`. A new `start_auto_focus` in that window re-initialises the mutex and gets its AF turned off, and its mutex destroyed, by the old thread. `quiesce()` checks only `auto_focus_enabled`, so a camera closed right after an AF can free the struct under the ending thread.
+    - **A plain joinable thread is wrong (tried 2026-11-12, reverted; patch kept out of the tree):** the FOCUS notify is a synchronous HIDL call into cameraserver, and CameraClient holds its lock while it calls the HAL. `cancelAutoFocus` → `pthread_join` (or locking a mutex held across the notify) waited for the AF thread, while the AF thread waited in `notifyCallback` for cameraserver's lock: a deadlock, seen with `debuggerd -b` (camera stopped answering AF and the shutter). The original's 1 s give-up in `thread_stop` is what avoids it ("taking too long" showed up once in the same test, and the camera carried on).
+    - **Rule for any fix:** a HAL entry point called by cameraserver must never wait without a bound for a HAL thread that can be inside a callback.
+    - **Design to try:** the mutex lives with the camera (created in `exynos_camera_start`, destroyed in close); the notify happens outside the mutex; `stop()` never waits, it bumps a generation counter and clears `enabled` under the mutex and sends AF off and the unlock itself; the thread sends them only if its generation is still current; `quiesce()` waits, bounded, on a count of live AF threads after `callback_lock`, which suppresses new notifies.
+    - **Test** with `input keyevent FOCUS` (press and release within ms, so AF start and cancel back to back) in a burst of 10, AF then shutter at once, AF then HOME at once, and repeated touch AF, then compare `Starting thread`/`Exiting thread` counts. The release HAL passed this: 23 of 23, a shot taken, no crash;
   - the recording paths (S5C73M3 heritage) are untouched and untested;
   - `preview_window` is cleared by every preview stop.
 - **init**:
@@ -346,6 +353,7 @@ Still open:
   - default animation scales 0.5x via the SettingsProvider defaults overlay;
   - review the CPU governor/hotplug and Mali DVFS together with the power work.
 - **[UX] Vibration far too strong** (user, 2026-10-31). Lower the motor intensity (vibrator HAL amplitude or the kernel's max duty), or default haptic feedback off.
+  - Found 2026-11-12: the vibrator HAL is the legacy `vibrator@1.0` with no amplitude control (`dumpsys vibrator_manager`: no capabilities), so Android's intensity settings cannot scale it. The only knob is `/sys/class/timed_output/vibrator/pwm_value` (0-100, mapped onto 50-100 % PWM duty by `max77693_haptic.c`; 50 at boot, writable by `system`). A lower default is one `write` in gd1's `init.target.rc` once the user picks a value by feel (24 was set live on the GC100 for that).
 - **/vendor is mounted read-write** (found 2026-11-01): the HIDDEN line in `rootdir/fstab.smdk4x12` has no `ro`. Add `ro` for the next build, after checking that nothing in smdk4412-common/i9300 writes to /vendor at runtime and why html6405's fstab leaves it rw.
 - **Hand-swapped files on the device**: all included in the build flashed on 2026-11-01 via `tools/flash-adb.sh`, so this list is history. Since then only `camera.smdk4x12.so` (gd1 10639a6) has been pushed by hand. The old originals in `/data/local/tmp/*.orig` can go:
   - `/system/apex/com.android.adbd.apex`, the adb fix;
