@@ -306,7 +306,8 @@ html6405's i9300 LOS21 build needs a **custom PIT** (recovery 16MB, vendor ~560M
   - Small items are in docs/TODO.md: vibration strength, QS lag, second debloat round, Settings entries.
 - [ ] Camera HAL M9MO preset (mostly working, see step 3 above)
 - [ ] **First public release (GC100), prepared 2026-11-12, not published.** Publishing it needs the user's explicit OK.
-  - The packages are in the git-ignored `device-dump/release-20261111/`: the Odin tar, `minirecovery-gd1.tar.md5`, the lens profile, `SHA256SUMS` and `RELEASE-NOTES.md`.
+  - The packages are in the git-ignored `device-dump/release-20261112/` (kernel 29bd350e, gd1 ff27c55): the Odin tar, `minirecovery-gd1.tar.md5`, the lens profile, `SHA256SUMS` and `RELEASE-NOTES.md`. The older `release-20261111/` is superseded.
   - The build has no developer adb key, so a release build is made with `GALAXYCAMERA_DEV_ADB_KEYS` unset.
   - Its system is the one flashed on this GC100.
-  - The mini recovery in the package is rebuilt from the current `minirecovery/` sources. This GC100's RECOVERY still holds the 2026-10-31 build, so test the new one there before publishing; writing RECOVERY needs the user's OK.
+  - The mini recovery in the package (recovery.img sha1 507abee0) is in this GC100's RECOVERY since 2026-11-12 (user OK) and tested there: boot, `backup-critical` (fresh backup in `device-dump/backup/2026-11-12-gc100/`), `rootcmd`, and a full flash through `flash-adb.sh`. The previous RECOVERY is saved in `device-dump/backup/2026-11-12-gc100-recovery-before/`.
+  - The user asked to wait before creating the GitHub release (2026-11-12).

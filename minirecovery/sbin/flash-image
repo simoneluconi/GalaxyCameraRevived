@@ -50,15 +50,18 @@ raw() {
     esac
 }
 
+# The probes below read only the start: zcat and cat then get a broken pipe
+# when head is done, which is expected (2>/dev/null)
+
 # ext4 superblock magic 0xEF53 at offset 1080 (a sparse image starts with
 # 3a ff 26 ed instead)
 is_ext4() {
-    [ "$(raw | head -c 1082 | tail -c 2 | od -An -tx1 | tr -d ' \n')" = "53ef" ]
+    [ "$(raw 2>/dev/null | head -c 1082 | tail -c 2 | od -An -tx1 | tr -d ' \n')" = "53ef" ]
 }
 
 case "$name" in
     BOOT|RECOVERY)
-        if [ "$(raw | head -c 8)" != "ANDROID!" ]; then
+        if [ "$(raw 2>/dev/null | head -c 8)" != "ANDROID!" ]; then
             echo "$img is not an Android boot image" >&2
             exit 1
         fi ;;

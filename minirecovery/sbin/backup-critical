@@ -2,7 +2,8 @@
 # Copy the small critical partitions to /tmp/backup (RAM), with SHA-1 sums.
 # On the PC: adb pull /tmp/backup
 # BOTA0/BOTA1 (bootloader) and PARAM are only ever read, never written.
-# TDATA (200 MB, /tdata on stock) exists only on the GC200.
+# TDATA (200 MB, ext4): /tdata on the GC200's stock; the GC100 has one too,
+# which its stock firmware never mounts.
 
 . /sbin/minirecovery-lib.sh
 
