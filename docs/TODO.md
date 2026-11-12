@@ -585,7 +585,7 @@ The stock M9MO JPEGs look poor: heavy sharpening halos, smeary noise reduction, 
 
 ## Updates over the air (user wish, 2026-11-04)
 
-- **Our APKs first** (GC Camera, GC Gallery): an update check against GitHub Releases, with the download installed through PackageInstaller. The system copies are presigned with our key, so a same-key APK installs on top of them, as `pm install -r` already does. Options: an F-Droid repo of our own (the F-Droid client is in the build), or a small updater inside each app.
+- **Our APKs first** (GC Camera, GC Gallery): an update check against GitHub Releases, with the download installed through PackageInstaller. The system copies are presigned with our key, so a same-key APK installs on top of them, as `pm install -r` already does. Options: an F-Droid repo of our own (the F-Droid client is not in the build, so users would install it first), or a small updater inside each app.
 - **System OTA later**: there is no OTA zip today (no recovery in the build, `m droid` only). It needs a recovery that fits the 8 MB RECOVERY partition (or an A/B-less updater in the mini recovery) and LineageOS Updater (removed for now) pointed at our own server.
 
 ## Android tree

@@ -4,6 +4,34 @@ This guide is for a careful person who has never flashed a phone before. Read it
 
 The technical background is in [RECOVERY.md](RECOVERY.md) (the mini recovery, backups, restore) and [TECHNICAL.md](TECHNICAL.md).
 
+## Quick guide
+
+The whole install on one page. Each step links to its full explanation below; read those the first time.
+
+**Before you start**: an **EK-GC100**; battery at 50% or more; a microSD card; a Windows PC with Samsung's USB drivers, **Odin 3.10.7** and **adb**; **Samsung's official firmware** for the camera, downloaded and kept as your way back ([§2](#2-what-you-need)).
+
+**Keys** (camera switched off): **download mode** = zoom lever to **W** + **Power**; **recovery** = zoom lever to **T** + **Power** ([§3](#3-learn-the-key-combinations-no-flashing-yet)).
+
+**In Odin, every time**: tick only **Auto Reboot** and **F. Reset Time**. No PIT file, no Re-Partition. Load the package in **AP**. Never unplug while it writes.
+
+0. **Check the memory chip** with two adb commands ([§4](#4-check-the-internal-memory-chip)). If it is one of the chips listed there, stop.
+1. **Mini recovery.** Download mode → Odin, AP = `minirecovery-gd1.tar.md5` → Start → wait for PASS. Stock Android still starts as before ([§5](#5-install-the-mini-recovery-and-back-up)).
+2. **Backup.** Recovery mode (T + Power), then on the PC:
+   ```
+   adb shell su -c backup-critical
+   adb pull /tmp/backup camera-backup
+   ```
+   Keep the `camera-backup` folder private and safe, with a second copy. It holds your IMEI.
+3. **System.** Download mode → Odin, AP = `lineage-gd1-<date>-odin.tar.md5` → Start → wait for PASS (a few minutes) ([§6](#6-install-the-system)).
+4. **Factory reset** (only when coming from stock). Switch off, recovery mode (T + Power), then:
+   ```
+   adb shell su -c "wipe-data --yes"
+   adb reboot
+   ```
+5. **First boot** takes several minutes. Put the microSD in, and you're done ([§7](#7-after-installing)).
+
+**Going back to stock**: download mode → Odin, AP = Samsung's firmware file → Start ([§9](#9-going-back-to-stock-and-fixing-problems)).
+
 ## 1. The safety rules, in plain words
 
 The camera can be brought back to Samsung's firmware with Odin in almost every case. These rules cover the few cases where it cannot.
@@ -99,10 +127,10 @@ The adb serial changes with the mode (the stock adbd and ours report different n
 ## 7. After installing
 
 - **Insert the microSD card.** GC Camera saves only to the card unless you allow internal storage in its settings.
-- **GC Gallery is built in.** If the release lists GC Camera as a separate APK, install it like this (`adb install` does not work on this kernel):
+- **GC Camera and GC Gallery are built in.** There is no app store: other apps install as APK files. From a PC, `adb install` does not work on this kernel; use:
   ```
-  adb push gccamera.apk /data/local/tmp/gccamera.apk
-  adb shell pm install -r /data/local/tmp/gccamera.apk
+  adb push app.apk /data/local/tmp/app.apk
+  adb shell pm install -r /data/local/tmp/app.apk
   ```
 - **Wi-Fi**: use a 2.4 GHz network. 5 GHz access points reject the camera's radio. On a dual-band network with a single name, the camera tries 5 GHz once and then connects on 2.4 GHz by itself.
 - Default time zone is Europe/Rome; change it in Settings → System → Date & time.

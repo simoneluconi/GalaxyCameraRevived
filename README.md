@@ -5,7 +5,7 @@ A custom ROM that brings Android 14 (LineageOS 21) to the **Samsung Galaxy Camer
 | Model | Support |
 |---|---|
 | Galaxy Camera **EK-GC100** (3G, 2012) | Working, see below |
-| Galaxy Camera 2 **EK-GC200** (Wi-Fi, 2013) | In progress, no build to download yet. LineageOS runs. The camera works (zoom, autofocus, P/A/S/M, JPEG, 12-bit RAW, flash), and so do Wi-Fi, Bluetooth, GPS, audio and rotation. Battery checks are still open. It shares almost all of its hardware with the GC100 and reuses the GC100's build; see [docs/GC200.md](docs/GC200.md). |
+| Galaxy Camera 2 **EK-GC200** (Wi-Fi, 2013) | In progress, no build to download yet. See [docs/GC200.md](docs/GC200.md). |
 | Other variants (GC110, GC120) | Not supported |
 
 Everything below describes the GC100 unless it says otherwise.
@@ -14,7 +14,7 @@ Samsung stopped at Android 4.1.2. The camera still takes good pictures, but apps
 
 It is built camera-first. There are no Google services and no phone apps, only what a camera needs, because the device has only about 750 MB of usable RAM.
 
-> **Status: working, not yet released.** The author uses it every day, but it is still under development and there are no public builds yet. See [Downloads](#downloads).
+> **Status: first public build (November 2026).** The author uses it every day on a GC100. It is an enthusiast build, still under development: read the [known limits](#what-works) before you flash. Downloads are on the [Releases page](https://github.com/simoneluconi/GalaxyCameraRevived/releases).
 
 ## What works
 
@@ -31,16 +31,16 @@ It is built camera-first. There are no Google services and no phone apps, only w
 | Exposure and HDR bracketing (3 frames) | Works (the HDR merge itself is not written yet) |
 | Lens retracts when the camera closes or reboots | Works |
 | microSD (FAT32, exFAT) | Works |
-| Rotation sensor, level, compass | Works (compass not checked against a real heading) |
-| Wi-Fi | 2.4 GHz works. 5 GHz access points reject the camera (on Samsung's own firmware too), so on a dual-band network it switches to 2.4 GHz by itself. The country code comes from nearby access points |
-| GPS | Works: first fix in about 35 s with downloaded satellite data, which stays valid offline for a week |
-| 3G mobile data | Works (tested with an Italian SIM) |
+| Rotation sensor, level, compass | Works |
+| Wi-Fi | 2.4 GHz works. 5 GHz does not connect (on Samsung's own firmware either); on a dual-band network the camera uses 2.4 GHz by itself |
+| GPS | Works |
+| 3G mobile data | Works |
 | SMS | Sending and receiving work; no voice calls (no dialer, by design) |
 | Audio | Works |
 | Bluetooth | Works (pairing, sending photos to a phone) |
 | Video recording | Not yet: GC Camera takes photos only |
 | Micro-HDMI output | Not yet: a connected TV shows a placeholder screen. HDMI support (photo playback and live view) is coming in a future release |
-| Standby battery drain | About 1%/hour with Wi-Fi on; being improved |
+| Standby battery drain | About 1%/hour with Wi-Fi on |
 | Security | SELinux is permissive and the security patch level is from early 2025 |
 | Updates | By re-flashing; there is no over-the-air update |
 
@@ -88,13 +88,13 @@ Taken on an EK-GC100 running this build (1280x720 screen).
 
 ## Install
 
-**Read [docs/INSTALL.md](docs/INSTALL.md) before you start.** It has every step, and how to go back to Samsung's firmware.
+**Read [docs/INSTALL.md](docs/INSTALL.md) before you start.** It starts with a one-page quick guide, then explains every step and how to go back to Samsung's firmware.
 
 In short:
-1. **You need**: an EK-GC100 (the Galaxy Camera 2 is not supported yet; the GC110 and GC120 are not supported), a Windows PC, Odin 3.10.7, Samsung's USB drivers, a good USB cable, and the battery at 50% or more.
+1. **You need**: an EK-GC100 (not the GC110, GC120 or Galaxy Camera 2), a Windows PC with Odin 3.10.7, Samsung's USB drivers and adb, a good USB cable, a microSD card, and the battery at 50% or more.
 2. **Download Samsung's official firmware** for your camera first, and keep it. With it, Odin can always bring the camera back to stock.
-3. **Install the mini recovery** with Odin, then **back up** the camera's own partitions (IMEI, Wi-Fi and Bluetooth addresses, calibration). Without that backup, a damaged EFS partition cannot be repaired.
-4. **Flash the build** with Odin, then do a factory reset from the mini recovery.
+3. **Flash the mini recovery** (`minirecovery-gd1.tar.md5`) with Odin, then **back up** the camera's own partitions with one adb command. The backup holds your IMEI, Wi-Fi and Bluetooth addresses and calibration; without it, a damaged EFS partition cannot be repaired.
+4. **Flash the system** (`lineage-gd1-<date>-odin.tar.md5`) with Odin, then do a factory reset from the mini recovery. The first boot takes a few minutes.
 
 **Warnings**
 - Flashing a custom system always has some risk. You do it at your own risk.
@@ -105,7 +105,7 @@ In short:
 
 ## Downloads
 
-**Builds**: coming via [GitHub Releases](https://github.com/simoneluconi/GalaxyCameraRevived/releases) once the first public build is ready.
+**Builds**: on the [Releases page](https://github.com/simoneluconi/GalaxyCameraRevived/releases). Each release has the mini recovery, the system as an Odin package, the lens profile and SHA-256 checksums.
 
 **Lens profile**: [`profiles/Samsung EK-GC100.lcp`](profiles/Samsung%20EK-GC100.lcp), an Adobe lens profile for the GC100's zoom lens (measured on a GC100; the GC200 has the same lens, but needs its own check). It corrects barrel distortion at the wide end and evens out the corner shading. It is meant for **RAW (DNG) files only**: the camera's JPEGs are already corrected by the camera.
 

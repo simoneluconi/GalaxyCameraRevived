@@ -132,7 +132,7 @@ The device is a camera, not a phone, and it must be **as light as possible** (ab
     - **Planned: our own dedicated camera app once the system is stable** (user, 2026-10-31). It targets the zoom lever and shutter keys, PASM dials, OIS and RAW/DNG. **`docs/CAMERA-APP.md` is the full brief for whoever builds it** (HAL parameters, capture/RAW behaviour, keys, constraints, workflow); keep it current when the HAL changes.
       - The app saves the ISP JPEG plus the DNG. RAW development is left to PC tools (Lightroom, RawTherapee): decided 2026-11-04, after our on-device development only reached parity with the ISP at ISO 160 and lost at ISO 400. gccore keeps only the DNG writer and the ISP white-balance match. See docs/RAW-PIPELINE.md.
     - Design the HAL and kernel interfaces with that app in mind: expose M9MO controls cleanly through camera parameters or vendor tags, and avoid OpenCamera-specific hacks.
-  - **Store: F-Droid client** bundled.
+  - **No app store in the build**: F-Droid was dropped (user, 2026-10-31; docs/TODO.md). Apps install as APKs.
   - **No extra phone-style apps**: no clock, calculator, music or browser.
   - **Keep**: SystemUI, Settings, TrebuchetQuickStepGo launcher, LatinIME, PackageInstaller, DocumentsUI (Files), WebView (framework needs it, no browser app), our **GC Gallery** (replaced Glimpse on 2026-11-04, user decision; prebuilt in gd1 `app/GcGallery`), AdvancedDisplay (mDNIe colour modes), and the invisible telephony needed for 3G data (TeleService, Telecom, CarrierConfig, TelephonyProvider).
   - **Remove**:
@@ -307,7 +307,7 @@ html6405's i9300 LOS21 build needs a **custom PIT** (recovery 16MB, vendor ~560M
   - Small items are in docs/TODO.md: vibration strength, QS lag, second debloat round, Settings entries.
 - [ ] Camera HAL M9MO preset (mostly working, see step 3 above)
 - [ ] **First public release (GC100), prepared 2026-11-12, not published.** Publishing it needs the user's explicit OK.
-  - The packages are in the git-ignored `device-dump/release-20261112/` (kernel 12d7f04d, gd1 b5ed346: vibration 24 and the compass thread fix on top of the morning's build): the Odin tar, `minirecovery-gd1.tar.md5`, the lens profile, `SHA256SUMS` and `RELEASE-NOTES.md`. The morning's package (kernel 29bd350e, gd1 ff27c55) is kept in `release-20261112-morning/`; `release-20261111/` is superseded.
+  - The packages are in the git-ignored `device-dump/release-20261112/` (evening build: kernel 12d7f04d, gd1 320cd05 with the compass calibration fix, frameworks/opt/telephony 991b87a with the mobile data fix): the Odin tar, `minirecovery-gd1.tar.md5`, the lens profile, `SHA256SUMS` and `RELEASE-NOTES.md`. Earlier packages of the day are kept in `release-20261112-morning/` (gd1 ff27c55) and `release-20261112-afternoon/` (gd1 b5ed346); `release-20261111/` is superseded.
   - The build has no developer adb key, so a release build is made with `GALAXYCAMERA_DEV_ADB_KEYS` unset.
   - Its system is the one flashed on this GC100.
   - The mini recovery in the package (recovery.img sha1 507abee0) is in this GC100's RECOVERY since 2026-11-12 (user OK) and tested there: boot, `backup-critical` (fresh backup in `device-dump/backup/2026-11-12-gc100/`), `rootcmd`, and a full flash through `flash-adb.sh`. The previous RECOVERY is saved in `device-dump/backup/2026-11-12-gc100-recovery-before/`.
