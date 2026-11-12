@@ -8,7 +8,7 @@ A custom ROM that brings Android 14 (LineageOS 21) to the **Samsung Galaxy Camer
 | Galaxy Camera 2 **EK-GC200** (Wi-Fi) | **Supported** |
 | Other variants (GC110, GC120) | Not supported |
 
-**Download**: [Releases page](https://github.com/simoneluconi/GalaxyCameraRevived/releases). Each model has its own files: never flash one model's files on the other.
+**Download**: [Releases page](https://github.com/simoneluconi/GalaxyCameraRevived/releases). Each model has its own files: never flash one model's files on the other. **Website**: [simoneluconi.github.io/GalaxyCameraRevived](https://simoneluconi.github.io/GalaxyCameraRevived/).
 
 Samsung's own firmware is stuck on Android 4.1 and 4.3: apps no longer install, nothing syncs, and many stock services are dead. This project puts a modern, lightweight Android on these cameras and keeps what makes them cameras: the zoom lever, the shutter button, manual exposure, optical stabilisation and the pop-up flash. It also adds something Samsung never offered: **RAW photos (DNG)**.
 
