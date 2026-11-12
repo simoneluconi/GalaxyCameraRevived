@@ -92,8 +92,8 @@ Taken on an EK-GC100 running this build (1280x720 screen).
 In short:
 1. **You need**: an EK-GC100 or EK-GC200, a Windows PC with Odin 3.10.7, Samsung's USB drivers and adb, a good USB cable, a microSD card, and the battery at 50% or more.
 2. **Download Samsung's official firmware** for your camera first, and keep it. With it, Odin can always bring the camera back to stock.
-3. **Flash the mini recovery** for your model with Odin, then **back up** the camera's own partitions with one adb command. The backup holds the camera's identity (Wi-Fi and Bluetooth addresses, IMEI on the GC100) and calibration; without it, a damaged EFS partition cannot be repaired.
-4. **Flash the system** for your model with Odin, then do a factory reset from the mini recovery. The first boot takes a few minutes.
+3. **Flash the mini recovery for your model** (`EK-GC100-…` or `EK-GC200-…`) with Odin, then **back up** the camera's own partitions with one adb command. The backup holds the camera's identity (Wi-Fi and Bluetooth addresses, IMEI on the GC100) and calibration; without it, a damaged EFS partition cannot be repaired.
+4. **Flash the system for your model** with Odin, then do a factory reset from the mini recovery. The first boot takes a few minutes.
 
 **Warnings**
 - Flashing a custom system always has some risk. You do it at your own risk.
@@ -104,7 +104,14 @@ In short:
 
 ## Downloads
 
-**Builds**: on the [Releases page](https://github.com/simoneluconi/GalaxyCameraRevived/releases). Each release has, for each model, the mini recovery and the system as Odin packages, plus the lens profile and SHA-256 checksums.
+**Builds**: on the [Releases page](https://github.com/simoneluconi/GalaxyCameraRevived/releases). Every file name starts with its model; download only your model's:
+
+| | Galaxy Camera **EK-GC100** | Galaxy Camera 2 **EK-GC200** |
+|---|---|---|
+| Mini recovery | `EK-GC100-minirecovery.tar.md5` | `EK-GC200-minirecovery.tar.md5` |
+| System | `EK-GC100-system-<date>.tar.md5` | `EK-GC200-system-<date>.tar.md5` |
+
+Each release also has the lens profile and the SHA-256 checksums, for both models.
 
 **Lens profile**: [`profiles/Samsung EK-GC100.lcp`](profiles/Samsung%20EK-GC100.lcp), an Adobe lens profile for the zoom lens, measured on a GC100 (the GC200 has the same lens). It corrects barrel distortion at the wide end and evens out the corner shading. It is meant for **RAW (DNG) files only**: the camera's JPEGs are already corrected by the camera.
 

@@ -42,7 +42,7 @@ LineageOS recovery (15.7MB on the i9300) does not fit in the 8MB RECOVERY partit
 
 **Size**: about 5.4MB out of 8MB.
 
-**Build**: `tools/build-minirecovery.sh <stock recovery.img> <busybox.static> <out dir>`. It produces `recovery.img` and an Odin `minirecovery-gd1.tar.md5`. The output contains Samsung binaries, so keep it under `device-dump/` and never commit it.
+**Build**: `tools/build-minirecovery.sh <stock recovery.img> <busybox.static> <out dir>`. It produces `recovery.img` and an Odin `EK-GC100-minirecovery.tar.md5`. The output contains Samsung binaries, so keep it under `device-dump/` and never commit it.
 
 **Enter it**
 - `adb reboot recovery`;
@@ -90,7 +90,7 @@ Store the images in `device-dump/backup/` (never committed).
 
 ## GC200 (EK-GC200, `sf2wifi`)
 
-The same mini recovery works on the GC200, built from its own stock recovery: `DEVICE=sf2wifi tools/build-minirecovery.sh device-dump/firmware/GC200XXUCNK4/recovery.img ...` (Odin package `minirecovery-sf2wifi.tar.md5`). Differences from the GC100:
+The same mini recovery works on the GC200, built from its own stock recovery: `DEVICE=sf2wifi tools/build-minirecovery.sh device-dump/firmware/GC200XXUCNK4/recovery.img ...` (Odin package `EK-GC200-minirecovery.tar.md5`). Differences from the GC100:
 
 - **su does not work.** The stock 2014 kernel (3.0.31) refuses `setuid(0)` from the shell uid with EACCES. init starts `rootd` as root instead, and `rootcmd "<command>"` runs a command through it, for example `adb shell rootcmd backup-critical`.
 - **Stock Android restores its own recovery at every boot** (`/system/etc/install-recovery.sh` patches RECOVERY from BOOT). After an Odin flash, untick Auto Reboot and enter the mini recovery directly: hold Power until the camera switches off, then zoom lever towards T + Power (verified 2026-11-10).

@@ -111,8 +111,8 @@ fi
 # Odin package: a plain tar plus the md5 trailer Odin checks. Odin also
 # checks the file name in that trailer, so never rename the .tar.md5;
 # set TAR_NAME instead.
-name=${TAR_NAME:-minirecovery-$device}
-(cd "$out" && tar -H ustar -cf "$name.tar" recovery.img \
+name=${TAR_NAME:-$model-minirecovery}
+(cd "$out" && tar -H ustar --owner=0 --group=0 --numeric-owner -cf "$name.tar" recovery.img \
     && md5sum -t "$name.tar" >> "$name.tar" \
     && mv "$name.tar" "$name.tar.md5")
 cp "$work/screens/"*.png "$out/"

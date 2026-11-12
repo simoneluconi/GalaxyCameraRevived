@@ -194,14 +194,17 @@ m droid
 
 ### Packaging for Odin
 
-The `/vendor` partition lives on the stock HIDDEN partition, so `vendor.img` is flashed as `hidden.img`. An Odin package is the usual Samsung `.tar.md5`:
+The `/vendor` partition lives on the stock HIDDEN partition, so `vendor.img` is flashed as `hidden.img`. An Odin package is the usual Samsung `.tar.md5`, named after its model (`EK-GC100-…` from `out/target/product/gd1`, `EK-GC200-…` from `out/target/product/sf2wifi`):
 
 ```
 cp vendor.img hidden.img
-tar -H ustar -cf lineage-gd1-<date>-odin.tar boot.img system.img hidden.img
-md5sum -t lineage-gd1-<date>-odin.tar >> lineage-gd1-<date>-odin.tar
-mv lineage-gd1-<date>-odin.tar lineage-gd1-<date>-odin.tar.md5
+T="tar -H ustar --owner=0 --group=0 --numeric-owner"
+$T -cf EK-GC100-system-<date>.tar boot.img system.img hidden.img
+md5sum -t EK-GC100-system-<date>.tar >> EK-GC100-system-<date>.tar
+mv EK-GC100-system-<date>.tar EK-GC100-system-<date>.tar.md5
 ```
+
+The mini recovery is packed the same way, with only `recovery.img`, as `EK-GC100-minirecovery.tar.md5` or `EK-GC200-minirecovery.tar.md5`.
 
 Never include `sboot.bin`, `tz.img`, `param.lfs`, a PIT, or any partition other than BOOT, SYSTEM, HIDDEN (and RECOVERY for the mini recovery).
 

@@ -8,12 +8,12 @@ The technical background is in [RECOVERY.md](RECOVERY.md) (the mini recovery, ba
 
 The whole install on one page. Each step links to its full explanation below; read those the first time.
 
-**Your files** (from the [Releases page](https://github.com/simoneluconi/GalaxyCameraRevived/releases)). Use only the ones for your model:
+**Your files** (from the [Releases page](https://github.com/simoneluconi/GalaxyCameraRevived/releases)). Every file name starts with its model: **use only the files for your model**, never the other model's.
 
 | | Galaxy Camera **EK-GC100** | Galaxy Camera 2 **EK-GC200** |
 |---|---|---|
-| Mini recovery | `minirecovery-gd1.tar.md5` | `minirecovery-sf2wifi.tar.md5` |
-| System | `lineage-gd1-<date>-odin.tar.md5` | `lineage-sf2wifi-<date>-odin.tar.md5` |
+| Mini recovery | `EK-GC100-minirecovery.tar.md5` | `EK-GC200-minirecovery.tar.md5` |
+| System | `EK-GC100-system-<date>.tar.md5` | `EK-GC200-system-<date>.tar.md5` |
 | Samsung firmware (your way back) | `GC100XXBMC4` (Android 4.1.2) | `GC200XXUCNK4` (Android 4.3) |
 
 **Before you start**: battery at 50% or more; a microSD card; a Windows PC with Samsung's USB drivers, **Odin 3.10.7** and **adb**; Samsung's firmware for your model, downloaded and kept ([§2](#2-what-you-need)).
@@ -99,7 +99,7 @@ The mini recovery replaces only the RECOVERY partition.
 1. Enter **download mode** (W + Power) and connect the USB cable.
 2. Start Odin. It should show an "Added!" message and a COM port.
 3. Options: tick only **F. Reset Time** (Auto Reboot **off**). Leave **Re-Partition unticked** and the PIT tab empty.
-4. Click **AP** and choose the mini recovery for your model (`minirecovery-gd1.tar.md5` or `minirecovery-sf2wifi.tar.md5`). Wait for Odin to check the MD5.
+4. Click **AP** and choose the mini recovery **for your model**: `EK-GC100-minirecovery.tar.md5` on a GC100, `EK-GC200-minirecovery.tar.md5` on a GC200. Wait for Odin to check the MD5.
 5. Click **Start**. Wait for **PASS** (a few seconds).
 6. Hold Power until the camera switches off, then start it with **T + Power**. The screen shows the mini recovery status page. Go straight there: the GC200's stock Android puts Samsung's recovery back when it starts.
 7. Run the backup:
@@ -118,7 +118,7 @@ The adb serial changes with the mode (the stock adbd and ours report different n
 1. Battery at 50% or more.
 2. Enter **download mode** (W + Power), connect, start Odin.
 3. Options: only **F. Reset Time** (Auto Reboot **off**). No PIT, no Re-Partition.
-4. **AP**: the system for your model (`lineage-gd1-<date>-odin.tar.md5` or `lineage-sf2wifi-<date>-odin.tar.md5`). It contains only `boot.img`, `system.img` and `hidden.img` (our `/vendor`).
+4. **AP**: the system **for your model**: `EK-GC100-system-<date>.tar.md5` on a GC100, `EK-GC200-system-<date>.tar.md5` on a GC200. It contains only `boot.img`, `system.img` and `hidden.img` (our `/vendor`).
 5. **Start**, and wait for **PASS**. The system is over 1 GB, so this takes a few minutes. Don't touch the cable.
 6. **Factory reset**: coming from stock, the user data must be cleared, because stock's data does not work with Android 14:
    - hold Power until the camera switches off;
