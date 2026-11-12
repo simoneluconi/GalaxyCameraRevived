@@ -84,4 +84,3 @@ To regenerate them: `python3 tools/gc100-lcp.py profiles/EK-GC100-lens-profile.l
 - **Vignetting is set by eye**, a single value for all focal lengths and apertures.
 - **One focus distance.** All entries are for focus at infinity; close-up shots may show small differences.
 - **One unit per model.** The centre comes from one camera of each model; another unit's lens may sit a few pixels off.
-- **EK-GC200 DNG crop.** The crop that GC Camera stores in a GC200 DNG still uses the GC100's centre: at the wide end it can leave a thin dark edge. Adjust the crop by hand if you see one.
