@@ -65,6 +65,14 @@ install -m 0644 "$src/sbin/minirecovery-lib.sh" "$r/sbin/"
 install -m 0750 "$src/sbin/recovery.sh" "$src/sbin/backup-critical" \
     "$src/sbin/flash-image" "$src/sbin/wipe-data" "$src/sbin/rootd" "$r/sbin/"
 install -m 0755 "$src/sbin/rootcmd" "$r/sbin/"
+# A Windows checkout with CRLF line ends would give scripts the ramdisk's
+# sh refuses (.gitattributes keeps them LF; refuse anything that slipped by)
+if grep -l "$(printf '\r')" "$r/init.rc" "$r/default.prop" \
+        "$r/sbin/"{minirecovery-lib.sh,recovery.sh,backup-critical,flash-image,wipe-data,rootd,rootcmd} \
+        "$src/busybox-applets.txt"; then
+    echo "CRLF line ends in the files above; check them out with LF" >&2
+    exit 1
+fi
 python3 "$src/mkscreens.py" "$work/screens"
 install -m 0644 "$work/screens/"*.ppm.gz "$r/res/"
 

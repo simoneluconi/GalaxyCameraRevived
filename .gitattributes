@@ -6,6 +6,9 @@
 *.rc text eol=lf
 *.prop text eol=lf
 gradlew text eol=lf
+# The mini recovery's scripts go into its ramdisk as they are, most without
+# an extension; with CRLF its /sbin/sh would refuse them
+minirecovery/sbin/* text eol=lf
 *.bat text eol=crlf
 *.ps1 text eol=crlf
 *.lcp text eol=lf
