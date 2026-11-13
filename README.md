@@ -40,7 +40,7 @@ It is built camera-first: no Google services and no phone apps, only what a came
 | Bluetooth | Works (pairing, sending photos to a phone, photo remotes) |
 | NFC (GC200) | Not supported: a phone near the tag shows a notice |
 | Video recording | Not supported: GC Camera takes photos only |
-| Micro-HDMI output | Not supported: a connected TV shows a placeholder screen |
+| Micro-HDMI output | In GC Gallery: the TV shows the photo being viewed, zoom included, from 480p to 1080p. Not yet in the camera |
 | Standby battery drain | About 1%/hour with Wi-Fi on (GC100) |
 | Security | SELinux is permissive and the security patch level is from early 2025 |
 | Updates | By re-flashing; there is no over-the-air update |

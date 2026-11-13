@@ -23,7 +23,11 @@ import android.os.Process
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.format.DateFormat
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -31,6 +35,7 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -49,6 +54,8 @@ import com.simoneluconi.gcgallery.image.Decode
 import com.simoneluconi.gcgallery.image.Orientation
 import com.simoneluconi.gcgallery.image.RegionSource
 import com.simoneluconi.gcgallery.meta.PhotoInfo
+import com.simoneluconi.gcgallery.tv.TvOut
+import com.simoneluconi.gcgallery.tv.TvState
 import com.simoneluconi.gcgallery.ui.widget.PhotoPagerView
 import com.simoneluconi.gcgallery.ui.widget.StarsView
 import java.nio.ByteBuffer
@@ -85,6 +92,9 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
     private lateinit var zoomLabel: TextView
     private lateinit var message: MessageBar
     private lateinit var access: MediaAccess
+    private lateinit var tvButton: View
+    /** The TV output, while the viewer is visible (onStart to onStop). */
+    private var tv: TvOut? = null
 
     @Volatile private var items: List<Photo> = emptyList()
     /** False for a picture another app handed over (not in MediaStore): view and share only. */
@@ -164,6 +174,8 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         findViewById<View>(R.id.trash).setOnClickListener { trash() }
         infoButton.setOnClickListener { setInfoOpen(!infoOpen) }
         rateButton.setOnClickListener { showRatingPopup() }
+        tvButton = findViewById(R.id.tv)
+        tvButton.setOnClickListener { showTvPopup() }
         histRgb.setOnClickListener {
             histRgb.isActivated = !histRgb.isActivated
             histogram.showRgb = histRgb.isActivated
@@ -210,6 +222,115 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
     }
 
     private fun bottomBarTravel() = dp(BAR_DP + 16).toFloat()
+
+    // --- TV (micro-HDMI): the photo being viewed, never the screen (docs/HDMI.md)
+
+    override fun onStart() {
+        super.onStart()
+        tv = TvOut(contentResolver, ::onTvState).also { it.start() }
+    }
+
+    override fun onStop() {
+        // The camera, the home screen or the screen turning off: the TV goes back to hdmid's notice
+        tv?.stop()
+        tv = null
+        onTvGone()
+        super.onStop()
+    }
+
+    private fun onTvState(st: TvState) {
+        if (tv == null) return
+        if (!st.connected) return onTvGone()
+        tvButton.visibility = View.VISIBLE
+        // Showing photos on a TV: the camera's own screen timing out would end it
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        showOnTv()
+    }
+
+    private fun onTvGone() {
+        tvButton.visibility = View.GONE
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (popup?.contentView?.id == R.id.tv_popup) popup?.dismiss()
+    }
+
+    /** The photo, or the part of it on screen while zoomed in. */
+    private fun showOnTv() {
+        val p = current() ?: return
+        // Not decoded yet: stop whatever the last photo still had on its way to the TV
+        val page = pages[p.id] ?: return run { tv?.cancel() }
+        tv?.show(p, page, pager.visibleRegion())
+    }
+
+    override fun onSettled(index: Int) {
+        if (index == pager.index) showOnTv()
+    }
+
+    /** A zoom or a pan in progress: quick half-size frames, so the TV moves along. */
+    override fun onViewChanged(index: Int) {
+        val p = items.getOrNull(index) ?: return
+        val page = pages[p.id] ?: return
+        tv?.live(p, page, pager.visibleRegion())
+    }
+
+    private fun showTvPopup() {
+        val st = tv?.state?.takeIf { it.connected } ?: return
+        // The TV button stays in the top bar however the camera is held: always below it
+        popupAt(tvButton, R.layout.tv_popup, above = false, alignEnd = true) { content, popup ->
+            val sink = st.sink.ifEmpty { getString(R.string.tv_unnamed) }
+            content.findViewById<TextView>(R.id.tv_sink).text = if (st.dvi) "$sink  ·  ${getString(R.string.tv_dvi)}" else sink
+            content.findViewById<TextView>(R.id.tv_mode).text = "${st.width} × ${st.height}  ·  ${modeLabel(st.mode)}"
+            val list = content.findViewById<LinearLayout>(R.id.tv_modes)
+            list.addView(modeRow(getString(R.string.value_auto), "${getString(R.string.tv_auto_hint)}: ${modeLabel(st.mode)}", st.auto, listed = true) {
+                tv?.setMode("auto")
+                popup.dismiss()
+            })
+            for ((name, listed) in st.modes) {
+                list.addView(modeRow(modeLabel(name), if (listed) null else getString(R.string.tv_not_listed), !st.auto && name == st.mode, listed) {
+                    tv?.setMode(name)
+                    popup.dismiss()
+                })
+            }
+            // At most the screen below the bar: the list scrolls
+            content.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
+            val maxH = resources.displayMetrics.heightPixels - dp(BAR_DP + 40)
+            if (content.measuredHeight > maxH) {
+                val scroll = content.findViewById<View>(R.id.tv_scroll)
+                scroll.layoutParams = scroll.layoutParams.apply { height = maxH - (content.measuredHeight - scroll.measuredHeight) }
+            }
+        }
+    }
+
+    private fun modeRow(label: String, hint: String?, current: Boolean, listed: Boolean, onClick: () -> Unit): View = TextView(this).apply {
+        val main = if (current) getColor(C.color.accent) else if (listed) getColor(C.color.on_surface) else getColor(C.color.on_surface_muted)
+        text = SpannableStringBuilder(label).apply {
+            setSpan(ForegroundColorSpan(main), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            if (hint != null) {
+                val start = length
+                append("\n").append(hint)
+                setSpan(ForegroundColorSpan(getColor(C.color.on_surface_muted)), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                setSpan(RelativeSizeSpan(0.8f), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+        fontFeatureSettings = "tnum"
+        if (current) typeface = com.simoneluconi.gccommon.ui.MEDIUM
+        minHeight = dp(40)
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(16), dp(6), dp(16), dp(6))
+        val ripple = TypedValue()
+        theme.resolveAttribute(android.R.attr.selectableItemBackground, ripple, true)
+        setBackgroundResource(ripple.resourceId)
+        setOnClickListener { onClick() }
+    }
+
+    /** "1080p59" → "1080p · 59.94 Hz"; 480p and 576p also say their aspect ratio. */
+    private fun modeLabel(name: String): String {
+        val m = Regex("""(\d+)([pi])(\d+)(-4:3)?""").matchEntire(name) ?: return name
+        val (lines, scan, rate, narrow) = m.destructured
+        val hz = if (rate == "59") String.format(Locale.getDefault(), "%.2f", 59.94) else rate
+        val aspect = if (lines == "480" || lines == "576") "  ·  " + (if (narrow.isNotEmpty()) "4:3" else "16:9") else ""
+        return "$lines$scan  ·  $hz Hz$aspect"
+    }
 
     override fun onDestroy() {
         app.index.removeWaiter(onIndexLoaded)
@@ -344,6 +465,7 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         loadAround(index)
         loadInfo(p)
         if (clipOn) buildClipMask()
+        showOnTv()
     }
 
     override fun onTap() {
@@ -445,6 +567,8 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         pages[p.id] = page
         val i = items.indexOfFirst { it.id == p.id }
         if (i >= 0) pager.pageUpdated(i)
+        // Sharper, or turned: the TV follows
+        if (current()?.id == p.id) showOnTv()
     }
 
     // --- Info, histogram, clipping
@@ -747,7 +871,18 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         content.findViewById<View>(R.id.flip).setOnClickListener { rotate(Orientation.FLIP_H) }
     }
 
-    private fun popupAt(anchor: View, layout: Int): Pair<View, PopupWindow> {
+    /**
+     * [layout] in a popup by [anchor]: below it, or above it when held vertically (the bottom
+     * bar's buttons). Centred on it, or ending at its right edge with [alignEnd]. [fill] runs
+     * before the popup is measured.
+     */
+    private fun popupAt(
+        anchor: View,
+        layout: Int,
+        above: Boolean = portrait,
+        alignEnd: Boolean = false,
+        fill: (View, PopupWindow) -> Unit = { _, _ -> },
+    ): Pair<View, PopupWindow> {
         val content = layoutInflater.inflate(layout, null)
         // Not focusable, so the shutter and the zoom lever still reach the activity while it is open
         val popup = PopupWindow(content, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, false).apply {
@@ -759,10 +894,12 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
             }
         }
         this.popup = popup
+        fill(content, popup)
         content.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
         // Below the top bar; above the bottom bar when held vertically
-        val y = if (portrait) -(anchor.height + content.measuredHeight + dp(14)) else dp(6)
-        popup.showAsDropDown(anchor, (anchor.width - content.measuredWidth) / 2, y)
+        val y = if (above) -(anchor.height + content.measuredHeight + dp(14)) else dp(6)
+        val x = if (alignEnd) anchor.width - content.measuredWidth else (anchor.width - content.measuredWidth) / 2
+        popup.showAsDropDown(anchor, x, y)
         return content to popup
     }
 

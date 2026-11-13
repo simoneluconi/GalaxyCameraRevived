@@ -303,6 +303,7 @@ html6405's i9300 LOS21 build needs a **custom PIT** (recovery 16MB, vendor ~560M
     - The vendor blobs had the i9300's Wi-Fi and BT files. `tools/mk-blobsrc.sh` builds the blob source now. Wi-Fi works on 2.4 GHz; 5 GHz association is rejected (open).
     - GPS: the stock BCM4752 daemon and HAL behind shims (`gd1/shims`); the chip reports satellite status, a first fix is still to be seen outdoors.
     - Kernel: pegasusq with CPU hotplug.
+  - **Micro-HDMI (2026-11-13, GC100 and GC200)**: `hdmid` (gd1 `hdmid/`) shows the photo open in GC Gallery's viewer, zoom included, never the screen; elsewhere a notice says HDMI works only there for now. Every driver mode (480p to 1080p60) is picked from the EDID or in the gallery, and all are tested with a Cam Link 4K (`tools/hdmi-test.sh`) on both cameras. Kernel: ext-IC + TX strength on in both defconfigs (DDC needs them), 480p 4:3 limited range. Details and the protocol: docs/HDMI.md. Camera live view on the TV: wanted, later (docs/TODO.md).
   - Then BT and audio checks and power measurements. SELinux stays permissive (user, 2026-11-06: an unofficial build for enthusiasts, not worth a day of policy work; docs/TODO.md).
   - Small items are in docs/TODO.md: vibration strength, QS lag, second debloat round, Settings entries.
 - [ ] Camera HAL M9MO preset (mostly working, see step 3 above)

@@ -39,6 +39,12 @@
     <string name="clipping">Clipping</string>
     <string name="no_rating">Nessuna</string>
 
+    <string name="tv_output">Uscita TV</string>
+    <string name="tv_resolution">Risoluzione</string>
+    <string name="tv_auto_hint">la migliore per questa TV</string>
+    <string name="tv_not_listed">non dichiarata dalla TV</string>
+    <string name="tv_unnamed">TV collegata</string>
+
     <string name="moved_to_trash">%d spostate nel cestino</string>
     <string name="raw_moved_to_trash">%d file RAW spostati nel cestino</string>
     <string name="restored">%d ripristinate</string>

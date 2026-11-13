@@ -52,6 +52,10 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
         /** The view settled zoomed in: decode [region] (stored pixels) of page [index] at [sample]. */
         fun onDetailWanted(index: Int, region: Rect, sample: Int)
         fun onZoomChanged(percent: Int) = Unit
+        /** At rest after a zoom or a pan: [visibleRegion] is what is on screen now. */
+        fun onSettled(index: Int) = Unit
+        /** While a zoom or a pan moves (every step): [visibleRegion] has changed. */
+        fun onViewChanged(index: Int) = Unit
     }
 
     var callback: Callback? = null
@@ -124,6 +128,7 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
                 tx -= dx
                 ty -= dy
                 clampPan()
+                callback?.onViewChanged(index)
             }
             invalidate()
             return true
@@ -208,6 +213,18 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
         postDelayed(settleLater, 250)
     }
 
+    /**
+     * The part of the current photo on screen, in upright pixels of the file (0..width,
+     * 0..height); null at fit, when all of it is. Zoomed in, the photo may pan under the bars.
+     */
+    fun visibleRegion(): RectF? {
+        if (isAtFit() || curW == 0) return null
+        return RectF(
+            max(0f, -tx / scale), max(0f, -ty / scale),
+            min(curW.toFloat(), (contentW - tx) / scale), min(curH.toFloat(), (height - insetBottom - ty) / scale),
+        ).takeIf { it.width() > 0 && it.height() > 0 }
+    }
+
     fun isAtFit(): Boolean {
         val p = callback?.page(index) ?: return true
         return scale <= fitScale(p.width, p.height) * 1.01f
@@ -284,6 +301,7 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
         clampPan()
         invalidate()
         callback?.onZoomChanged((scale * 100).toInt())
+        callback?.onViewChanged(index)
     }
 
     private fun animateZoom(target: Float, fx: Float, fy: Float) {
@@ -342,6 +360,7 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
     private fun settled() {
         if (pageOffset != 0f || animator?.isRunning == true || flinging) return
         val p = callback?.page(index) ?: return
+        callback?.onSettled(index)
         // A stand-in thumbnail's coordinates are not the file's
         if (p.preview) return
         // Screen pixels per bitmap pixel
@@ -384,6 +403,7 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
             tx = scroller.currX.toFloat()
             ty = scroller.currY.toFloat()
             clampPan()
+            callback?.onViewChanged(index)
             postInvalidateOnAnimation()
         } else {
             flinging = false

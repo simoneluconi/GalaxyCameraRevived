@@ -115,6 +115,14 @@
                 android:src="@drawable/ic_delete" />
         </LinearLayout>
 
+        <!-- Only while a TV is connected: what it shows and the resolution -->
+        <ImageButton
+            android:id="@+id/tv"
+            style="@style/BarButton"
+            android:contentDescription="@string/tv_output"
+            android:src="@drawable/ic_tv"
+            android:visibility="gone" />
+
         <ImageButton
             android:id="@+id/info"
             style="@style/BarButton"

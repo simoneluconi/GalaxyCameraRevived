@@ -47,6 +47,14 @@
     <string name="clipping">Clipping</string>
     <string name="no_rating">No rating</string>
 
+    <!-- TV (micro-HDMI) -->
+    <string name="tv_output">TV output</string>
+    <string name="tv_resolution">Resolution</string>
+    <string name="tv_auto_hint">the best for this TV</string>
+    <string name="tv_not_listed">not listed by the TV</string>
+    <string name="tv_unnamed">TV connected</string>
+    <string name="tv_dvi" translatable="false">DVI</string>
+
     <!-- Results -->
     <string name="moved_to_trash">%d moved to trash</string>
     <string name="raw_moved_to_trash">%d RAW files moved to trash</string>

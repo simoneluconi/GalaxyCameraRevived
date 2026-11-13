@@ -40,6 +40,11 @@ A photography-first gallery that goes with GC Camera and also opens any picture.
     - the viewer's info panel opens below the photo, above that bar;
     - the grid has its own column count (4 by default, against 6 held level);
     - the storage switch shows icon and count only.
+- **TV (micro-HDMI, docs/HDMI.md)**: with a TV connected, the viewer's photo is on the TV, never the screen's contents.
+  - The TV follows swipes (the photo the pager settles on), rotations and the sharper decodes; the grid and other apps leave hdmid's notice on the TV.
+  - Zoomed in, the TV shows the part on screen (`PhotoPagerView.visibleRegion`): half-size frames while it moves (`onViewChanged` → `TvOut.live`), then full size and sharp once it settles (`onSettled`); back at fit, the whole photo.
+  - A TV button appears in the top bar: the TV's name, the mode, and a list of resolutions (Auto, then every mode, marking the ones the TV does not list).
+  - The screen stays on while a TV is connected (FLAG_KEEP_SCREEN_ON): showing photos must not end on the screen timeout.
 - **Theme**: light/dark follows the system. Same colour tokens as GC Camera, plus `scrim` and `rating`. Floating translucent bars, with no blur (Mali-400).
 
 - **Later: the Galaxy Camera 2 (EK-GC200) too** (user, 2026-11-04). Audit of 2026-11-04 for GC100-only assumptions:
@@ -126,6 +131,7 @@ adb -s <serial> shell appops set com.simoneluconi.gcgallery MANAGE_MEDIA allow
   - `Tiff`: `Fd` pread/pwrite, the TIFF reader, `JpegSegments`;
   - `Orientation`, `Xmp`.
 - `edit/Edits`: in-place rotation and rating.
+- `tv/TvOut`: the TV through hdmid's socket: `TvState`, drawing at the mode's size (pixel aspect), the banded sharp decode.
 - `meta/PhotoInfo`: the info panel's sections.
 - `ui/`:
   - `GridActivity`, `ViewerActivity`;
@@ -159,6 +165,12 @@ adb -s <serial> shell appops set com.simoneluconi.gcgallery MANAGE_MEDIA allow
     - clipping blink, RGB histogram.
 11. **Rotation**: turn the camera through all four positions in the grid (with a selection) and in the viewer (with the info panel open). The selection and the photo stay, the bars and panel move, and the star and rotate popups open above the bottom bar when held vertically. To force a position from adb: `settings put system accelerometer_rotation 0` and `user_rotation 0..3`, then restore `1`/`0`.
 12. **Memory**: `dumpsys meminfo com.simoneluconi.gcgallery` after a fast scroll through every photo and 20 viewer swipes; no lmk kill of GC Camera.
+13. **TV** (a TV or capture card on the micro-HDMI port):
+    - the notice with the gallery closed; the viewer's photo once it opens, centred, upright, with black bars;
+    - swipes, a rotation and a 1080p sharp decode reach the TV (`GcGallery: TV …` in the log);
+    - zoom in with the lever and pan: the TV shows the same part (`(zoomed)` in the log), then sharp;
+    - the TV button's list: Auto and a chosen mode switch the output, and the photo comes back at the new size;
+    - opening GC Camera from the viewer puts the notice back; `adb shell cat /sys/kernel/debug/ion/exynos_contig_heap` then shows only hdmid's small buffer.
 
 ## 7. Milestones
 
