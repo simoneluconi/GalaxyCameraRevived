@@ -189,6 +189,11 @@ Still open:
     - `mmc1_detect` (519): the microSD slot is rescanned on every resume.
     - `battery-monitor` (475): the sec battery driver polls every minute even while suspended; check whether its sleep interval can be longer.
     - `wlan_wake`/`wlan_wd_wake`: Wi-Fi keeping the connection up.
+  - **Third measurement (night of 2026-11-12, both cameras, release 20261112, 6 h until auto power off, which fired on both at 6 h):**
+    - GC100 (microSD in, Wi-Fi and 3G on, SIM in): 100% → 94%, awake 1.7% of the time, a wakeup about every 10 min.
+    - GC200 (**no microSD**, Wi-Fi on): 100% → 96%, but it **never suspended**: every attempt failed with `Device s3c-sdhci.2 failed to suspend: error -5`. The release was deleted for this (user, 2026-11-13).
+    - Cause: switched on from the charging screen, the bootloader leaves VTF_2.8V (microSD supply) on with no consumer counted ("incomplete constraints, leaving on"); sdhci sees it on, disables it, the core refuses the unbalanced disable with -EIO, and `sdhci_suspend_host()` returned that. Any camera without a microSD booted that way was affected.
+    - **Fixed in kernel 5edba42c**: at probe, with no card, sdhci takes the supply and switches it off; a failed supply disable no longer aborts the suspend. GC200 without a microSD after the fix: 17 suspends, 0 failures.
   - Repeat the measurement with Wi-Fi off and with airplane mode, to split the modem and Wi-Fi shares. Kernel f23cd48c enables `HOTPLUG_CPU` and makes pegasusq the default governor (html6405's 3.4 config had neither, so CPUs 1-3 never went offline). Exynos4 AFTR/LPA cpuidle needs only CPU0 online (`cpuidle-exynos4.c` `is_only_onlining_cpu`).
   - smdk4412-common sets `pegasusq/min_cpu_lock` to 2 at boot; gd1 now resets it to 0 right after. Watch for UI lag; 1 is the fallback.
   - Measure: idle `online` mask, time in AFTR (`/sys/devices/system/cpu/cpu0/cpuidle`), screen-off drain.
