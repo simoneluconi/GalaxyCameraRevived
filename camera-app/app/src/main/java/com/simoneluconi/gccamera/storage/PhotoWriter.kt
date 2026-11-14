@@ -81,14 +81,27 @@ class PhotoWriter private constructor(private val context: Context) {
     }
 
     /**
-     * Saves [baseName].jpg and, with [raw], [baseName].dng next to it. Call on the main thread.
-     * [jpegSaved] gets the JPEG's uri (null on failure) as soon as it is written, so the
-     * last-shot button need not wait for the DNG; [done] then says whether a requested DNG failed.
+     * A shot's file number, shared by a bracket's frames (GC100_0042_1, _2, _3). It is taken on
+     * the writer thread, just before the first frame's JPEG, from [next] (the counter), skipping
+     * any number this app already has a file for in the folder: after a counter reset, cleared
+     * data or the wrap after 9999, a reused number would pair a new DNG with an old JPEG.
+     */
+    class Sequence(val prefix: String, val next: () -> Int) {
+        internal var base: String? = null
+    }
+
+    /**
+     * Saves the frame [frameIndex] of [frameCount] of [sequence] as a JPEG and, with [raw], a DNG
+     * of the same name. Call on the main thread. [jpegSaved] gets the JPEG's uri (null on
+     * failure) as soon as it is written, so the last-shot button need not wait for the DNG;
+     * [done] then says whether a requested DNG failed.
      */
     fun saveShot(
         target: StorageTarget.Target,
         folder: String,
-        baseName: String,
+        sequence: Sequence,
+        frameIndex: Int,
+        frameCount: Int,
         jpeg: ByteArray,
         raw: ByteArray?,
         layout: RawLayout?,
@@ -102,11 +115,16 @@ class PhotoWriter private constructor(private val context: Context) {
             var dngFailed = raw != null
             // [done] always runs: it hands the RAW buffer back and tells the user
             try {
+                val base = sequence.base ?: freeBase(target, folder, sequence).also { sequence.base = it }
+                val baseName = if (frameCount > 1) "${base}_${frameIndex + 1}" else base
                 val uri = writeJpeg(target, folder, "$baseName.jpg", jpeg, meta)
                 jpegReported = true
                 jpegSaved(uri)
                 if (raw != null && layout != null) {
-                    dngFailed = writeDng(target, folder, "$baseName.dng", raw, layout, jpeg, meta) < 0
+                    // MediaStore renames a JPEG whose name is taken ("GC100_0042 (1).jpg"): the
+                    // DNG follows the name the JPEG really got, so the pair stays a pair
+                    val dngBase = uri?.let(::displayName)?.removeSuffix(".jpg") ?: baseName
+                    dngFailed = writeDng(target, folder, "$dngBase.dng", raw, layout, jpeg, meta) < 0
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "save failed", e)
@@ -116,6 +134,50 @@ class PhotoWriter private constructor(private val context: Context) {
                 SaveService.end()
             }
         }
+    }
+
+    /** The next free "<prefix>_NNNN" in [folder]; after a full lap of the counter, whatever it gives. */
+    private fun freeBase(target: StorageTarget.Target, folder: String, s: Sequence): String {
+        var name = ""
+        for (i in 0 until MAX_FILE_NUMBER) {
+            name = "${s.prefix}_%04d".format(s.next())
+            if (!nameTaken(target, folder, name)) break
+        }
+        return name
+    }
+
+    /**
+     * Whether this app has any file of [base] (its .jpg, .dng or bracket frames) in [folder],
+     * pending and trashed ones included. Only our own files are visible without a storage
+     * permission; a clash with another app's file is left to MediaStore's renaming.
+     */
+    private fun nameTaken(target: StorageTarget.Target, folder: String, base: String): Boolean {
+        val args = Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+            putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
+            putString(
+                ContentResolver.QUERY_ARG_SQL_SELECTION,
+                "${MediaStore.MediaColumns.RELATIVE_PATH} = ? AND ${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?",
+            )
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, arrayOf("DCIM/$folder/", "$base%"))
+            putInt(ContentResolver.QUERY_ARG_LIMIT, 1)
+        }
+        return try {
+            context.contentResolver.query(
+                MediaStore.Files.getContentUri(target.volumeName), arrayOf(MediaStore.MediaColumns._ID), args, null,
+            )?.use { it.count > 0 } ?: false
+        } catch (e: Exception) {
+            Log.w(TAG, "file name check failed", e)
+            false
+        }
+    }
+
+    private fun displayName(uri: Uri): String? = try {
+        context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
+            ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+    } catch (e: Exception) {
+        Log.w(TAG, "JPEG name lookup failed", e)
+        null
     }
 
     /**
@@ -193,7 +255,7 @@ class PhotoWriter private constructor(private val context: Context) {
                         m.rawOrientation.toDouble(),
                     ),
                     dateTime = SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.US).format(date),
-                    offsetTime = SimpleDateFormat("XXX", Locale.US).format(date),
+                    offsetTime = JpegMeta.offsetTime(m.takenAt),
                     software = m.software,
                     artist = m.artist,
                     copyright = m.copyright,
@@ -290,6 +352,8 @@ class PhotoWriter private constructor(private val context: Context) {
     companion object {
         private const val TAG = "GcCamera"
         private const val THUMB_QUALITY = 80
+        /** The counter's range: 1..9999, like a camera's DCF numbers. */
+        private const val MAX_FILE_NUMBER = 9999
 
         @Volatile
         private var instance: PhotoWriter? = null

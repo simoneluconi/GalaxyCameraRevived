@@ -38,12 +38,16 @@ class SaveService : Service() {
     }
 
     override fun onDestroy() {
-        if (instance === this) instance = null
+        if (instance === this) {
+            instance = null
+            started = false
+        }
         super.onDestroy()
     }
 
     private fun stop() {
         instance = null
+        started = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -72,12 +76,21 @@ class SaveService : Service() {
 
         // Touched on the main thread only
         private var instance: SaveService? = null
+        /** The service was started and has not stopped: apart from [inFlight], since a start can fail. */
+        private var started = false
 
-        /** A save starts; call on the main thread, while the activity is still in front. */
+        /**
+         * Work starts that must outlive the activity: a capture (from its start, while the
+         * activity is surely in front: a 16 s exposure, then Home, is too late) or a save.
+         * Call on the main thread; every begin needs its [end].
+         */
         fun begin(context: Context) {
-            if (inFlight.getAndIncrement() > 0) return
+            inFlight.incrementAndGet()
+            // A start refused earlier (in the background) is tried again, not taken as running
+            if (started) return
             try {
                 context.startForegroundService(Intent(context, SaveService::class.java))
+                started = true
             } catch (e: ForegroundServiceStartNotAllowedException) {
                 // Already in the background: the save still runs, only unprotected
                 Log.w(TAG, "cannot keep the process alive for the save", e)

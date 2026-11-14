@@ -15,10 +15,18 @@
 namespace {
 
 std::string str(JNIEnv* env, jstring s) {
-    if (!s) return {};
+    // No JNI call with an exception pending (an earlier str() that failed); the caller checks
+    if (!s || env->ExceptionCheck()) return {};
+    // Null with an OutOfMemoryError pending
     const char* c = env->GetStringUTFChars(s, nullptr);
     if (!c) return {};
-    std::string r(c);
+    std::string r;
+    try {
+        r = c;
+    } catch (...) {
+        env->ReleaseStringUTFChars(s, c);
+        throw;
+    }
     env->ReleaseStringUTFChars(s, c);
     return r;
 }
@@ -34,7 +42,8 @@ std::string str(JNIEnv* env, jstring s) {
  * gps = {latitude, longitude, hasAltitude (0/1), altitude m, fix time ms UTC, accuracy m
  * (0 = unknown)}, or null for no geotag;
  * preview = the ISP JPEG to embed full size (may be null).
- * Returns null on success, or the error.
+ * Returns null on success, or the error. A JNI failure (a short array, no memory to pin an
+ * array or read a string) returns with its Java exception pending, before anything is written.
  */
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_simoneluconi_gccamera_raw_NativeDng_write(JNIEnv* env, jclass, jbyteArray raw, jintArray layout,
@@ -54,51 +63,65 @@ Java_com_simoneluconi_gccamera_raw_NativeDng_write(JNIEnv* env, jclass, jbyteArr
     if (env->ExceptionCheck()) return nullptr;
 
     gccore::RawFrame frame;
-    frame.width = l[0];
-    frame.height = l[1];
-    frame.left = l[2];
-    frame.top = l[3];
-    frame.right = l[4];
-    frame.bottom = l[5];
-    frame.bits = l[6];
-    frame.black = lv[0];
-    frame.white = lv[1];
-    std::string cfaStr = str(env, cfa);
-    if (!gccore::parseCfa(cfaStr.c_str(), frame.cfa)) return env->NewStringUTF("bad raw-cfa");
-
     gccore::DngMeta meta;
-    meta.iso = static_cast<int>(ex[0]);
-    meta.exposureSeconds = ex[1];
-    meta.fNumber = ex[2];
-    meta.focalMm = ex[3];
-    meta.focal35mm = static_cast<int>(ex[4]);
-    meta.biasEv = ex[5];
-    meta.exposureProgram = static_cast<int>(ex[6]);
-    meta.orientation = static_cast<int>(ex[7]);
-    meta.dateTime = str(env, dateTime);
-    meta.offsetTime = str(env, offsetTime);
-    meta.software = str(env, software);
-    meta.artist = str(env, artist);
-    meta.copyright = str(env, copyright);
-    if (model) meta.model = str(env, model);
-    meta.xmpProperties = str(env, xmp);
-    if (gps) {
-        meta.hasGps = true;
-        meta.latitude = g[0];
-        meta.longitude = g[1];
-        meta.hasAltitude = g[2] != 0;
-        meta.altitude = g[3];
-        meta.gpsTimeMs = static_cast<int64_t>(g[4]);
-        meta.gpsAccuracy = g[5];
+    // C++ exceptions (bad_alloc) must not cross into the VM: they would abort the app
+    try {
+        frame.width = l[0];
+        frame.height = l[1];
+        frame.left = l[2];
+        frame.top = l[3];
+        frame.right = l[4];
+        frame.bottom = l[5];
+        frame.bits = l[6];
+        frame.black = lv[0];
+        frame.white = lv[1];
+        std::string cfaStr = str(env, cfa);
+        if (env->ExceptionCheck()) return nullptr;
+        if (!gccore::parseCfa(cfaStr.c_str(), frame.cfa)) return env->NewStringUTF("bad raw-cfa");
+
+        meta.iso = static_cast<int>(ex[0]);
+        meta.exposureSeconds = ex[1];
+        meta.fNumber = ex[2];
+        meta.focalMm = ex[3];
+        meta.focal35mm = static_cast<int>(ex[4]);
+        meta.biasEv = ex[5];
+        meta.exposureProgram = static_cast<int>(ex[6]);
+        meta.orientation = static_cast<int>(ex[7]);
+        meta.dateTime = str(env, dateTime);
+        meta.offsetTime = str(env, offsetTime);
+        meta.software = str(env, software);
+        meta.artist = str(env, artist);
+        meta.copyright = str(env, copyright);
+        if (model) meta.model = str(env, model);
+        meta.xmpProperties = str(env, xmp);
+        // A string that could not be read (no memory) has thrown
+        if (env->ExceptionCheck()) return nullptr;
+        if (gps) {
+            meta.hasGps = true;
+            meta.latitude = g[0];
+            meta.longitude = g[1];
+            meta.hasAltitude = g[2] != 0;
+            meta.altitude = g[3];
+            meta.gpsTimeMs = static_cast<int64_t>(g[4]);
+            meta.gpsAccuracy = g[5];
+        }
+    } catch (const std::exception& e) {
+        return env->NewStringUTF(e.what());
     }
 
-    // A 20 MB array lives in ART's non-moving large-object space, so this does not copy
+    // A 20 MB array lives in ART's non-moving large-object space, so this does not copy.
+    // A failed pin has thrown OutOfMemoryError: return with it, the caller drops the row
     jbyte* data = env->GetByteArrayElements(raw, nullptr);
-    if (!data) return env->NewStringUTF("out of memory");
+    if (!data) return nullptr;
     frame.data = reinterpret_cast<const uint8_t*>(data);
     frame.size = static_cast<size_t>(env->GetArrayLength(raw));
-    jbyte* jpeg = preview ? env->GetByteArrayElements(preview, nullptr) : nullptr;
-    if (jpeg) {
+    jbyte* jpeg = nullptr;
+    if (preview) {
+        jpeg = env->GetByteArrayElements(preview, nullptr);
+        if (!jpeg) {
+            env->ReleaseByteArrayElements(raw, data, JNI_ABORT);
+            return nullptr;
+        }
         meta.previewJpeg = reinterpret_cast<const uint8_t*>(jpeg);
         meta.previewJpegSize = static_cast<size_t>(env->GetArrayLength(preview));
     }
@@ -108,7 +131,6 @@ Java_com_simoneluconi_gccamera_raw_NativeDng_write(JNIEnv* env, jclass, jbyteArr
     int own = dup(fd);
     FILE* f = own >= 0 ? fdopen(own, "wb") : nullptr;
     if (f) {
-        // C++ exceptions (bad_alloc) must not cross into the VM: they would abort the app
         try {
 #ifdef GCCORE_WITH_JPEG
             // The ISP's own white balance, read back from its JPEG (far better than grey world)

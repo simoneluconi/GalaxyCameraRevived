@@ -35,6 +35,7 @@
     <string name="toast_dng_failed">The JPEG was saved, but the DNG could not be written</string>
     <string name="toast_save_failed">Could not save the photo</string>
     <string name="toast_capture_failed">The camera did not deliver the photo</string>
+    <string name="toast_raw_skipped">Still saving the last RAWs: this photo is JPEG only</string>
     <string name="toast_no_gallery">No gallery app to show the photo</string>
     <string name="saving_channel">Saving photos</string>
     <string name="saving_photos">Saving photos…</string>

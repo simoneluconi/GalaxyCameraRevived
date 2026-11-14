@@ -59,6 +59,7 @@ import com.simoneluconi.gccamera.settings.Prefs
 import com.simoneluconi.gccamera.settings.SettingsActivity
 import com.simoneluconi.gccamera.storage.CaptureTags
 import com.simoneluconi.gccamera.storage.PhotoWriter
+import com.simoneluconi.gccamera.storage.SaveService
 import com.simoneluconi.gccamera.storage.ShotMeta
 import com.simoneluconi.gccamera.storage.StorageTarget
 import com.simoneluconi.gccamera.ui.widget.ExposureMeterView
@@ -128,7 +129,10 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     private var zoomDriveDir = 0
     private var zoomDriveFast = false
     private var keepCameraWarm = false
-    private var sequenceBase: String? = null
+    /** The file number of the shot being saved, shared by a bracket's frames. */
+    private var sequence: PhotoWriter.Sequence? = null
+    /** A capture holds the save service from its start until its pictures are queued. */
+    private var captureHold = false
     private lateinit var btnLast: ImageView
     /** The newest JPEG we saved (or found in our folder), for the last-shot button. */
     private var lastShot: Uri? = null
@@ -357,10 +361,16 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     }
 
     override fun onDestroy() {
+        // A shot in flight still reaches this activity and is saved; only its review is skipped ([decode])
         controller.shutdown()
         decoder.shutdown()
         afSound?.release()
         super.onDestroy()
+    }
+
+    /** Runs [task] on the decoder, unless the activity is gone (the decoder is shut then). */
+    private fun decode(task: Runnable) {
+        if (!isDestroyed) decoder.execute(task)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -386,7 +396,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         surfaceReady = false
         // The HAL must stop drawing into the surface before it goes away. onPause already
         // asked for the preview to stop; this waits for that, not for the lens release.
-        controller.awaitIdle(3000)
+        controller.awaitPaused(3000)
     }
 
     private fun maybeOpen() {
@@ -441,6 +451,21 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
 
     override fun onCaptureStart() {
         captureOrientation = orientation.exifOrientation
+        // Now, while surely in front: after a long exposure and Home the service could not start
+        if (!captureHold) {
+            captureHold = true
+            SaveService.begin(applicationContext)
+        }
+    }
+
+    override fun onCaptureEnd() {
+        if (!captureHold) return
+        captureHold = false
+        SaveService.end()
+    }
+
+    override fun onRawSkipped() {
+        Toast.makeText(applicationContext, R.string.toast_raw_skipped, Toast.LENGTH_SHORT).show()
     }
 
     override fun onShutter() {
@@ -450,13 +475,14 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     }
 
     override fun onPictureTaken(jpeg: ByteArray, raw: ByteArray?, info: ShotInfo, frame: FrameInfo) {
+        // The save first: nothing the UI does after it can lose the photo
+        save(jpeg, raw, info, frame)
         if (frame.index == 0 || frame.count == 1) {
             lastInfo = info
             if (!halfPressed) overlay.af = Af.NONE
             refreshExposureUi()
             showReview(jpeg)
         }
-        save(jpeg, raw, info, frame)
     }
 
     override fun onCaptureFailed() {
@@ -582,11 +608,13 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     /**
      * Drives the zoom from the lever contacts held now, not from single events: on a quick
      * flick the slow contact can open before the fast one, and on a reversal the new side can
-     * close before the old one opens. Both directions held: the last one pressed wins.
+     * close before the old one opens. Both directions held: the last one pressed wins. With the
+     * half press held the lens stays put (zooming loses the focus it locked) and moves on release.
      */
     private fun driveZoom() {
         val dirs = zoomHeld.values
         val dir = when {
+            halfPressed -> 0
             1 in dirs && -1 in dirs -> zoomLastDir
             dirs.isEmpty() -> 0
             else -> dirs.first()
@@ -606,6 +634,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
 
     private fun halfPress() {
         halfPressed = true
+        driveZoom()
         hideReview()
         hideQuickMenu()
         if (countdownLeft > 0 || caps == null || batteryLow) return
@@ -616,9 +645,12 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
 
     private fun halfRelease() {
         halfPressed = false
-        if (countdownLeft > 0) return
-        overlay.af = Af.NONE
-        controller.cancelFocus()
+        if (countdownLeft == 0) {
+            overlay.af = Af.NONE
+            controller.cancelFocus()
+        }
+        // A lever still held moves the lens now (after the cancel: no zoom while focusing)
+        driveZoom()
     }
 
     private fun fullPress() {
@@ -1085,9 +1117,9 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
             raw?.let(controller::recycleRaw)
             return
         }
-        // A bracket shares one number: GC100_0042_1.jpg, _2, _3
-        if (frame.index == 0 || sequenceBase == null) sequenceBase = "${CameraModel.shortName}_%04d".format(prefs.nextFileNumber())
-        val name = if (frame.count > 1) "${sequenceBase}_${frame.index + 1}" else sequenceBase!!
+        // A bracket shares one number: GC100_0042_1.jpg, _2, _3 (the writer picks it, see Sequence)
+        val seq = sequence.takeIf { frame.index > 0 }
+            ?: PhotoWriter.Sequence(CameraModel.shortName, prefs::nextFileNumber).also { sequence = it }
         if (frame.count > 1) Log.i(TAG, "bracket frame ${frame.index + 1}/${frame.count} ev=${frame.ev} iso=${info.iso} t=${info.exposureSeconds} f=${info.fNumber} bias=${info.biasEv}")
         val fired = flashUp == true && when (shot.flash) {
             Camera.Parameters.FLASH_MODE_ON -> true
@@ -1132,7 +1164,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         val jpegBytes = jpeg.size.toLong()
         // Both callbacks post to the main thread in order, so this is set before done reads it
         var jpegOk = false
-        writer.saveShot(t, prefs.folderName, name, jpeg, raw, layout, meta, jpegSaved = { uri ->
+        writer.saveShot(t, prefs.folderName, seq, frame.index, frame.count, jpeg, raw, layout, meta, jpegSaved = { uri ->
             main.post {
                 jpegOk = uri != null
                 if (uri == null) {
@@ -1168,7 +1200,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         val ms = prefs.reviewMs
         if (ms <= 0) return
         val token = ++reviewToken
-        decoder.execute {
+        decode {
             // A quarter-size RGB565 decode: about 2 MB instead of 64 MB
             val opts = BitmapFactory.Options().apply {
                 inSampleSize = 4
@@ -1191,7 +1223,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
 
     private fun setLastShot(uri: Uri) {
         lastShot = uri
-        decoder.execute {
+        decode {
             // The EXIF thumbnail: MediaStore reads it instead of decoding the 16 MP image
             val bmp = runCatching { contentResolver.loadThumbnail(uri, Size(LAST_THUMB_W, LAST_THUMB_H), null) }.getOrNull()
             main.post {
@@ -1206,7 +1238,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     private fun findLastShot() {
         val t = target ?: return
         val folder = "DCIM/${prefs.folderName}/"
-        decoder.execute {
+        decode {
             val collection = MediaStore.Images.Media.getContentUri(t.volumeName)
             val uri = runCatching {
                 contentResolver.query(

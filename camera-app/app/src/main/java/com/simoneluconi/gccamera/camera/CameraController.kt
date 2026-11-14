@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.os.Process
+import android.os.SystemClock
 import android.util.Log
 import android.view.SurfaceHolder
 import java.lang.reflect.Method
@@ -40,6 +41,10 @@ class CameraController(private val listener: Listener) {
         fun onPictureTaken(jpeg: ByteArray, raw: ByteArray?, info: ShotInfo, frame: FrameInfo)
         /** The shot produced no picture at all. */
         fun onCaptureFailed()
+        /** RAW is on, but this shot is JPEG only: no free buffer for the frame. */
+        fun onRawSkipped()
+        /** The capture that [onCaptureStart] announced is over, delivered or not (after its pictures). */
+        fun onCaptureEnd()
         fun onZoomChanged(zoom: Int)
         fun onStatus(status: LiveStatus)
         /** A new histogram is ready; fetch it with [copyHistogram]. */
@@ -60,6 +65,8 @@ class CameraController(private val listener: Listener) {
     private var settings = ShotSettings()
     private var zoom = 0
     private var captureAfterFocus = false
+    /** A half press came during a capture: it focuses once the preview is back. */
+    private var focusAfterCapture = false
     private var closeAfterCapture = false
     /** The surface to show the preview on once the capture in flight finishes (a resume during it). */
     private var resumeAfterCapture: SurfaceHolder? = null
@@ -75,6 +82,8 @@ class CameraController(private val listener: Listener) {
     private var zoomWantDir = 0
     private var zoomWantFast = false
     private var zoomSentAction = "stop"
+    /** After a stop the lens still settles; the position is read until then (uptime ms). */
+    private var zoomSettleUntil = 0L
 
     // Histogram: filled on the camera thread, copied out on the main thread
     private val histBack = IntArray(HIST_BINS)
@@ -129,17 +138,34 @@ class CameraController(private val listener: Listener) {
      * A capture in flight finishes first (its frames are still saved, and its watchdog stays
      * armed) and then releases.
      */
-    fun pause(keepWarmMs: Long) = handler.post {
-        val cam = camera ?: return@post
+    fun pause(keepWarmMs: Long) {
+        val done = CountDownLatch(1)
+        pauseDone = done
+        handler.post {
+            try {
+                pauseNow(keepWarmMs)
+            } finally {
+                done.countDown()
+            }
+        }
+    }
+
+    /** Counted down once the last [pause] has stopped the preview, before the slow release. */
+    @Volatile
+    private var pauseDone: CountDownLatch? = null
+
+    private fun pauseNow(keepWarmMs: Long) {
+        val cam = camera ?: return
         stopLive()
         stopTimerLed()
         // The RAW pool is only needed while shooting; 20 MB each is a lot on this device
         rawFree.forEach(rawOwned::remove)
         rawFree.clear()
+        focusAfterCapture = false
         if (state == State.CAPTURING) {
             closeAfterCapture = true
             resumeAfterCapture = null
-            return@post
+            return
         }
         if (state == State.FOCUSING) {
             handler.removeCallbacks(focusTimeout)
@@ -158,7 +184,7 @@ class CameraController(private val listener: Listener) {
             }
             state = State.PAUSED
         }
-        // Always a separate message, so awaitIdle() returns before the slow release
+        // A separate message: [awaitPaused] returns as soon as the preview is stopped
         handler.removeCallbacks(releaseLater)
         handler.postDelayed(releaseLater, keepWarmMs)
     }
@@ -206,10 +232,12 @@ class CameraController(private val listener: Listener) {
         }
     }
 
-    /** Waits until the camera thread has handled everything posted so far. */
-    fun awaitIdle(timeoutMs: Long) {
-        val latch = CountDownLatch(1)
-        handler.post { latch.countDown() }
+    /**
+     * Waits until the preview is stopped: for the last [pause] if there was one (not for the
+     * lens release queued behind it, about 1 s), otherwise for everything posted so far.
+     */
+    fun awaitPaused(timeoutMs: Long) {
+        val latch = pauseDone ?: CountDownLatch(1).also { l -> handler.post { l.countDown() } }
         latch.await(timeoutMs, TimeUnit.MILLISECONDS)
     }
 
@@ -321,13 +349,34 @@ class CameraController(private val listener: Listener) {
 
     /** Half press. */
     fun focus() = handler.post {
-        val cam = camera ?: return@post
-        if (state != State.IDLE) return@post
+        val cam = camera
+        when {
+            // The shot in flight comes first; the focus runs once the preview is back
+            state == State.CAPTURING -> {
+                focusAfterCapture = true
+                return@post
+            }
+            // FOCUSING: the result in flight answers this press too
+            state == State.FOCUSING -> return@post
+            // No preview to focus with: say so, the AF frame must not stay on "focusing"
+            cam == null || state != State.IDLE -> {
+                main.post { listener.onFocusDone(false) }
+                return@post
+            }
+        }
+        startFocus(cam!!)
+    }
+
+    private fun startFocus(cam: Camera) {
         // The HAL refuses autoFocus() while the lens is zooming
         if (zoomDir != 0 || zoomWantDir != 0) {
             zoomDir = 0
             handler.removeCallbacks(zoomStep)
             stopZoomNow()
+            // Read where the lens settles, as after a lever stop
+            zoomSettleUntil = SystemClock.uptimeMillis() + ZOOM_SETTLE_MS
+            handler.removeCallbacks(zoomPoll)
+            handler.postDelayed(zoomPoll, ZOOM_POLL_MS)
         }
         state = State.FOCUSING
         try {
@@ -347,7 +396,14 @@ class CameraController(private val listener: Listener) {
         if (captureAfterFocus) {
             captureAfterFocus = false
             doCapture()
+        } else {
+            resumeZoom()
         }
+    }
+
+    /** A lever pushed while zooming was not allowed (AF) moves the lens once it is. */
+    private fun resumeZoom() {
+        if (zoomWantDir != 0 && caps?.let(::isContinuousZoom) == true) sendZoom()
     }
 
     /** An AF result that never comes must not leave the shutter dead. */
@@ -363,6 +419,7 @@ class CameraController(private val listener: Listener) {
 
     /** Half press released: unlocks AE/AWB on the ISP again. */
     fun cancelFocus() = handler.post {
+        focusAfterCapture = false
         val cam = camera ?: return@post
         if (state == State.CAPTURING || captureAfterFocus) return@post
         try {
@@ -372,6 +429,7 @@ class CameraController(private val listener: Listener) {
         if (state == State.FOCUSING) {
             handler.removeCallbacks(focusTimeout)
             state = State.IDLE
+            resumeZoom()
         }
     }
 
@@ -423,14 +481,18 @@ class CameraController(private val listener: Listener) {
         if (camera == null) return
         val action = wantedZoomAction(c)
         if (action == zoomSentAction) return
-        if (state == State.CAPTURING && action != "stop") return
+        // Not during a shot, nor during AF: the focus would be lost
+        if (!zoomAllowed() && action != "stop") return
         if (!setParam("zoom-action", action)) return
         zoomSentAction = action
-        // While it moves the HAL reports the position in `zoom`; after a stop, one last read
+        // While it moves the HAL reports the position in `zoom`; after a stop, while it settles
         zoomDir = if (action == "stop") 0 else zoomWantDir
+        if (action == "stop") zoomSettleUntil = SystemClock.uptimeMillis() + ZOOM_SETTLE_MS
         handler.removeCallbacks(zoomPoll)
         handler.postDelayed(zoomPoll, ZOOM_POLL_MS)
     }
+
+    private fun zoomAllowed() = state != State.CAPTURING && state != State.FOCUSING
 
     /** Stops the motor before AF, a pause or a release. */
     private fun stopZoomNow() {
@@ -450,7 +512,10 @@ class CameraController(private val listener: Listener) {
                 }
             } catch (_: RuntimeException) {
             }
-            if (zoomDir != 0) handler.postDelayed(this, ZOOM_POLL_MS)
+            // The HAL reports the settling position for about 1 s after a stop
+            if (zoomDir != 0 || SystemClock.uptimeMillis() < zoomSettleUntil) {
+                handler.postDelayed(this, ZOOM_POLL_MS)
+            }
         }
     }
 
@@ -484,8 +549,11 @@ class CameraController(private val listener: Listener) {
         } catch (_: RuntimeException) {
             1
         }
-        val wantRaw = settings.raw && caps?.rawLayout != null && queueRawBuffer(cam)
+        // A bracket never delivers a RAW frame: no 20 MB buffer for it
+        val rawWanted = settings.raw && caps?.rawLayout != null && frameCount == 1
+        val wantRaw = rawWanted && queueRawBuffer(cam)
         main.post(listener::onCaptureStart)
+        if (rawWanted && !wantRaw) main.post(listener::onRawSkipped)
         try {
             cam.takePicture(shutterCallback, if (wantRaw) rawCallback else null, jpegCallback)
             // A shot that never delivers a frame must not leave the camera stuck in CAPTURING
@@ -494,6 +562,10 @@ class CameraController(private val listener: Listener) {
             // -EBUSY if the HAL is still busy with the previous shot
             Log.w(TAG, "takePicture failed", e)
             state = State.IDLE
+            main.post {
+                listener.onCaptureFailed()
+                listener.onCaptureEnd()
+            }
         }
     }
 
@@ -693,7 +765,10 @@ class CameraController(private val listener: Listener) {
     private fun finishCapture(cam: Camera) {
         state = State.IDLE
         dropPendingRaw()
+        // After the pictures: their onPictureTaken were posted first
+        main.post(listener::onCaptureEnd)
         if (closeAfterCapture) {
+            focusAfterCapture = false
             releaseCamera()
             return
         }
@@ -712,8 +787,16 @@ class CameraController(private val listener: Listener) {
                 handler.postDelayed(poll, POLL_MS)
                 caps?.let { c -> main.post { listener.onCameraOpened(c) } }
             }
+            if (focusAfterCapture) {
+                focusAfterCapture = false
+                startFocus(cam)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "preview restart failed", e)
+            // Released, as open() and resume() do: kept, the frozen viewfinder would keep the
+            // lens out, and the activity's retry would find a warm camera and do nothing
+            focusAfterCapture = false
+            releaseCamera()
             main.post { listener.onCameraError(e.message ?: "preview restart failed") }
         }
     }
@@ -724,7 +807,7 @@ class CameraController(private val listener: Listener) {
             val c = caps ?: return
             if (zoomDir == 0) return
             val target = (zoom + zoomDir).coerceIn(0, c.maxZoom)
-            if (target != zoom && state != State.CAPTURING) {
+            if (target != zoom && zoomAllowed()) {
                 try {
                     val p = cam.parameters
                     p.zoom = target
@@ -922,6 +1005,7 @@ class CameraController(private val listener: Listener) {
         private const val ZOOM_SLOW_MS = 220L
         private const val ZOOM_FAST_MS = 90L
         private const val ZOOM_POLL_MS = 100L
+        private const val ZOOM_SETTLE_MS = 1000L
         /** Frames come about 1 s apart; well past that, the bracket is not coming. */
         private const val BRACKET_TIMEOUT_MS = 8000L
         /** A RAW shot takes about 3 s; a bracket's first frame about 2 s. */

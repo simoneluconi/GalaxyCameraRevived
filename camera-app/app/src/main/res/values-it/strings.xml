@@ -17,6 +17,7 @@
     <string name="toast_dng_failed">Il JPEG è salvato, ma il DNG non è stato scritto</string>
     <string name="toast_save_failed">Impossibile salvare la foto</string>
     <string name="toast_capture_failed">La fotocamera non ha consegnato la foto</string>
+    <string name="toast_raw_skipped">Sto ancora salvando i RAW precedenti: questa foto è solo JPEG</string>
     <string name="toast_no_gallery">Nessuna app galleria per mostrare la foto</string>
     <string name="saving_channel">Salvataggio foto</string>
     <string name="saving_photos">Salvataggio delle foto…</string>

@@ -33,8 +33,10 @@ class Prefs(private val context: Context) {
     val remoteShutter get() = sp.getBoolean(REMOTE_SHUTTER, true)
     val afBeep get() = sp.getBoolean(AF_BEEP, false)
     val afLamp get() = sp.getBoolean(AF_LAMP, true)
-    val artist get() = sp.getString(ARTIST, null)?.trim()?.ifEmpty { null }
-    val copyright get() = sp.getString(COPYRIGHT, null)?.trim()?.ifEmpty { null }
+    // Capped: with no limit in the settings field, a long text made the EXIF segment pass its
+    // 64 KB and every save fail
+    val artist get() = sp.getString(ARTIST, null)?.trim()?.take(MAX_TEXT)?.ifEmpty { null }
+    val copyright get() = sp.getString(COPYRIGHT, null)?.trim()?.take(MAX_TEXT)?.ifEmpty { null }
 
     /** The flash mode used whenever the pop-up flash is raised: auto or on. */
     var flashUpMode: String
@@ -56,10 +58,13 @@ class Prefs(private val context: Context) {
             if (v != dngImageBytes) sp.edit().putLong(DNG_IMAGE_BYTES, v).apply()
         }
 
-    /** Takes the next file number, 1..9999, wrapping like a camera's DCF counter. */
+    /**
+     * Takes the next file number, 1..9999, wrapping like a camera's DCF counter. Written at
+     * once (commit, on the writer thread): a kill right after a save must not hand it out again.
+     */
     fun nextFileNumber(): Int {
         val n = sp.getInt(FILE_COUNTER, 0) % 9999 + 1
-        sp.edit().putInt(FILE_COUNTER, n).apply()
+        sp.edit().putInt(FILE_COUNTER, n).commit()
         return n
     }
 
@@ -152,6 +157,8 @@ class Prefs(private val context: Context) {
         const val ANDROID_SETTINGS = "android_settings"
         const val RESET = "reset"
         const val ABOUT = "about"
+        /** Characters kept of the artist and copyright texts (at most 3 KB of UTF-8 each). */
+        private const val MAX_TEXT = 1000
         private const val AVG_SHOT_BYTES = "avg_shot_bytes"
         private const val DNG_IMAGE_BYTES = "dng_image_bytes"
         private const val FLASH_UP_MODE = "flash_up_mode"

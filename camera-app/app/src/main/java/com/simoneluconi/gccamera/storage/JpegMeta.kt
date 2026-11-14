@@ -85,7 +85,7 @@ object JpegMeta {
     private fun exifSegment(m: ShotMeta, width: Int, height: Int, thumb: ByteArray?): ByteArray? {
         val date = Date(m.takenAt)
         val stamp = SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.US).format(date)
-        val offset = SimpleDateFormat("XXX", Locale.US).format(date)
+        val offset = offsetTime(m.takenAt)
         val i = m.info
 
         val ifd0 = Ifd().apply {
@@ -200,6 +200,15 @@ object JpegMeta {
         val mf = (a - d) * 60
         val m = floor(mf)
         return longArrayOf(d.toLong(), 1, m.toLong(), 1, ((mf - m) * 60 * 1000).roundToLong(), 1000)
+    }
+
+    /**
+     * EXIF OffsetTime, ±HH:MM, for the local zone at [ms] (the DNG's too). By hand:
+     * SimpleDateFormat's "XXX" prints "Z" for UTC, and it has no "xxx".
+     */
+    fun offsetTime(ms: Long): String {
+        val minutes = TimeZone.getDefault().getOffset(ms) / 60_000
+        return "%s%02d:%02d".format(Locale.US, if (minutes < 0) "-" else "+", abs(minutes) / 60, abs(minutes) % 60)
     }
 
     /** EXIF ExposureProgram (the DNG's too). */

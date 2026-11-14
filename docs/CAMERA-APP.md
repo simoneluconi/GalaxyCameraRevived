@@ -414,7 +414,14 @@ $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"; .\gradlew.bat asse
 - `storage/`:
   - `StorageTarget`: microSD first, internal only by choice.
   - `PhotoWriter`: MediaStore + EXIF on a background thread. At start it deletes the app's own rows that a killed save left pending.
+    - File numbers (since 2026-11-14) are taken on that thread, just before the JPEG. A number the app already has a file for in the folder is skipped, so a counter reset, cleared data or the wrap after 9999 cannot pair a new DNG with an old JPEG. The DNG takes the name the JPEG really got, even when MediaStore renamed it.
   - `SaveService`: a `dataSync` foreground service that runs only while a save is in flight. A DNG needs 6-11 s after the JPEG. Leaving for the gallery or Home made the process cached (adj 700-900), and the lowmemorykiller then killed it mid-write (field report 2026-11-05). With the service the process stays at adj 50.
+    - Since 2026-11-14 it starts when the capture starts, while the app is surely in front: after a 16 s exposure and Home, Android 14 refused to start it. A start that fails is retried by the next save.
+- **Shooting behaviour (code review of 2026-11-14)**:
+  - The save runs before the review: a shot finished after Back still saves, only its review is skipped.
+  - RAW keeps two 20 MB buffers. A third RAW shot while both DNGs are still being written is JPEG only, with a toast saying so. Brackets never take a RAW buffer.
+  - A half press during a capture focuses once the preview is back. With the half press held, the zoom lever does nothing; a lever still held moves the lens on release. The zoom position is read for 1 s after a stop, while the lens settles.
+  - A preview that does not restart after a shot releases the camera (the lens retracts) and the app retries once.
 - `sensors/OrientationSensor.kt` (level, EXIF orientation) and `location/GeoTagger.kt` (GPS only while the viewfinder is open).
 - `ui/ViewfinderActivity.kt`: a plain framework Activity, plus custom Canvas views in `ui/widget/`.
 - `settings/`: `Prefs` (shared with the settings screen through the androidx.preference default file) and `SettingsActivity` (AndroidX, loaded only there).

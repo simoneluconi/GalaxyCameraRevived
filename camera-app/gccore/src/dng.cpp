@@ -62,17 +62,24 @@ void gpsIfd(const DngMeta& m, Ifd& gps) {
     if (m.gpsAccuracy > 0) gps.rationals(31, {m.gpsAccuracy}, 100);  // GPSHPositioningError
 }
 
+/**
+ * ExposureTime as the JPEG has it (the app's JpegMeta): the nearest step when the time is within
+ * 1/6 EV of it, as CameraCaps.nominalSeconds snaps; a time between steps (P/A) stays as read,
+ * 1/N below 0.5 s and tenths above.
+ */
 std::pair<uint32_t, uint32_t> nominalShutter(double seconds) {
     auto best = kShutterSteps[0];
     double bestErr = 1e9;
     for (auto& s : kShutterSteps) {
-        double err = std::fabs(std::log(static_cast<double>(s.first) / s.second / seconds));
+        double err = std::fabs(std::log2(static_cast<double>(s.first) / s.second / seconds));
         if (err < bestErr) {
             bestErr = err;
             best = s;
         }
     }
-    return best;
+    if (bestErr <= 1.0 / 6) return best;
+    if (seconds < 0.5) return {1, static_cast<uint32_t>(std::lround(1 / seconds))};
+    return {static_cast<uint32_t>(std::lround(seconds * 10)), 10};
 }
 
 // Lens: 4.1-86.1 mm, f/2.8-5.9
@@ -343,7 +350,7 @@ bool writeDng(const RawFrame& raw, const DngMeta& meta, FILE* f, std::string* er
         prev.longVal(278, ph);
         prev.longVal(279, static_cast<uint32_t>(meta.previewJpegSize));
         prev.shortVal(284, 1);
-        prev.longVal(50970, 1);  // PreviewColorSpace: gamma 2.2 (sRGB)
+        prev.longVal(50970, 2);  // PreviewColorSpace: sRGB (1 is Gray Gamma 2.2)
         ifd0.longs(330, {0, 0});  // SubIFDs: CFA image, preview
     }
 
