@@ -43,8 +43,8 @@ class MediaIndex(context: Context) {
      */
     enum class Scope { SD, PHONE }
 
-    /** Not trashed, every volume. */
-    var photos: List<Photo> = emptyList()
+    /** Not trashed, every volume. Replaced on the main thread; the transfer server reads it from its own. */
+    @Volatile var photos: List<Photo> = emptyList()
         private set
     var trash: List<Photo> = emptyList()
         private set

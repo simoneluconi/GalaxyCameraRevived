@@ -40,6 +40,7 @@ class ThumbLoader(context: Context, private val ratings: RatingStore) {
     private val failed = HashMap<Long, Long>()
     private val main = Handler(Looper.getMainLooper())
     private val listeners = ArrayList<(Long) -> Unit>()
+    private val webDecodes = java.util.concurrent.Semaphore(2)
 
     init {
         repeat(WORKERS) { n ->
@@ -79,6 +80,28 @@ class ThumbLoader(context: Context, private val ratings: RatingStore) {
 
     /** Blocking, off the main thread: memory, disk or a new decode. For the viewer's first frame. */
     fun loadNow(p: Photo): Bitmap? = get(p) ?: load(p)?.also { memory.put(p.id, Thumb(it, p.dateModified)) }
+
+    /**
+     * The disk thumbnail of [p], made now if missing, for the Wi-Fi transfer page. Blocking, off
+     * the main thread; leaves the memory cache alone (the grid's cells are not the browser's).
+     */
+    fun file(p: Photo): File? {
+        val file = File(dir, fileName(p))
+        if (file.exists()) return file
+        // Several browser connections ask at once: two decodes at a time, as the grid does
+        webDecodes.acquire()
+        try {
+            if (file.exists()) return file
+            val bmp = Decode.thumbnail(resolver, p) { ratings.learn(p.id, it) } ?: return null
+            writeDisk(file, bmp)
+            bmp.recycle()
+        } catch (e: Throwable) {
+            Log.w(TAG, "web thumb failed: ${p.name}: $e")
+        } finally {
+            webDecodes.release()
+        }
+        return file.takeIf { it.exists() }
+    }
 
     /** After an edit that changes pixels (a turn): drop the cached copies of [p]. */
     fun invalidate(p: Photo) {
@@ -167,8 +190,17 @@ class ThumbLoader(context: Context, private val ratings: RatingStore) {
         }
         val t0 = SystemClock.elapsedRealtime()
         val bmp = Decode.thumbnail(resolver, p) { ratings.learn(p.id, it) } ?: return null
-        // Written aside and renamed: a reader, or a kill mid-write, never sees half a file
-        val tmp = File(dir, file.name + ".tmp")
+        writeDisk(file, bmp)
+        Log.d(TAG, "thumb ${p.name}: ${SystemClock.elapsedRealtime() - t0} ms")
+        return bmp
+    }
+
+    /**
+     * Written aside and renamed: a reader, or a kill mid-write, never sees half a file. The
+     * temporary name is per thread, since a grid worker and the transfer page may write the same one.
+     */
+    private fun writeDisk(file: File, bmp: Bitmap) {
+        val tmp = File(dir, "${file.name}.${Thread.currentThread().id}.tmp")
         try {
             FileOutputStream(tmp).use { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) }
             if (!tmp.renameTo(file)) tmp.delete()
@@ -176,8 +208,6 @@ class ThumbLoader(context: Context, private val ratings: RatingStore) {
             Log.w(TAG, "thumb cache write failed: $e")
             tmp.delete()
         }
-        Log.d(TAG, "thumb ${p.name}: ${SystemClock.elapsedRealtime() - t0} ms")
-        return bmp
     }
 
     private fun fileName(p: Photo) = "${p.id}_${p.dateModified}_${p.volume}.jpg"

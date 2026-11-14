@@ -45,6 +45,20 @@ A photography-first gallery that goes with GC Camera and also opens any picture.
   - Zoomed in, the TV shows the part on screen (`PhotoPagerView.visibleRegion`): half-size frames while it moves (`onViewChanged` → `TvOut.live`), then full size and sharp once it settles (`onSettled`); back at fit, the whole photo.
   - A TV button appears in the top bar: the TV's name, the mode, and a list of resolutions (Auto, then every mode, marking the ones the TV does not list).
   - The screen stays on while a TV is connected (FLAG_KEEP_SCREEN_ON): showing photos must not end on the screen timeout.
+- **Wi-Fi transfer** (user, 2026-11-14): the camera serves its photos to a browser on the same Wi-Fi. It is switched on by hand, from the grid's Wi-Fi button or the Quick Settings tile, never on its own, because of the battery.
+  - **Address**: `https://gc100.local:8443` (`gc200.local` on the GC200; the gallery answers mDNS for that name itself), with the IP as a fallback. The certificate is self-signed, made once per camera, with the name and the IP in its SAN. The browser warns once; after the click-through Chrome and Edge keep a secure context, so `showDirectoryPicker` works (checked in Chrome and Edge 157).
+  - **Access**: open on the local network by default. An optional password is set, changed or removed on the camera only, never from the page, so someone else on the Wi-Fi cannot lock the owner out. A browser types it once and keeps a 400-day cookie; changing the password signs every browser out. The password is stored as PBKDF2, the session tokens as SHA-256. A wrong password costs 1 s, and 10 misses lock logins for a minute.
+  - **Page**: the photos by day from the gallery's own thumbnail cache, JPEG+DNG as one item, the storage switch, and a JPEG + RAW / JPEG / RAW choice kept in the browser.
+    - "Copy new" writes into a folder picked once (its handle kept in IndexedDB), streaming each file into a `FileSystemWritableFileStream`, and skips what the folder already has by name and size.
+    - A different photo with the same name gets a date-stamped name, never written over.
+    - Selected photos can be copied or moved to the camera's trash (JPEG and DNG together; GC Gallery restores them).
+    - Firefox and Safari download one file at a time instead.
+  - **Server** (`transfer/`): a foreground service (`dataSync`).
+    - It listens on the Wi-Fi address only. It holds a partial wake lock, a Wi-Fi lock and a multicast lock while on.
+    - It stops after 10 minutes without requests (not during a copy), when the Wi-Fi goes, or from the notification, the tile or the screen.
+    - POSTs need an `X-GC` header, so other sites cannot trash photos through the user's browser.
+    - Only photos in the gallery's index are served.
+  - **Trashing from the page needs the SYSTEM_GALLERY role** (gd1 overlay `config_systemGallery`): the service has no activity on screen to approve a MediaStore request.
 - **Theme**: light/dark follows the system. Same colour tokens as GC Camera, plus `scrim` and `rating`. Floating translucent bars, with no blur (Mali-400).
 
 - **Later: the Galaxy Camera 2 (EK-GC200) too** (user, 2026-11-04). Audit of 2026-11-04 for GC100-only assumptions:
@@ -133,8 +147,13 @@ adb -s <serial> shell appops set com.simoneluconi.gcgallery MANAGE_MEDIA allow
 - `edit/Edits`: in-place rotation and rating.
 - `tv/TvOut`: the TV through hdmid's socket: `TvState`, drawing at the mode's size (pixel aspect), the banded sharp decode.
 - `meta/PhotoInfo`: the info panel's sections.
+- `transfer/`: the Wi-Fi transfer.
+  - `TransferService` (foreground service, locks, auto-stop), `Transfer` (state for the screen, notification and tile);
+  - `WebServer` (HTTPS, routes, streaming, trash), `TransferAuth` (optional password, session tokens), `TlsCert` (self-signed certificate, hand-built DER), `MdnsResponder` (`gcNNN.local`), `MediaTrash`;
+  - `TransferTile` + `TransferStartActivity` (Quick Settings; the invisible start).
+  - The page is `assets/web/index.html`, one file with no external resources.
 - `ui/`:
-  - `GridActivity`, `ViewerActivity`;
+  - `GridActivity`, `ViewerActivity`, `TransferActivity`;
   - `MediaAccess` (MediaStore consent requests), `MessageBar`, `Keys`, `Layout` (portrait check, moving views between bars);
   - `widget/`: `ThumbGridView`, `PhotoPagerView`, `StarsView`.
 - `:common` (`camera-app/common/`): colour tokens, `Ui.kt`, `HistogramView`, `panel_button_bg`.
@@ -171,6 +190,14 @@ adb -s <serial> shell appops set com.simoneluconi.gcgallery MANAGE_MEDIA allow
     - zoom in with the lever and pan: the TV shows the same part (`(zoomed)` in the log), then sharp;
     - the TV button's list: Auto and a chosen mode switch the output, and the photo comes back at the new size;
     - opening GC Camera from the viewer puts the camera's live view on the TV; `adb shell cat /sys/kernel/debug/ion/exynos_contig_heap` then shows no hdmid buffer (the live view reads the camera's own FIMC memory). Back in the viewer, the photo returns.
+
+14. **Wi-Fi transfer** (the camera and a PC on the same Wi-Fi):
+    - start it from the grid's Wi-Fi button and from the Quick Settings tile with the gallery not running (the shade open; nothing opens on screen), and stop it from the tile and the notification;
+    - from the PC: `ping gc100.local`, then `https://gc100.local:8443` in Chrome or Edge, accepting the certificate once;
+    - choose a folder and "Copy new": the files arrive identical (sha256 against `adb shell sha256sum` of the originals), and a second run copies nothing; the same per kind (JPEG + RAW, JPEG, RAW);
+    - a password set on the camera: the page asks once, then not again after a reload; changing it asks again;
+    - move a photo to the trash from the page: it is in GC Gallery's Trash with its DNG, and `GcGallery: trash: N files directly` is in the log;
+    - left alone it stops after 10 minutes; afterwards `dumpsys power` shows no `GcGallery:transfer` wake lock.
 
 ## 7. Milestones
 

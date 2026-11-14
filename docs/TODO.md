@@ -38,7 +38,14 @@ The user's storage must not fill up with debug output. Keep only what explains c
 
 - **Cold thumbnails are slow without an embedded EXIF thumbnail.** BitmapFactory 1/8 over FUSE from the microSD took 0.4–1.9 s per 16 MP JPEG (2026-11-04, measured while GC Camera's preview was running), so the first pass over an existing folder takes a while. The disk cache makes it a one-time cost. The fix is GC Camera embedding a ~320x240 thumbnail (agreed with the camera session). Still possible: a third worker, or a pre-warm job while charging.
 - **Star ratings fall back to a full rewrite** (ExifInterface `saveAttributes`, seconds over FUSE) when a JPEG has no XMP packet with padding. That covers every shot taken before GC Camera writes `xmp:Rating` + padding (agreed). A DNG without room keeps the rating only in the gallery's `RatingStore`.
-- **No screen rotation for portrait viewing.** The UI is fixed landscape. The camera's in-place control rotation (OrientationSensor) is not ported yet, so a portrait photo is shown small.
+- **Wi-Fi transfer** (2026-11-14):
+  - **The page's trash needs the SYSTEM_GALLERY role** (`config_systemGallery`, gd1 2a21912). Without it, `update(IS_TRASHED)` on GC Camera's files throws, and the MANAGE_MEDIA request sent from the service never completes (a background activity start). Not yet verified with the role; the log line is "trash: N files directly".
+  - **About 2.5-2.8 MB/s** over 2.4 GHz (72 Mbps link), measured with the screen on. A 40 MB JPEG+DNG pair takes ~15 s. TLS runs on the A9 without AES instructions; not measured whether the CPU or the radio sets the limit.
+  - **With the screen off**, the transfer holds a partial wake lock plus `WIFI_MODE_FULL_HIGH_PERF`, which Android 14 accounts as a low-latency lock. Screen-off throughput is not measured yet.
+  - **The mDNS responder** answers A queries for `gc100.local` / `gc200.local` only: no probing or conflict handling (two cameras of the same model on one network would collide), no AAAA/NSEC. Resolution was checked from Windows 11, not yet from a phone.
+  - **The first start makes the certificate in ~3.5 s** (EC key + PKCS12 on the A9); later starts reuse it until the name or the address changes.
+  - **The tile starts the service through an invisible activity** (`TransferStartActivity`): Android 14 refuses a foreground-service start from a tile of a background app.
+  - **Firefox and Safari** have no `showDirectoryPicker`: the page falls back to one download per file, remembered in the browser's localStorage, not in a folder.
 - **The camera folder is recognised by name**: any `DCIM/GC<3 digits>/` (`MediaIndex.isCameraFolder`). GC Camera's folder name is a setting, so a renamed folder shows as a plain album.
 - **The thumbnail grid uses MediaStore's DATE_TAKEN for day sections**; pictures without it fall back to DATE_MODIFIED.
 - **The trash relies on MediaProvider's idle maintenance** for the 30-day expiry. It is not verified that it runs on this ROM.

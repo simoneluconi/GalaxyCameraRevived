@@ -143,4 +143,28 @@
     <string name="value_metering_matrix">Matrix</string>
     <string name="value_upright">Upright</string>
     <string name="value_mirrored">mirrored</string>
+
+    <!-- Wi-Fi transfer -->
+    <string name="transfer_title">Wi-Fi transfer</string>
+    <string name="transfer_starting">Starting…</string>
+    <string name="transfer_on">On</string>
+    <string name="transfer_off">Off</string>
+    <string name="transfer_start">Start</string>
+    <string name="transfer_stop">Stop</string>
+    <string name="transfer_notification" translatable="false">%1$s · %2$s</string>
+    <string name="transfer_sent">%1$d files sent, %2$s</string>
+    <string name="transfer_or_ip">If the name does not open: %s</string>
+    <string name="transfer_hint">Chrome or Edge on the same Wi-Fi. Self-signed certificate: accept it once. Stops after 10 idle minutes.</string>
+    <string name="transfer_password_off">No password: anyone on this Wi-Fi can open it</string>
+    <string name="transfer_password_on">Password on</string>
+    <string name="transfer_set_password">Set password</string>
+    <string name="transfer_change_password">Change password</string>
+    <string name="transfer_remove_password">Remove password</string>
+    <string name="transfer_new_password">New password</string>
+    <string name="transfer_save">Save</string>
+    <string name="transfer_stopped_idle">Stopped after 10 idle minutes</string>
+    <string name="transfer_stopped_wifi">Stopped: Wi-Fi is off</string>
+    <string name="transfer_no_wifi">Connect to Wi-Fi first</string>
+    <string name="transfer_failed">The transfer could not start</string>
+    <string name="transfer_about">Copy photos to a computer on the same Wi-Fi, from the browser.</string>
 </resources>

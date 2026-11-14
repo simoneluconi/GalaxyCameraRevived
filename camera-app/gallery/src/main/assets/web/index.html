@@ -1,0 +1,671 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- GC Gallery's Wi-Fi transfer page: served by the camera, it copies photos into a folder on this computer -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>GC Gallery</title>
+<style>
+:root {
+  --bg: #F3F4F6; --surface: #FFFFFF; --variant: #E8EAEE; --text: #1A1C20; --muted: #6B7280;
+  --outline: #D5D8DE; --accent: #2563EB; --on-accent: #FFFFFF; --ok: #16A34A; --error: #DC2626;
+  --glass: rgb(255 255 255 / .82); --shadow: 0 1px 2px rgb(0 0 0 / .06), 0 8px 24px rgb(0 0 0 / .08);
+  --radius: 18px; --gap: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0F1013; --surface: #181A1E; --variant: #25282D; --text: #ECEEF1; --muted: #9CA3AF;
+    --outline: #30343A; --accent: #5B8DEF; --on-accent: #0B1530; --ok: #4ADE80; --error: #F87171;
+    --glass: rgb(24 26 30 / .82); --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 8px 28px rgb(0 0 0 / .45);
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; }
+[hidden] { display: none !important; }
+svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
+.num { font-variant-numeric: tabular-nums; }
+
+button { font: inherit; font-weight: 600; border: 0; border-radius: 999px; height: 40px; padding: 0 16px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; color: var(--accent); background: transparent;
+  transition: background-color .15s, color .15s, opacity .15s, transform .1s; }
+button:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+button:active { transform: scale(.97); }
+button.tonal { background: var(--variant); }
+button.primary { background: var(--accent); color: var(--on-accent); box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 35%, transparent); }
+button.primary:hover { background: color-mix(in srgb, var(--accent) 88%, black); }
+button:disabled { opacity: .4; cursor: default; transform: none; box-shadow: none; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* PIN */
+#login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+#login form { width: min(400px, 100%); background: var(--surface); border-radius: 24px; padding: 32px; box-shadow: var(--shadow); text-align: center; }
+#login .logo { width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 16px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+#login .logo svg { width: 30px; height: 30px; }
+#login h1 { font-size: 22px; margin: 0 0 4px; }
+#login p { color: var(--muted); margin: 0 0 22px; }
+#pw { width: 100%; height: 52px; font: 500 18px/1 system-ui, sans-serif; padding: 0 16px;
+  border: 1.5px solid var(--outline); border-radius: 14px; background: var(--bg); color: var(--text); }
+#pw:focus { border-color: var(--accent); outline: none; }
+#loginError { color: var(--error); min-height: 22px; margin: 10px 0 6px; font-weight: 500; }
+#login button { width: 100%; height: 48px; justify-content: center; font-size: 15px; }
+
+/* Top bar */
+.top { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 12px; padding: 12px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+  background: var(--glass); backdrop-filter: saturate(1.4) blur(16px); -webkit-backdrop-filter: saturate(1.4) blur(16px);
+  border-bottom: 1px solid color-mix(in srgb, var(--outline) 60%, transparent); }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+.brand .mark { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; flex: none;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.brand b { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand small { display: block; color: var(--muted); font-size: 12.5px; }
+.seg { display: inline-flex; background: var(--variant); border-radius: 999px; padding: 3px; flex: none; }
+.seg button { height: 32px; padding: 0 14px; color: var(--muted); }
+.seg button.on { background: var(--surface); color: var(--accent); box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+
+#notice { margin: 16px auto 0; width: min(1400px, calc(100% - 32px)); padding: 12px 16px; border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--text); }
+
+/* Grid */
+main { width: min(1400px, 100%); margin: 0 auto; padding: 4px 16px 140px; }
+.day { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 22px 2px 10px; }
+.day h2 { font-size: 15px; font-weight: 650; margin: 0; }
+.day h2::first-letter { text-transform: uppercase; }
+.day button { height: 30px; padding: 0 12px; font-size: 12.5px; }
+.day span { color: var(--muted); font-size: 12.5px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(clamp(104px, 16vw, 190px), 1fr)); gap: var(--gap); }
+figure { position: relative; margin: 0; aspect-ratio: 1; border-radius: 12px; overflow: hidden; cursor: pointer; background: var(--variant);
+  user-select: none; -webkit-tap-highlight-color: transparent; }
+figure img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease, opacity .3s; opacity: 0; }
+figure img.in { opacity: 1; }
+@media (hover: hover) { figure:hover img { transform: scale(1.04); } }
+figure::before { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: 12px; pointer-events: none;
+  box-shadow: inset 0 0 0 0 var(--accent); transition: box-shadow .15s; }
+figure.sel::before { box-shadow: inset 0 0 0 3px var(--accent); }
+figure.none img { filter: grayscale(1) brightness(.55); }
+figure.sel img { transform: scale(.92); border-radius: 8px; }
+.tick { position: absolute; top: 8px; left: 8px; z-index: 2; width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / .9); background: rgb(0 0 0 / .18); opacity: 0; transition: opacity .15s; display: grid; place-items: center; }
+.tick svg { width: 16px; height: 16px; fill: var(--on-accent); opacity: 0; }
+@media (hover: hover) { figure:hover .tick { opacity: 1; } }
+.selecting .tick, figure.sel .tick { opacity: 1; }
+figure.sel .tick { background: var(--accent); border-color: var(--accent); }
+figure.sel .tick svg { opacity: 1; }
+.shade { position: absolute; inset: auto 0 0 0; height: 46px; z-index: 1; pointer-events: none;
+  background: linear-gradient(transparent, rgb(0 0 0 / .45)); }
+.badges { position: absolute; left: 8px; bottom: 7px; z-index: 2; display: flex; gap: 4px; }
+.badge { font: 700 10px/1 system-ui; padding: 4px 6px; border-radius: 6px; background: rgb(0 0 0 / .55); color: #fff; letter-spacing: .03em; }
+.badge.done { background: var(--ok); color: #04210f; }
+figcaption { position: absolute; right: 8px; bottom: 7px; z-index: 2; font-size: 11px; color: #fff; font-variant-numeric: tabular-nums; }
+.empty { color: var(--muted); text-align: center; padding: 18vh 0; font-size: 15px; }
+
+/* Dock */
+.dock { position: fixed; z-index: 4; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  width: min(1100px, calc(100% - 32px)); padding: 8px; border-radius: 24px; background: var(--glass); box-shadow: var(--shadow);
+  backdrop-filter: saturate(1.4) blur(18px); -webkit-backdrop-filter: saturate(1.4) blur(18px);
+  border: 1px solid color-mix(in srgb, var(--outline) 60%, transparent); }
+.row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.row .grow { flex: 1; }
+#folderBtn { max-width: 320px; }
+#trashSel { color: var(--error); }
+#trashSel:hover { background: color-mix(in srgb, var(--error) 12%, transparent); }
+#folderBtn span { overflow: hidden; text-overflow: ellipsis; }
+#kinds button { height: 34px; padding: 0 12px; }
+#progress { padding: 6px 10px 10px; }
+#progress .line { display: flex; align-items: center; gap: 12px; }
+#pName { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pNums { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.bar { height: 6px; border-radius: 3px; background: var(--variant); margin-top: 8px; overflow: hidden; }
+.bar div { height: 100%; width: 0; border-radius: 3px; background: var(--accent); transition: width .25s ease; }
+.bar.ok div { background: var(--ok); }
+
+@media (max-width: 720px) {
+  .top { padding-top: 10px; padding-bottom: 10px; }
+  .brand small { display: none; }
+  main { padding: 0 8px 190px; }
+  :root { --gap: 3px; }
+  figure, figure::before { border-radius: 8px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .dock { width: 100%; bottom: 0; border-radius: 22px 22px 0 0; padding: 10px 10px max(10px, env(safe-area-inset-bottom)); border-width: 1px 0 0; }
+  .row .grow { display: none; }
+  #folderBtn { flex: 1; max-width: none; }
+  #selAllLabel, #trashLabel { display: none; }
+  #selAll, #trashSel { padding: 0 10px; }
+  #copyNew { flex: 1 1 100%; justify-content: center; height: 46px; }
+  #pNums { display: none; }
+}
+</style>
+</head>
+<body>
+
+<svg hidden xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M12 8.8a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 1 1 0-6.4zM9 2 7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol>
+  <symbol id="i-all" viewBox="0 0 24 24"><path d="M3 5h2V3c-1.1 0-2 .9-2 2zm0 8h2v-2H3v2zm4 8h2v-2H7v2zM3 9h2V7H3v2zm10-6h-2v2h2V3zm6 0v2h2c0-1.1-.9-2-2-2zM5 21v-2H3c0 1.1.9 2 2 2zm-2-4h2v-2H3v2zM9 3H7v2h2V3zm2 18h2v-2h-2v2zm8-8h2v-2h-2v2zm0 8c1.1 0 2-.9 2-2h-2v2zm0-12h2V7h-2v2zm0 8h2v-2h-2v2zm-4 4h2v-2h-2v2zm0-16h2V3h-2v2zM7 17h10V7H7v10zm2-8h6v6H9V9z"/></symbol>
+</svg>
+
+<div id="login" hidden>
+  <form id="loginForm">
+    <div class="logo"><svg><use href="#i-cam"/></svg></div>
+    <h1 id="loginTitle">Galaxy Camera</h1>
+    <p data-t="pwHint"></p>
+    <input id="pw" type="password" autocomplete="current-password" autofocus>
+    <div id="loginError"></div>
+    <button class="primary" data-t="pwGo"></button>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="brand">
+      <div class="mark"><svg><use href="#i-cam"/></svg></div>
+      <div style="min-width:0"><b id="camera"></b><small id="count" class="num"></small></div>
+    </div>
+    <div class="seg" id="storage"></div>
+  </header>
+  <div id="notice" hidden></div>
+  <main id="grid"></main>
+  <div class="dock">
+    <div id="progress" hidden>
+      <div class="line"><div id="pName"></div><div id="pNums" class="num"></div><button id="cancel" class="tonal" data-t="cancel"></button></div>
+      <div class="bar" id="pBarBox"><div id="pBar"></div></div>
+    </div>
+    <div class="row" id="actions">
+      <button id="folderBtn" class="tonal"><svg><use href="#i-folder"/></svg><span id="folderLabel"></span></button>
+      <div class="seg" id="kinds" role="radiogroup"></div>
+      <div class="grow"></div>
+      <button id="selAll"><svg><use href="#i-all"/></svg><span id="selAllLabel"></span></button>
+      <button id="trashSel" class="tonal"><svg><use href="#i-trash"/></svg><span id="trashLabel"></span></button>
+      <button id="copySel" class="tonal"></button>
+      <button id="copyNew" class="primary"><svg><use href="#i-down"/></svg><span id="copyNewLabel"></span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const T = {
+  en: {
+    pwHint: "This camera has a password", pwGo: "Open", pwWrong: "Wrong password", pwLocked: "Too many tries: wait a minute",
+    trash: n => `Move to trash`, trashQ: n => `Move ${n} photos (with their RAW files) to the camera's trash? GC Gallery can restore them.`,
+    trashed: n => `${n} photos moved to the camera's trash`, trashDenied: "The camera did not allow moving photos to the trash",
+    chooseFolder: "Choose folder", useFolder: n => `Use “${n}”`,
+    selectAll: "Select all", selectNone: "Clear", cancel: "Cancel", selectDay: "Select",
+    copyNew: n => n ? `Copy ${n} new` : "All copied", copySel: n => `Copy ${n}`,
+    downloadNew: n => n ? `Download ${n} new` : "All downloaded", downloadSel: n => `Download ${n}`,
+    sd: "SD", internal: "Internal", photos: (n, r, s) => `${n} photos · ${r} RAW · ${s}`, empty: "No photos here",
+    both: "JPEG + RAW", jpeg: "JPEG", raw: "RAW",
+    noApi: "This browser can only download the photos one by one. Chrome and Edge copy them into a folder and skip what is already there.",
+    copying: (i, n) => `${i} / ${n}`, done: (n, s) => n ? `Copied ${n} files · ${s}` : "Nothing to copy", failed: e => `Stopped: ${e}`,
+    today: "Today", yesterday: "Yesterday", lost: "the camera asks for its password again",
+  },
+  it: {
+    pwHint: "Questa fotocamera ha una password", pwGo: "Apri", pwWrong: "Password sbagliata", pwLocked: "Troppi tentativi: aspetta un minuto",
+    trash: n => `Cestina`, trashQ: n => `Spostare ${n} foto (con i loro RAW) nel cestino della fotocamera? Si possono ripristinare da GC Gallery.`,
+    trashed: n => `${n} foto spostate nel cestino della fotocamera`, trashDenied: "La fotocamera non ha permesso di spostare le foto nel cestino",
+    chooseFolder: "Scegli cartella", useFolder: n => `Usa “${n}”`,
+    selectAll: "Seleziona tutto", selectNone: "Deseleziona", cancel: "Annulla", selectDay: "Seleziona",
+    copyNew: n => n ? `Copia ${n} nuove` : "Tutto copiato", copySel: n => `Copia ${n}`,
+    downloadNew: n => n ? `Scarica ${n} nuove` : "Tutto scaricato", downloadSel: n => `Scarica ${n}`,
+    sd: "SD", internal: "Interna", photos: (n, r, s) => `${n} foto · ${r} RAW · ${s}`, empty: "Nessuna foto qui",
+    both: "JPEG + RAW", jpeg: "JPEG", raw: "RAW",
+    noApi: "Questo browser può solo scaricare le foto una alla volta. Chrome ed Edge le copiano in una cartella e saltano quelle che ci sono già.",
+    copying: (i, n) => `${i} / ${n}`, done: (n, s) => n ? `Copiati ${n} file · ${s}` : "Niente da copiare", failed: e => `Interrotto: ${e}`,
+    today: "Oggi", yesterday: "Ieri", lost: "la fotocamera chiede di nuovo la password",
+  },
+};
+const L = T[(navigator.language || "en").slice(0, 2)] || T.en;
+document.documentElement.lang = L === T.it ? "it" : "en";
+const $ = id => document.getElementById(id);
+for (const el of document.querySelectorAll("[data-t]")) el.textContent = L[el.dataset.t];
+
+const canWrite = typeof window.showDirectoryPicker === "function";
+let photos = [], storage = "sd", dir = null, savedDir = null;
+/** name -> size of what the chosen folder holds. */
+let inFolder = new Map();
+const selected = new Set();
+let lastClicked = null, busy = false, controller = null;
+const downloaded = new Set(JSON.parse(localStorage.getItem("gc-downloaded") || "[]"));
+
+function size(b) {
+  return b >= 1e9 ? (b / 1e9).toFixed(2) + " GB" : b >= 1e6 ? (b / 1e6).toFixed(1) + " MB" : Math.round(b / 1e3) + " kB";
+}
+
+// --- Server
+
+async function api(path, init) {
+  const r = await fetch(path, Object.assign({ cache: "no-store", credentials: "same-origin" }, init));
+  if (r.status === 401) { showLogin(); throw new Error("pin"); }
+  return r;
+}
+
+/** POSTs carry X-GC: the server refuses any without it, so other sites cannot post here. */
+const post = (path, body) => api(path, { method: "POST", headers: { "Content-Type": "application/json", "X-GC": "1" }, body: JSON.stringify(body) });
+
+function showLogin() {
+  $("app").hidden = true;
+  $("login").hidden = false;
+  $("pw").value = "";
+  $("pw").focus();
+}
+
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = e.submitter || $("loginForm").querySelector("button");
+  btn.disabled = true;
+  try {
+    const r = await post("/api/login", { password: $("pw").value });
+    if (r.status === 204) { $("loginError").textContent = ""; $("login").hidden = true; load(); return; }
+    $("loginError").textContent = r.status === 429 ? L.pwLocked : L.pwWrong;
+    $("pw").select();
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+async function load() {
+  let j;
+  try { j = await (await api("/api/photos")).json(); } catch (e) { return; }
+  photos = j.photos;
+  $("camera").textContent = j.camera;
+  $("loginTitle").textContent = j.camera;
+  document.title = `${j.camera} · GC Gallery`;
+  const stores = ["sd", "internal"].filter(s => photos.some(p => p.storage === s));
+  if (!stores.includes(storage)) storage = stores[0] || "sd";
+  const seg = $("storage");
+  seg.replaceChildren(...stores.map(s => {
+    const b = document.createElement("button");
+    b.textContent = L[s];
+    b.className = s === storage ? "on" : "";
+    b.onclick = () => { if (busy || s === storage) return; storage = s; selected.clear(); load(); };
+    return b;
+  }));
+  seg.hidden = stores.length < 2;
+  $("app").hidden = false;
+  if (!canWrite) { $("notice").textContent = L.noApi; $("notice").hidden = false; }
+  buildKinds();
+  render();
+}
+
+// --- What there is to copy
+
+const visible = () => photos.filter(p => p.storage === storage);
+
+/** What to copy: "both", "jpeg" or "raw", remembered in this browser. */
+let kind = localStorage.getItem("gc-kind") || "both";
+if (!["both", "jpeg", "raw"].includes(kind)) kind = "both";
+
+function buildKinds() {
+  $("kinds").replaceChildren(...["both", "jpeg", "raw"].map(k => {
+    const b = document.createElement("button");
+    b.textContent = L[k];
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-checked", String(k === kind));
+    b.className = k === kind ? "on" : "";
+    b.onclick = () => {
+      if (busy || k === kind) return;
+      kind = k;
+      localStorage.setItem("gc-kind", k);
+      buildKinds();
+      render();
+    };
+    return b;
+  }));
+}
+
+const isDng = name => /\.dng$/i.test(name);
+
+/**
+ * The files of one item for the chosen [kind]: the JPEG, its DNG, or both. A DNG on its own
+ * counts as RAW; a JPEG without a DNG gives nothing in RAW-only mode.
+ */
+function filesOf(p, k = kind) {
+  const main = { id: p.id, name: p.name, size: p.size };
+  const jpeg = isDng(p.name) ? null : main;
+  const raw = p.raw ? { id: p.raw.id, name: p.raw.name, size: p.raw.size } : jpeg ? null : main;
+  return (k === "jpeg" ? [jpeg] : k === "raw" ? [raw] : [jpeg, raw]).filter(Boolean);
+}
+
+const hasFiles = p => filesOf(p).length > 0;
+const rawCount = list => list.filter(p => p.raw || isDng(p.name)).length;
+
+/** Another photo with the same name (the camera's counter restarted): saved next to it, never over it. */
+function altName(name, taken) {
+  const d = new Date(taken), z = n => String(n).padStart(2, "0");
+  const stamp = `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`;
+  const dot = name.lastIndexOf(".");
+  return dot < 0 ? `${name}_${stamp}` : `${name.slice(0, dot)}_${stamp}${name.slice(dot)}`;
+}
+
+function fileDone(f, p) {
+  if (!canWrite) return downloaded.has(f.id);
+  return inFolder.get(f.name) === f.size || inFolder.get(altName(f.name, p.taken)) === f.size;
+}
+
+/** Everything of the chosen kind is in the folder; false for an item with nothing of that kind. */
+const isDone = p => hasFiles(p) && filesOf(p).every(f => fileDone(f, p));
+/** Has something of the chosen kind still to copy. */
+const isNew = p => hasFiles(p) && !isDone(p);
+const bytesOf = list => list.reduce((a, p) => a + filesOf(p).reduce((b, f) => b + f.size, 0), 0);
+
+// --- Grid
+
+function dayTitle(t) {
+  const d = new Date(t), now = new Date(), y = new Date(now - 864e5);
+  if (d.toDateString() === now.toDateString()) return L.today;
+  if (d.toDateString() === y.toDateString()) return L.yesterday;
+  return d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+
+function render() {
+  const list = visible();
+  const main = $("grid");
+  main.replaceChildren();
+  if (!list.length) {
+    const e = document.createElement("div");
+    e.className = "empty";
+    e.textContent = L.empty;
+    main.append(e);
+  }
+  const days = new Map();
+  for (const p of list) {
+    const key = new Date(p.taken).toDateString();
+    if (!days.has(key)) days.set(key, []);
+    days.get(key).push(p);
+  }
+  for (const items of days.values()) {
+    const head = document.createElement("div");
+    head.className = "day";
+    const h = document.createElement("h2");
+    h.textContent = dayTitle(items[0].taken);
+    const right = document.createElement("div");
+    const count = document.createElement("span");
+    count.className = "num";
+    count.textContent = `${items.length} · ${size(bytesOf(items))}`;
+    const pick = document.createElement("button");
+    pick.textContent = L.selectDay;
+    pick.onclick = () => {
+      const all = items.every(p => selected.has(p.id));
+      for (const p of items) all ? selected.delete(p.id) : selected.add(p.id);
+      update();
+    };
+    right.append(pick, count);
+    head.append(h, right);
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    grid.append(...items.map(tile));
+    main.append(head, grid);
+  }
+  update();
+}
+
+function tile(p) {
+  const f = document.createElement("figure");
+  f.dataset.id = p.id;
+  f.title = p.name + (p.raw ? " + " + p.raw.name : "");
+  const img = document.createElement("img");
+  img.loading = "lazy";
+  img.decoding = "async";
+  img.alt = p.name;
+  img.onload = () => img.classList.add("in");
+  img.src = `/thumb/${p.id}?v=${p.m}`;
+  const tick = document.createElement("div");
+  tick.className = "tick";
+  tick.innerHTML = '<svg><use href="#i-check"/></svg>';
+  const shade = document.createElement("div");
+  shade.className = "shade";
+  const badges = document.createElement("div");
+  badges.className = "badges";
+  const cap = document.createElement("figcaption");
+  cap.textContent = p.name.replace(/\.[^.]+$/, "").replace(/^[A-Z]+\d*_/, "");
+  f.append(img, tick, shade, badges, cap);
+  f.onclick = e => toggle(p, e.shiftKey);
+  return f;
+}
+
+function toggle(p, range) {
+  const list = visible();
+  if (range && lastClicked != null) {
+    const a = list.findIndex(x => x.id === lastClicked), b = list.findIndex(x => x.id === p.id);
+    const on = !selected.has(p.id);
+    for (let i = Math.min(a, b); i <= Math.max(a, b); i++) on ? selected.add(list[i].id) : selected.delete(list[i].id);
+  } else {
+    selected.has(p.id) ? selected.delete(p.id) : selected.add(p.id);
+  }
+  lastClicked = p.id;
+  update();
+}
+
+/** Badges, selection and the buttons, without rebuilding the grid. */
+function update() {
+  const list = visible();
+  const byId = new Map(list.map(p => [String(p.id), p]));
+  const known = dir || !canWrite;
+  for (const f of document.querySelectorAll("figure")) {
+    const p = byId.get(f.dataset.id);
+    if (!p) continue;
+    f.classList.toggle("sel", selected.has(p.id));
+    // Nothing of the chosen kind (a JPEG without DNG in RAW-only mode): shown, but dimmed
+    f.classList.toggle("none", !hasFiles(p));
+    const b = f.querySelector(".badges");
+    const done = known && isDone(p);
+    const k = (p.raw ? "R" : "") + (done ? "D" : "");
+    if (b.dataset.k === k) continue;
+    b.dataset.k = k;
+    b.replaceChildren();
+    if (p.raw) b.append(badge("RAW"));
+    if (done) b.append(badge("✓", "done"));
+  }
+  const sel = list.filter(p => selected.has(p.id));
+  $("grid").classList.toggle("selecting", sel.length > 0);
+  $("count").textContent = L.photos(list.length, rawCount(list), size(bytesOf(list)));
+  const fresh = list.filter(isNew);
+  const ready = canWrite ? !!dir : true;
+  $("copyNewLabel").textContent = !ready ? L.copyNew(list.length) : canWrite ? L.copyNew(fresh.length) : L.downloadNew(fresh.length);
+  $("copyNew").disabled = busy || !ready || !fresh.length;
+  $("copyNew").title = ready && fresh.length ? size(bytesOf(fresh)) : "";
+  $("copySel").textContent = canWrite ? L.copySel(sel.length) : L.downloadSel(sel.length);
+  $("copySel").hidden = !sel.length;
+  $("copySel").disabled = busy || !ready;
+  $("trashSel").hidden = !sel.length;
+  $("trashSel").disabled = busy;
+  $("trashLabel").textContent = L.trash(sel.length);
+  $("selAllLabel").textContent = sel.length && sel.length === list.length ? L.selectNone : L.selectAll;
+  $("folderBtn").hidden = !canWrite;
+  $("folderLabel").textContent = dir ? dir.name : savedDir ? L.useFolder(savedDir.name) : L.chooseFolder;
+  $("folderBtn").className = dir || busy ? "tonal" : "primary";
+  $("folderBtn").disabled = busy;
+  for (const b of $("kinds").children) b.disabled = busy;
+}
+
+function badge(text, cls) {
+  const s = document.createElement("span");
+  s.className = "badge" + (cls ? " " + cls : "");
+  s.textContent = text;
+  return s;
+}
+
+$("selAll").onclick = () => {
+  const list = visible();
+  const all = list.length && list.every(p => selected.has(p.id));
+  for (const p of list) all ? selected.delete(p.id) : selected.add(p.id);
+  update();
+};
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && selected.size && !busy) { selected.clear(); update(); }
+});
+
+// --- The folder, kept between visits (IndexedDB holds the handle; the browser asks again for access)
+
+function idb(mode, fn) {
+  return new Promise((ok, fail) => {
+    const open = indexedDB.open("gc-gallery", 1);
+    open.onupgradeneeded = () => open.result.createObjectStore("kv");
+    open.onerror = () => fail(open.error);
+    open.onsuccess = () => {
+      const tx = open.result.transaction("kv", mode);
+      const req = fn(tx.objectStore("kv"));
+      tx.oncomplete = () => { open.result.close(); ok(req.result); };
+      tx.onerror = () => { open.result.close(); fail(tx.error); };
+    };
+  });
+}
+
+async function useFolder(handle) {
+  dir = handle;
+  inFolder = new Map();
+  update();
+  for await (const [name, h] of dir.entries()) {
+    if (h.kind === "file") inFolder.set(name, (await h.getFile()).size);
+  }
+  update();
+}
+
+$("folderBtn").onclick = async () => {
+  try {
+    if (!dir && savedDir && await savedDir.requestPermission({ mode: "readwrite" }) === "granted") return useFolder(savedDir);
+    const h = await showDirectoryPicker({ id: "gc-gallery", mode: "readwrite", startIn: "pictures" });
+    savedDir = h;
+    await idb("readwrite", s => s.put(h, "dir")).catch(() => {});
+    await useFolder(h);
+  } catch (e) {
+    if (e.name !== "AbortError") alert(e.message);
+  }
+};
+
+async function restoreFolder() {
+  if (!canWrite) return;
+  savedDir = await idb("readonly", s => s.get("dir")).catch(() => null) || null;
+  if (savedDir && await savedDir.queryPermission({ mode: "readwrite" }) === "granted") await useFolder(savedDir);
+}
+
+// --- Copying
+
+$("trashSel").onclick = async () => {
+  const list = visible().filter(p => selected.has(p.id));
+  if (!list.length || !confirm(L.trashQ(list.length))) return;
+  busy = true;
+  update();
+  try {
+    const r = await post("/api/trash", { ids: list.map(p => p.id) });
+    if (!r.ok) throw new Error(L.trashDenied);
+    const gone = new Set(list.map(p => p.id));
+    photos = photos.filter(p => !gone.has(p.id));
+    for (const id of gone) selected.delete(id);
+    $("progress").hidden = false;
+    $("cancel").hidden = true;
+    $("pBarBox").hidden = true;
+    $("pNums").textContent = "";
+    $("pName").textContent = L.trashed(list.length);
+  } catch (e) {
+    if (e.message !== "pin") alert(e.message);
+  } finally {
+    busy = false;
+    render();
+  }
+};
+
+$("copyNew").onclick = () => copy(visible().filter(isNew));
+$("copySel").onclick = () => copy(visible().filter(p => selected.has(p.id)));
+$("cancel").onclick = () => controller && controller.abort();
+
+async function copy(items) {
+  const jobs = [];
+  for (const p of items) for (const f of filesOf(p)) if (!fileDone(f, p)) jobs.push({ f, p });
+  if (!canWrite) return download(jobs);
+  busy = true;
+  controller = new AbortController();
+  update();
+  const total = jobs.reduce((a, j) => a + j.f.size, 0) || 1;
+  let doneBytes = 0, count = 0;
+  const t0 = performance.now();
+  $("progress").hidden = false;
+  $("pBarBox").hidden = false;
+  $("pBarBox").classList.remove("ok");
+  $("cancel").hidden = false;
+  const show = (name, i) => {
+    const secs = (performance.now() - t0) / 1000, speed = doneBytes / Math.max(secs, .1);
+    const eta = speed > 0 ? Math.round((total - doneBytes) / speed) : 0;
+    $("pName").textContent = name;
+    $("pNums").textContent = `${L.copying(i, jobs.length)} · ${size(doneBytes)} / ${size(total)} · ${size(speed)}/s` +
+      (eta > 5 ? ` · ${Math.floor(eta / 60)}:${String(eta % 60).padStart(2, "0")}` : "");
+    $("pBar").style.width = (100 * doneBytes / total).toFixed(1) + "%";
+  };
+  try {
+    for (const [i, { f, p }] of jobs.entries()) {
+      show(f.name, i + 1);
+      await copyFile(f, p, controller.signal, n => { doneBytes += n; show(f.name, i + 1); });
+      count++;
+      selected.delete(p.id);
+      update();
+    }
+    $("pName").textContent = L.done(count, size(doneBytes));
+    $("pBarBox").classList.add("ok");
+  } catch (e) {
+    $("pName").textContent = e.name === "AbortError" ? L.done(count, size(doneBytes)) : L.failed(e.message === "pin" ? L.lost : e.message);
+  } finally {
+    busy = false;
+    controller = null;
+    $("cancel").hidden = true;
+    $("pNums").textContent = "";
+    update();
+  }
+}
+
+async function copyFile(f, p, signal, progress) {
+  const target = inFolder.has(f.name) ? altName(f.name, p.taken) : f.name;
+  const existed = inFolder.has(target);
+  const fh = await dir.getFileHandle(target, { create: true });
+  // Written to a swap file and swapped in on close: an interrupted copy leaves nothing half-done
+  const w = await fh.createWritable();
+  let got = 0;
+  try {
+    const r = await api(`/file/${f.id}`, { signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const reader = r.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      await w.write(value);
+      got += value.length;
+      progress(value.length);
+    }
+    if (got !== f.size) throw new Error(`${f.name}: ${got} / ${f.size} bytes`);
+    await w.close();
+    inFolder.set(target, f.size);
+  } catch (e) {
+    progress(-got);
+    await w.abort().catch(() => {});
+    // getFileHandle made an empty file: take it away again, or the name would look taken
+    if (!existed) await dir.removeEntry(target).catch(() => {});
+    throw e;
+  }
+}
+
+/** Without a folder to write into: one download per file, remembered in this browser. */
+async function download(jobs) {
+  for (const { f } of jobs) {
+    const a = document.createElement("a");
+    a.href = `/file/${f.id}`;
+    a.download = f.name;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    downloaded.add(f.id);
+    await new Promise(r => setTimeout(r, 400));
+  }
+  localStorage.setItem("gc-downloaded", JSON.stringify([...downloaded]));
+  update();
+}
+
+restoreFolder().finally(load);
+</script>
+</body>
+</html>

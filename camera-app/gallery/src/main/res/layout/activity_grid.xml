@@ -77,6 +77,13 @@
             android:visibility="gone" />
 
         <ImageButton
+            android:id="@+id/transfer"
+            style="@style/BarButton"
+            android:layout_marginStart="4dp"
+            android:contentDescription="@string/transfer_title"
+            android:src="@drawable/ic_wifi_transfer" />
+
+        <ImageButton
             android:id="@+id/camera"
             style="@style/BarButton"
             android:layout_marginStart="4dp"
