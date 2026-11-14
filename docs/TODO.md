@@ -49,6 +49,12 @@ The user's storage must not fill up with debug output. Keep only what explains c
   - **The page's viewer loads the original JPEG** (3.5-8 MB, ~4 s at these speeds) after the thumbnail. A screen-size version made on the camera would be faster to show but costs the A9 a decode and an encode per photo.
   - **A lone DNG in the viewer** shows its embedded ISP JPEG without the DNG's Orientation applied (GC Camera always writes the JPEG too, so this is rare).
   - **No stars or rotation on the page yet**: like the trash, they write GC Camera's files, so they wait for the SYSTEM_GALLERY role to be verified.
+  - **Left from the code review of 2026-11-14** (the rest is fixed):
+    - a lone DNG's preview is read whole into memory for the viewer (up to 24 MB); stream it by offset instead if lone DNGs become common;
+    - `/api/photos` can answer an empty list if the index has not loaded yet (it loads in ~0.5 s, before the server is up in practice);
+    - the dated name for a different photo with the same name uses the browser's time zone, so a PC in another zone would not recognise its own earlier copies;
+    - the mDNS responder sends no NSEC for AAAA, so some resolvers wait for the AAAA query to time out;
+    - replies always say `Connection: keep-alive`, also when the server is about to close.
 - **The camera folder is recognised by name**: any `DCIM/GC<3 digits>/` (`MediaIndex.isCameraFolder`). GC Camera's folder name is a setting, so a renamed folder shows as a plain album.
 - **The thumbnail grid uses MediaStore's DATE_TAKEN for day sections**; pictures without it fall back to DATE_MODIFIED.
 - **The trash relies on MediaProvider's idle maintenance** for the 30-day expiry. It is not verified that it runs on this ROM.

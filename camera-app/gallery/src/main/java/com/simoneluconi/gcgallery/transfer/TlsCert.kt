@@ -40,8 +40,11 @@ object TlsCert {
     fun context(context: Context, host: String, address: Inet4Address): SSLContext {
         val file = File(context.filesDir, FILE)
         val ip = address.hostAddress ?: ""
-        val ks = load(file)?.takeIf { namesOf(it) == setOf(host, ip) } ?: make(host, address).also { ks ->
-            file.outputStream().use { ks.store(it, PASSWORD) }
+        val ks = load(file)?.takeIf { namesOf(it) == setOf(host, ip) && !expiresSoon(it) } ?: make(host, address).also { ks ->
+            // Written aside and renamed: a crash mid-write never leaves half a key store
+            val tmp = File(file.path + ".tmp")
+            tmp.outputStream().use { ks.store(it, PASSWORD) }
+            if (!tmp.renameTo(file)) throw java.io.IOException("cannot replace $file")
             Log.i(TAG, "new certificate for $host, $ip")
         }
         val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
@@ -52,6 +55,13 @@ object TlsCert {
     private fun load(file: File): KeyStore? = if (!file.exists()) null else runCatching {
         KeyStore.getInstance("PKCS12").apply { file.inputStream().use { load(it, PASSWORD) } }
     }.getOrNull()
+
+    /** Close to its end, or made before it carried serverAuth: time for a new one. */
+    private fun expiresSoon(ks: KeyStore): Boolean {
+        val cert = ks.getCertificate(ALIAS) as? X509Certificate ?: return true
+        if (runCatching { cert.extendedKeyUsage }.getOrNull()?.contains(OID_SERVER_AUTH) != true) return true
+        return cert.notAfter.time - System.currentTimeMillis() < RENEW_DAYS * DAY
+    }
 
     /** The DNS names and IP addresses in the certificate's subjectAltName. */
     private fun namesOf(ks: KeyStore): Set<String> {
@@ -68,6 +78,8 @@ object TlsCert {
         val ecdsaSha256 = Der.seq(Der.oid(OID_ECDSA_SHA256))
         // dNSName [2] and iPAddress [7]
         val san = Der.seq(Der.oid(OID_SAN), Der.octets(Der.seq(Der.tlv(0x82, host.toByteArray(Charsets.US_ASCII)), Der.tlv(0x87, address.address))))
+        // serverAuth: macOS and iOS refuse a trusted TLS certificate without it
+        val eku = Der.seq(Der.oid(OID_EKU), Der.octets(Der.seq(Der.oid(OID_SERVER_AUTH))))
         val tbs = Der.seq(
             Der.tlv(0xA0, Der.int(BigInteger.valueOf(2))),
             Der.int(BigInteger(1, ByteArray(16).also { SecureRandom().nextBytes(it) })),
@@ -76,7 +88,7 @@ object TlsCert {
             Der.seq(Der.time(now - DAY), Der.time(now + VALID_DAYS * DAY)),
             name,
             pair.public.encoded,
-            Der.tlv(0xA3, Der.seq(san)),
+            Der.tlv(0xA3, Der.seq(san, eku)),
         )
         val sig = Signature.getInstance("SHA256withECDSA").run {
             initSign(pair.private)
@@ -151,9 +163,13 @@ object TlsCert {
     private const val ALIAS = "gc"
     /** The file is private to the app; the password is only what PKCS12 requires. */
     private val PASSWORD = "gcgallery".toCharArray()
-    private const val VALID_DAYS = 3650L
+    /** Under Apple's 825-day ceiling for trusted TLS certificates; made again a month before. */
+    private const val VALID_DAYS = 820L
+    private const val RENEW_DAYS = 30L
     private const val DAY = 24L * 3600 * 1000
     private const val OID_CN = "2.5.4.3"
     private const val OID_SAN = "2.5.29.17"
+    private const val OID_EKU = "2.5.29.37"
+    private const val OID_SERVER_AUTH = "1.3.6.1.5.5.7.3.1"
     private const val OID_ECDSA_SHA256 = "1.2.840.10045.4.3.2"
 }

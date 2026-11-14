@@ -44,11 +44,14 @@ class TransferAuth(context: Context) {
      * token in one step: a login must not pass against the old password and keep its token
      * after a change.
      */
-    fun login(password: String): String? = synchronized(LOCK) {
-        val salt = prefs.getString(KEY_SALT, null)?.let(::unhex) ?: return null
-        val hash = prefs.getString(KEY_HASH, null)?.let(::unhex) ?: return null
-        if (!MessageDigest.isEqual(pbkdf2(password, salt), hash)) return null
-        newToken()
+    fun login(password: String): String? {
+        // PBKDF2 outside the lock, so other browsers' requests do not wait for it…
+        val (saltHex, hashHex) = synchronized(LOCK) {
+            (prefs.getString(KEY_SALT, null) ?: return null) to (prefs.getString(KEY_HASH, null) ?: return null)
+        }
+        if (!MessageDigest.isEqual(pbkdf2(password, unhex(saltHex)), unhex(hashHex))) return null
+        // …and the token only if the password is still the one just checked
+        return synchronized(LOCK) { if (prefs.getString(KEY_HASH, null) == hashHex) newToken() else null }
     }
 
     private fun pbkdf2(password: String, salt: ByteArray): ByteArray {
@@ -77,11 +80,20 @@ class TransferAuth(context: Context) {
 
     private fun sha256(s: String) = hex(MessageDigest.getInstance("SHA-256").digest(s.toByteArray()))
 
-    private fun hex(b: ByteArray) = b.joinToString("") { "%02x".format(it) }
+    private fun hex(b: ByteArray): String {
+        val out = CharArray(b.size * 2)
+        for (i in b.indices) {
+            val v = b[i].toInt() and 0xFF
+            out[i * 2] = HEX[v ushr 4]
+            out[i * 2 + 1] = HEX[v and 0x0F]
+        }
+        return String(out)
+    }
 
     private companion object {
         /** One for the process: the server and the screen each hold their own TransferAuth. */
         val LOCK = Any()
+        val HEX = "0123456789abcdef".toCharArray()
         const val KEY_HASH = "password_hash"
         const val KEY_SALT = "password_salt"
         const val KEY_TOKENS = "tokens"

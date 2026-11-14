@@ -38,9 +38,9 @@ import java.util.concurrent.Executors
 class TransferService : Service() {
 
     private val main = Handler(Looper.getMainLooper())
-    /** Certificate and socket set-up, then the server's stop; one per run, since stop() shuts it down. */
-    private var starter = newStarter()
     private var running: Running? = null
+    /** The latest start request: stopSelf with it, so a start that came in meanwhile keeps the service. */
+    private var startId = 0
     private var wake: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
     private var multicastLock: WifiManager.MulticastLock? = null
@@ -70,11 +70,15 @@ class TransferService : Service() {
 
     private val idleCheck = object : Runnable {
         override fun run() {
-            val r = running ?: return
-            if (r.server.streaming.get() == 0 && SystemClock.elapsedRealtime() - lastRequest > IDLE_MS) {
+            if (running == null) return
+            // Requests and every chunk of a copy count as use; a copy whose browser stopped
+            // reading (and so never ends) does not
+            if (SystemClock.elapsedRealtime() - lastRequest > IDLE_MS) {
                 stop(R.string.transfer_stopped_idle)
                 return
             }
+            // In use: the wake lock's safety timeout starts again, so a copy of many hours goes on
+            wake?.acquire(MAX_WAKE_MS)
             main.postDelayed(this, CHECK_MS)
         }
     }
@@ -82,22 +86,20 @@ class TransferService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        this.startId = startId
         if (intent?.action == ACTION_STOP) {
-            if (Transfer.state.phase == Transfer.Phase.OFF) stopSelf() else stop(0)
+            if (Transfer.state.phase == Transfer.Phase.OFF) stopSelf(startId) else stop(0)
             return START_NOT_STICKY
         }
         if (Transfer.state.phase == Transfer.Phase.OFF) begin()
         return START_NOT_STICKY
     }
 
-    private fun newStarter() = Executors.newSingleThreadExecutor { r -> Thread(r, "transfer-start") }
-
     private fun begin() {
         stopped = false
         files = 0
         bytes = 0
         val thisRun = ++run
-        if (starter.isShutdown) starter = newStarter()
         startForeground(NOTIFICATION, notification(getString(R.string.transfer_starting)), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         Transfer.update(Transfer.State(Transfer.Phase.STARTING))
         val (net, address) = wifi() ?: return stop(R.string.transfer_no_wifi)
@@ -140,7 +142,7 @@ class TransferService : Service() {
             override fun trash(photos: List<Photo>): Boolean = MediaTrash.trash(this@TransferService, photos)
         }
         val name = hostName()
-        starter.execute {
+        STARTER.execute {
             val r = try {
                 // The first time: an EC key and a certificate (~3.5 s on this CPU)
                 val ssl = TlsCert.context(this, "$name.local", address)
@@ -155,7 +157,7 @@ class TransferService : Service() {
             main.post {
                 when {
                     // Stopped (and maybe started again) while this one was being set up
-                    thisRun != run || stopped -> r?.let { Thread({ it.stop() }, "transfer-stop").start() }
+                    thisRun != run || stopped -> r?.let { STARTER.execute { it.stop() } }
                     r == null -> stop(R.string.transfer_failed)
                     else -> {
                         running = r
@@ -210,9 +212,9 @@ class TransferService : Service() {
         if (stopped) return
         stopped = true
         main.removeCallbacks(idleCheck)
-        running?.let { r -> starter.execute { r.stop() } }
+        // Queued before any later start's set-up, so the port and the certificate file are free for it
+        running?.let { r -> STARTER.execute { r.stop() } }
         running = null
-        starter.shutdown()
         if (callbackRegistered) {
             runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(wifiCallback) }
             callbackRegistered = false
@@ -226,7 +228,7 @@ class TransferService : Service() {
         Log.i(TAG, "transfer off ($files files, $bytes bytes)")
         Transfer.update(Transfer.State(Transfer.Phase.OFF, files = files, bytes = bytes, reason = reason))
         stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        stopSelf(startId)
     }
 
     override fun onDestroy() {
@@ -263,6 +265,13 @@ class TransferService : Service() {
         const val PORT = 8443
         const val IDLE_MS = 10 * 60 * 1000L
         private const val CHECK_MS = 30_000L
-        private const val MAX_WAKE_MS = 4 * 3600 * 1000L
+        /** Renewed on every check while in use: only a hang can hold the camera awake this long. */
+        private const val MAX_WAKE_MS = 30 * 60 * 1000L
+
+        /**
+         * Set-ups and stops for the whole process, in order: a quick stop and start, even on a
+         * new service instance, never has two runs making the certificate or binding the port.
+         */
+        private val STARTER = Executors.newSingleThreadExecutor { r -> Thread(r, "transfer-start") }
     }
 }

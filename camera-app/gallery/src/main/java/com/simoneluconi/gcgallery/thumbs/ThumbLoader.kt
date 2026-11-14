@@ -88,19 +88,26 @@ class ThumbLoader(context: Context, private val ratings: RatingStore) {
     fun file(p: Photo): File? {
         val file = File(dir, fileName(p))
         if (file.exists()) return file
+        // A file that would not decode is not tried again on every page load
+        if (synchronized(lock) { failed[p.id] == p.dateModified }) return null
         // Several browser connections ask at once: two decodes at a time, as the grid does
         webDecodes.acquire()
         try {
             if (file.exists()) return file
-            val bmp = Decode.thumbnail(resolver, p) { ratings.learn(p.id, it) } ?: return null
-            writeDisk(file, bmp)
-            bmp.recycle()
+            val bmp = Decode.thumbnail(resolver, p) { ratings.learn(p.id, it) }
+            if (bmp != null) {
+                writeDisk(file, bmp)
+                bmp.recycle()
+            }
         } catch (e: Throwable) {
             Log.w(TAG, "web thumb failed: ${p.name}: $e")
         } finally {
             webDecodes.release()
         }
-        return file.takeIf { it.exists() }
+        return file.takeIf { it.exists() } ?: run {
+            synchronized(lock) { failed[p.id] = p.dateModified }
+            null
+        }
     }
 
     /** After an edit that changes pixels (a turn): drop the cached copies of [p]. */

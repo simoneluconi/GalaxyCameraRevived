@@ -109,7 +109,8 @@ class WebServer(
 
     private fun serve(s: Socket) {
         try {
-            s.soTimeout = IDLE_TIMEOUT_MS
+            // Short: a kept-alive or preconnected socket that sends nothing gives its worker back soon
+            s.soTimeout = KEEPALIVE_MS
             s.tcpNoDelay = true
             val input = BufferedInputStream(s.getInputStream(), 8192)
             val out = BufferedOutputStream(s.getOutputStream(), 64 * 1024)
@@ -268,7 +269,9 @@ class WebServer(
     private fun view(arg: String, req: Request, out: OutputStream): Boolean {
         val p = arg.toLongOrNull()?.let { lookup().items[it] }
             ?: return send(out, 404, "text/plain", "no photo".toByteArray())
-        if (!p.isRaw) return file(arg, req, out, view = true)
+        // Only what is surely a photo is shown inline: an SVG (image/* too) would run script here
+        if (p.isJpeg) return file(arg, req, out, view = true)
+        if (!p.isRaw) return send(out, 415, "text/plain", "not viewable".toByteArray())
         val jpeg = runCatching {
             context.contentResolver.openFileDescriptor(p.uri, "r")?.use { Decode.dngPreview(Fd(it.fileDescriptor)) }
         }.getOrNull() ?: return send(out, 404, "text/plain", "no preview".toByteArray())
@@ -283,22 +286,25 @@ class WebServer(
         val ctx = if (lang.isNullOrEmpty()) context else {
             context.createConfigurationContext(Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(lang)) })
         }
-        val info = runCatching { PhotoInfo.read(ctx, p) }.getOrNull()
-            ?: return send(out, 404, JSON, """{"error":"info"}""".toByteArray())
-        val o = JSONObject()
-        o.put("exposure", info.exposureLine ?: JSONObject.NULL)
-        o.put("line", info.barLine ?: JSONObject.NULL)
-        info.latitude?.let { o.put("lat", it) }
-        info.longitude?.let { o.put("lon", it) }
-        info.rating?.let { o.put("rating", it) }
-        val sections = JSONArray()
-        for (s in info.sections) {
-            val rows = JSONArray()
-            for (r in s.rows) rows.put(JSONArray().put(r.label).put(r.value))
-            sections.put(JSONObject().put("title", s.title).put("rows", rows).put("location", s.isLocation))
-        }
-        o.put("sections", sections)
-        return send(out, 200, JSON, o.toString().toByteArray(), listOf("Cache-Control: private, max-age=60"))
+        val json = runCatching {
+            val info = PhotoInfo.read(ctx, p) ?: return@runCatching null
+            val o = JSONObject()
+            o.put("exposure", info.exposureLine ?: JSONObject.NULL)
+            o.put("line", info.barLine ?: JSONObject.NULL)
+            // JSONObject refuses NaN: a broken GPS tag must not cost the whole panel
+            val lat = info.latitude?.takeIf { it.isFinite() }
+            val lon = info.longitude?.takeIf { it.isFinite() }
+            if (lat != null && lon != null) o.put("lat", lat).put("lon", lon)
+            info.rating?.let { o.put("rating", it) }
+            val sections = JSONArray()
+            for (s in info.sections) {
+                val rows = JSONArray()
+                for (r in s.rows) rows.put(JSONArray().put(r.label).put(r.value))
+                sections.put(JSONObject().put("title", s.title).put("rows", rows).put("location", s.isLocation))
+            }
+            o.put("sections", sections).toString()
+        }.getOrNull() ?: return send(out, 404, JSON, """{"error":"info"}""".toByteArray())
+        return send(out, 200, JSON, json.toByteArray(), listOf("Cache-Control: private, max-age=60"))
     }
 
     private fun file(arg: String, req: Request, out: OutputStream, view: Boolean = false): Boolean {
@@ -321,7 +327,9 @@ class WebServer(
                 if (view) "Cache-Control: private, max-age=604800" else "Cache-Control: no-store",
             )
             if (range != null) headers.add("Content-Range: bytes $start-$end/$size")
-            head(out, if (range != null) 206 else 200, p.mime, length, headers)
+            // Downloads of anything but our own two types go out as opaque bytes
+            val type = if (p.isJpeg || p.isRaw) p.mime else "application/octet-stream"
+            head(out, if (range != null) 206 else 200, type, length, headers)
             streaming.incrementAndGet()
             try {
                 FileInputStream(pfd.fileDescriptor).use { input ->
@@ -361,6 +369,8 @@ class WebServer(
             if (n < 0) throw IOException("file shorter than its size")
             out.write(buf, 0, n)
             left -= n
+            // Progress counts as use: a copy longer than the idle time goes on, a stalled one does not
+            events.onRequest()
         }
     }
 
@@ -378,6 +388,8 @@ class WebServer(
         type?.let { sb.append("Content-Type: ").append(it).append("\r\n") }
         sb.append("Content-Length: ").append(length).append("\r\n")
         for (h in extra) sb.append(h).append("\r\n")
+        // Everything but the page itself is data: nothing in it may run, even opened directly
+        if (extra.none { it.startsWith("Content-Security-Policy") }) sb.append("Content-Security-Policy: default-src 'none'; sandbox\r\n")
         sb.append("X-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nConnection: keep-alive\r\n\r\n")
         out.write(sb.toString().toByteArray(Charsets.ISO_8859_1))
     }
@@ -439,8 +451,9 @@ class WebServer(
 
     companion object {
         private const val TAG = "GcGallery"
-        private const val WORKERS = 6
-        private const val IDLE_TIMEOUT_MS = 20_000
+        /** Chrome keeps 6 per origin, and the page may be open by name and by address. */
+        private const val WORKERS = 8
+        private const val KEEPALIVE_MS = 5_000
         private const val MAX_LINE = 8192
         private const val MAX_HEADERS = 64
         private const val MAX_BODY = 4096
@@ -450,11 +463,11 @@ class WebServer(
         private const val JSON = "application/json"
         private val PAGE_HEADERS = listOf(
             "Cache-Control: no-cache",
-            "Content-Security-Policy: default-src 'self'; img-src 'self' blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'",
+            "Content-Security-Policy: default-src 'self'; img-src 'self' blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-ancestors 'none'",
         )
         private val REASONS = mapOf(
             200 to "OK", 204 to "No Content", 206 to "Partial Content", 400 to "Bad Request", 401 to "Unauthorized",
-            403 to "Forbidden", 404 to "Not Found", 405 to "Method Not Allowed", 429 to "Too Many Requests",
+            403 to "Forbidden", 404 to "Not Found", 405 to "Method Not Allowed", 415 to "Unsupported Media Type", 429 to "Too Many Requests",
         )
     }
 }

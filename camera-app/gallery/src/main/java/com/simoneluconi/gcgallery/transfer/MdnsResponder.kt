@@ -23,17 +23,24 @@ class MdnsResponder(name: String, private val address: Inet4Address) {
 
     private val host = "$name.local"
     @Volatile private var socket: MulticastSocket? = null
+    /** The Wi-Fi subnet's prefix length, for [onLink]. */
+    @Volatile private var prefix = 24
 
     /** Off the main thread, like [stop]: both use the network. */
     fun start() {
         val iface = NetworkInterface.getByInetAddress(address)
-        val s = MulticastSocket(null).apply {
+        prefix = iface?.interfaceAddresses?.firstOrNull { it.address == address }?.networkPrefixLength?.toInt() ?: 24
+        val s = MulticastSocket(null)
+        try {
             // Shared with the system's own mDNS socket: multicast reaches every socket on the port
-            reuseAddress = true
-            bind(InetSocketAddress(PORT))
-            iface?.let { networkInterface = it }
-            joinGroup(InetSocketAddress(GROUP, PORT), iface)
-            timeToLive = 255
+            s.reuseAddress = true
+            s.bind(InetSocketAddress(PORT))
+            iface?.let { s.networkInterface = it }
+            s.joinGroup(InetSocketAddress(GROUP, PORT), iface)
+            s.timeToLive = 255
+        } catch (e: Exception) {
+            s.close()
+            throw e
         }
         socket = s
         Thread({ serve(s) }, "transfer-mdns").start()
@@ -68,12 +75,28 @@ class MdnsResponder(name: String, private val address: Inet4Address) {
             } catch (e: IOException) {
                 break
             }
+            // Only the Wi-Fi's own link (RFC 6762 §11): the socket is bound on every interface
+            if (!onLink(p.address)) continue
             val q = runCatching { parse(buf, p.length) }.getOrNull() ?: continue
             // A legacy resolver (not from port 5353) wants a plain unicast DNS reply with its id
             val legacy = p.port != PORT
             val to = if (legacy || q.unicast) InetSocketAddress(p.address, p.port) else GROUP_ADDRESS
             send(s, response(if (legacy) q.id else 0, if (legacy) q.question else null, TTL, cacheFlush = !legacy), to)
         }
+    }
+
+    /** In the Wi-Fi's IPv4 subnet. */
+    private fun onLink(from: InetAddress): Boolean {
+        if (from !is Inet4Address) return false
+        val a = from.address
+        val b = address.address
+        val bits = prefix.coerceIn(0, 32)
+        for (i in 0 until 4) {
+            val n = (bits - i * 8).coerceIn(0, 8)
+            val mask = (0xFF shl (8 - n)) and 0xFF
+            if ((a[i].toInt() and mask) != (b[i].toInt() and mask)) return false
+        }
+        return true
     }
 
     private fun send(s: MulticastSocket, data: ByteArray, to: InetSocketAddress) {
