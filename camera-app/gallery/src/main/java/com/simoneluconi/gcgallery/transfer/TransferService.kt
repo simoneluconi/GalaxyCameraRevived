@@ -9,6 +9,7 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
+import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
@@ -44,6 +45,7 @@ class TransferService : Service() {
     private var wifiLock: WifiManager.WifiLock? = null
     private var multicastLock: WifiManager.MulticastLock? = null
     private var network: Network? = null
+    private var address: Inet4Address? = null
     private var callbackRegistered = false
     private var stopped = false
     private var run = 0
@@ -56,6 +58,13 @@ class TransferService : Service() {
     private val wifiCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onLost(n: Network) {
             main.post { if (n == network) stop(R.string.transfer_stopped_wifi) }
+        }
+
+        // A new address from DHCP: the socket, the mDNS answers and the certificate are all for
+        // the old one. Stop; the next start makes everything for the new address.
+        override fun onLinkPropertiesChanged(n: Network, lp: LinkProperties) {
+            val now = lp.linkAddresses.map { it.address }.filterIsInstance<Inet4Address>()
+            main.post { if (n == network && address != null && address !in now) stop(R.string.transfer_stopped_wifi) }
         }
     }
 
@@ -93,6 +102,7 @@ class TransferService : Service() {
         Transfer.update(Transfer.State(Transfer.Phase.STARTING))
         val (net, address) = wifi() ?: return stop(R.string.transfer_no_wifi)
         network = net
+        this.address = address
         val cm = getSystemService(ConnectivityManager::class.java)
         cm.registerNetworkCallback(NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build(), wifiCallback)
         callbackRegistered = true

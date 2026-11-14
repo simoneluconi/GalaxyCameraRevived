@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package com.simoneluconi.gcgallery.ui
 
-import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Bundle
 import android.text.InputType
@@ -88,13 +86,11 @@ class TransferActivity : Activity() {
         card.layoutParams = lp
     }
 
-    private fun start() {
-        // The notification carries the address and Stop; the server runs without it too
-        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-        }
-        Transfer.start(this)
-    }
+    /**
+     * No permission prompt: POST_NOTIFICATIONS comes with the ROM's default grants for this
+     * preinstalled app. Without it the transfer still runs; only its notification is hidden.
+     */
+    private fun start() = Transfer.start(this)
 
     /** No old password asked: whoever holds the camera is its owner. */
     private fun askPassword() {

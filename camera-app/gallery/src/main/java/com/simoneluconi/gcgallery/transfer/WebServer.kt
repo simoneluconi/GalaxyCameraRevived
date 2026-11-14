@@ -90,16 +90,18 @@ class WebServer(
                 if (running) Log.w(TAG, "accept: $e")
                 break
             }
+            // Tracked from here, not from serve(): stop() must also close the ones still queued
+            open.add(s)
             try {
                 pool.execute { serve(s) }
             } catch (e: RejectedExecutionException) {
+                open.remove(s)
                 runCatching { s.close() }
             }
         }
     }
 
     private fun serve(s: Socket) {
-        open.add(s)
         try {
             s.soTimeout = IDLE_TIMEOUT_MS
             s.tcpNoDelay = true
@@ -163,10 +165,11 @@ class WebServer(
         if (!auth.hasPassword) return send(out, 204, null, ByteArray(0))
         if (System.currentTimeMillis() < lockedUntil) return send(out, 429, JSON, """{"error":"locked"}""".toByteArray())
         val typed = runCatching { JSONObject(String(req.body)).getString("password") }.getOrDefault("")
-        if (typed.isNotEmpty() && auth.check(typed)) {
+        val token = if (typed.isNotEmpty()) auth.login(typed) else null
+        if (token != null) {
             failures.set(0)
             // 400 days, the most Chrome keeps a cookie: the browser asks once
-            return send(out, 204, null, ByteArray(0), listOf("Set-Cookie: $COOKIE=${auth.newToken()}; Path=/; Max-Age=34560000; HttpOnly; Secure; SameSite=Strict"))
+            return send(out, 204, null, ByteArray(0), listOf("Set-Cookie: $COOKIE=$token; Path=/; Max-Age=34560000; HttpOnly; Secure; SameSite=Strict"))
         }
         // Slow guessing down, then stop it for a minute
         Thread.sleep(1000)
@@ -183,7 +186,8 @@ class WebServer(
             val a = JSONObject(String(req.body)).getJSONArray("ids")
             (0 until a.length()).map { a.getLong(it) }.toSet()
         }.getOrNull() ?: return send(out, 400, JSON, """{"error":"ids"}""".toByteArray())
-        val list = photos().filter { it.id in ids }
+        val items = lookup().items
+        val list = ids.mapNotNull { items[it] }
         if (list.isEmpty()) return send(out, 200, JSON, """{"trashed":0}""".toByteArray())
         if (!events.trash(list)) return send(out, 403, JSON, """{"error":"denied"}""".toByteArray())
         return send(out, 200, JSON, """{"trashed":${list.size}}""".toByteArray())
@@ -217,8 +221,31 @@ class WebServer(
         return sb.append("]}").toString()
     }
 
+    /** id → photo, for the index's current list: the files of an item (its DNG too), or the item itself. */
+    private class Lookup(val list: List<Photo>) {
+        val items = HashMap<Long, Photo>(list.size * 2)
+        val files = HashMap<Long, Photo>(list.size * 3)
+
+        init {
+            for (p in list) {
+                items[p.id] = p
+                for (f in p.files()) files[f.id] = f
+            }
+        }
+    }
+
+    @Volatile private var lookup = Lookup(emptyList())
+
+    /** Rebuilt only when the index replaced its list (a page load asks once per thumbnail). */
+    private fun lookup(): Lookup {
+        val list = photos()
+        val l = lookup
+        if (l.list === list) return l
+        return Lookup(list).also { lookup = it }
+    }
+
     private fun thumb(arg: String, out: OutputStream): Boolean {
-        val p = arg.toLongOrNull()?.let { id -> photos().firstOrNull { it.id == id } }
+        val p = arg.toLongOrNull()?.let { lookup().items[it] }
             ?: return send(out, 404, "text/plain", "no photo".toByteArray())
         // The gallery's own disk cache: upright, 256 px, made once
         val f = thumbs.file(p) ?: return send(out, 404, "text/plain", "no thumbnail".toByteArray())
@@ -227,8 +254,7 @@ class WebServer(
     }
 
     private fun file(arg: String, req: Request, out: OutputStream): Boolean {
-        val id = arg.toLongOrNull()
-        val p = photos().asSequence().flatMap { it.files() }.firstOrNull { it.id == id }
+        val p = arg.toLongOrNull()?.let { lookup().files[it] }
             ?: return send(out, 404, "text/plain", "no photo".toByteArray())
         val pfd = runCatching { context.contentResolver.openFileDescriptor(p.uri, "r") }.getOrNull()
             ?: return send(out, 404, "text/plain", "cannot open".toByteArray())
@@ -238,8 +264,10 @@ class WebServer(
             val start = range?.first ?: 0L
             val end = range?.second ?: (size - 1)
             val length = end - start + 1
+            // A file name can in theory hold control characters: never let one end the header
+            val plain = p.name.filter { it >= ' ' && it != '\u007f' && it != '"' }
             val headers = mutableListOf(
-                "Content-Disposition: attachment; filename=\"${p.name.replace("\"", "")}\"; filename*=UTF-8''${URLEncoder.encode(p.name, "UTF-8").replace("+", "%20")}",
+                "Content-Disposition: attachment; filename=\"$plain\"; filename*=UTF-8''${URLEncoder.encode(p.name, "UTF-8").replace("+", "%20")}",
                 "Accept-Ranges: bytes",
                 "Cache-Control: no-store",
             )

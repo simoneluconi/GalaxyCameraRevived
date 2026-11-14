@@ -26,9 +26,8 @@ class TransferAuth(context: Context) {
      * Null or empty removes it. Either way the browsers signed in so far must sign in again.
      * Off the main thread: PBKDF2 takes a moment on this CPU.
      */
-    @Synchronized
     @android.annotation.SuppressLint("ApplySharedPref")
-    fun setPassword(password: String?) {
+    fun setPassword(password: String?) = synchronized(LOCK) {
         val e = prefs.edit().remove(KEY_TOKENS)
         if (password.isNullOrEmpty()) {
             e.remove(KEY_HASH).remove(KEY_SALT)
@@ -40,10 +39,16 @@ class TransferAuth(context: Context) {
         e.commit()
     }
 
-    fun check(password: String): Boolean {
-        val salt = prefs.getString(KEY_SALT, null)?.let(::unhex) ?: return false
-        val hash = prefs.getString(KEY_HASH, null)?.let(::unhex) ?: return false
-        return MessageDigest.isEqual(pbkdf2(password, salt), hash)
+    /**
+     * A new browser session (the cookie's token) when [password] is right, else null. Check and
+     * token in one step: a login must not pass against the old password and keep its token
+     * after a change.
+     */
+    fun login(password: String): String? = synchronized(LOCK) {
+        val salt = prefs.getString(KEY_SALT, null)?.let(::unhex) ?: return null
+        val hash = prefs.getString(KEY_HASH, null)?.let(::unhex) ?: return null
+        if (!MessageDigest.isEqual(pbkdf2(password, salt), hash)) return null
+        newToken()
     }
 
     private fun pbkdf2(password: String, salt: ByteArray): ByteArray {
@@ -57,9 +62,8 @@ class TransferAuth(context: Context) {
 
     private fun unhex(s: String) = ByteArray(s.length / 2) { s.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 
-    /** A new browser session; the cookie carries the token, this keeps its hash. */
-    @Synchronized
-    fun newToken(): String {
+    /** The cookie carries the token, this keeps its hash. Under [LOCK]. */
+    private fun newToken(): String {
         val token = hex(ByteArray(24).also { random.nextBytes(it) })
         val tokens = (prefs.getStringSet(KEY_TOKENS, null) ?: emptySet()).toMutableSet()
         // A few browsers at most: drop the oldest-looking surplus rather than grow forever
@@ -69,13 +73,15 @@ class TransferAuth(context: Context) {
         return token
     }
 
-    fun valid(token: String): Boolean = prefs.getStringSet(KEY_TOKENS, null)?.contains(sha256(token)) == true
+    fun valid(token: String): Boolean = synchronized(LOCK) { prefs.getStringSet(KEY_TOKENS, null)?.contains(sha256(token)) == true }
 
     private fun sha256(s: String) = hex(MessageDigest.getInstance("SHA-256").digest(s.toByteArray()))
 
     private fun hex(b: ByteArray) = b.joinToString("") { "%02x".format(it) }
 
     private companion object {
+        /** One for the process: the server and the screen each hold their own TransferAuth. */
+        val LOCK = Any()
         const val KEY_HASH = "password_hash"
         const val KEY_SALT = "password_salt"
         const val KEY_TOKENS = "tokens"
