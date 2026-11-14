@@ -254,6 +254,7 @@ Verified in M at 1/60 f/4 ISO200: the room meters −0.7, a lamp +2.3 (it blows 
   - Half press → `autoFocus()` is the natural mapping.
 - **Zoom**: `setZoom(0..15)` moves the optical zoom one step. A continuous lever drive needs the HAL work in §6.
 - **Preview**: NV21, about 30 fps. There is some viewfinder lag (3 capture buffers); keep the preview path light, with no per-frame Java copies.
+- **TV (micro-HDMI)**: with a TV connected, the HAL puts every preview frame on it as well, without a copy (docs/HDMI.md). The app needs to do nothing. During `takePicture()` the TV keeps the last frame; `stopPreview()` and `release()` end the live view. There is no switch yet (docs/TODO.md).
 - **Orientation**: the sensor and the display are both landscape (orientation 0). Use the accelerometer for EXIF orientation and an on-screen level.
 - **Callbacks and the HAL1 deadlock rule.** CameraService holds its client lock across every call into the HAL, and a HAL callback waits for that lock while its message type is enabled. If the HAL waits for one of its threads during such a call while that thread is inside a callback, the camera hangs for good. The app cannot cause this, but it explains what to avoid when the HAL is extended:
   - HAL threads must not wait for each other inside a framework call, or must make sure no enabled callback can be in flight.

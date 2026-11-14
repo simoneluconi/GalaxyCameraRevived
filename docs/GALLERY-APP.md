@@ -170,7 +170,7 @@ adb -s <serial> shell appops set com.simoneluconi.gcgallery MANAGE_MEDIA allow
     - swipes, a rotation and a 1080p sharp decode reach the TV (`GcGallery: TV …` in the log);
     - zoom in with the lever and pan: the TV shows the same part (`(zoomed)` in the log), then sharp;
     - the TV button's list: Auto and a chosen mode switch the output, and the photo comes back at the new size;
-    - opening GC Camera from the viewer puts the notice back; `adb shell cat /sys/kernel/debug/ion/exynos_contig_heap` then shows only hdmid's small buffer.
+    - opening GC Camera from the viewer puts the camera's live view on the TV; `adb shell cat /sys/kernel/debug/ion/exynos_contig_heap` then shows no hdmid buffer (the live view reads the camera's own FIMC memory). Back in the viewer, the photo returns.
 
 ## 7. Milestones
 
