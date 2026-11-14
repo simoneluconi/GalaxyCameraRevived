@@ -38,6 +38,7 @@ It is built camera-first: no Google services and no phone apps, only what a came
 | SMS (GC100) | Sending and receiving work; no voice calls (no dialer, by design) |
 | Audio | Works |
 | Bluetooth | Works (pairing, sending photos to a phone, photo remotes) |
+| Photo transfer over Wi-Fi | Works, from the browser |
 | NFC (GC200) | Not supported: a phone near the tag shows a notice |
 | Video recording | Not supported: GC Camera takes photos only |
 | Micro-HDMI output | The camera's live view, and in GC Gallery the photo being viewed, zoom included, from 480p to 1080p. Not a copy of the screen |
@@ -58,6 +59,7 @@ The full list of open items is in [docs/TODO.md](docs/TODO.md).
 - **The pop-up flash works as a switch.** Raise it to use the flash, close it to turn the flash off.
 - **Full EXIF.** Shutter, aperture, ISO, focal length (and 35 mm equivalent), GPS when available, orientation, artist and copyright.
 - **Photos go to the microSD card**, in `DCIM/`.
+- **Photos to the computer over Wi-Fi.** Turn it on from Quick Settings, open the address it shows in the browser and copy the new photos into a folder. No app to install.
 
 It ships with two apps of its own:
 - **GC Camera**: the camera app, built for the physical controls. [More](camera-app/README.md).

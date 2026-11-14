@@ -28,7 +28,7 @@ The user is Italian, technically comfortable, and runs a homelab. Talk to the us
 - **Software**: stock Android 4.1.2 (SDK 16), build JZO54K.GC100XXBMC4 (26 Mar 2013), CSC ITV, baseband GC100XXBMC3, bootloader GC100XXBMC4. BMC4 is the last official firmware; there was never a 4.3.
 - **Root**: not rooted (`ro.secure=1`, no su). The old shell has no grep/head/wc, so filter output on the PC side.
 - **adb serial**: the camera shows one serial on stock and in the mini recovery, and **another under our LineageOS** (the board serial). This unit's serials and WiFi MAC are in the git-ignored local notes: @CLAUDE.local.md
-- **Flashing a full build without Odin**: `tools/flash-adb.sh prepare|push|flash` (docs/RECOVERY.md).
+- **Flashing a full build without Odin**: `tools/flash-adb.sh prepare|push|flash` (docs/RECOVERY.md). Pass `DEVICE` and the matching `OUT` explicitly: `lunch` exports OUT, and one GC100 got the GC200 kernel that way (2026-11-14). `prepare` now refuses a product directory or kernel config that is not the DEVICE's.
 - **adb path**: `$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe` (not on PATH). **Always pass `-s <serial>`**, because the user's phone is usually connected too (see CLAUDE.local.md).
 - **Recovery**: Odin download mode can always restore stock. SamMobile has GC100XXBMC4 firmware.
 - **Raw dumps** of the stock system are in `device-dump/stock-4.1.2/` (getprop, packages, cpuinfo, wifi, etc.).
@@ -300,10 +300,17 @@ html6405's i9300 LOS21 build needs a **custom PIT** (recovery 16MB, vendor ~560M
   - **3G, GPS, Wi-Fi and CPU hotplug (2026-11-01)**; details are in docs/TODO.md.
     - The modem boots and sees the network; data is not tested yet (no SIM). cbd had never run, because no device sepolicy was built; gd1 now has `sepolicy/vendor`.
     - `/vendor` is now read-only and not `nosuid`. On kernel 3.4 a nosuid mount kept every vendor service in the `init` domain.
-    - The vendor blobs had the i9300's Wi-Fi and BT files. `tools/mk-blobsrc.sh` builds the blob source now. Wi-Fi works on 2.4 GHz; 5 GHz association is rejected (open).
+    - The vendor blobs had the i9300's Wi-Fi and BT files. `tools/mk-blobsrc.sh` builds the blob source now. Wi-Fi is **2.4 GHz only** since 2026-11-14 (user): 5 GHz never gets past 802.11 auth on either camera, with Samsung's stack too, so the kernel's bcmdhd registers no 5 GHz band (kernel a2434a3a). The 5 GHz fallback overlay is gone.
     - GPS: the stock BCM4752 daemon and HAL behind shims (`gd1/shims`); the chip reports satellite status, a first fix is still to be seen outdoors.
     - Kernel: pegasusq with CPU hotplug.
   - **Micro-HDMI (2026-11-13, GC100 and GC200)**: `hdmid` (gd1 `hdmid/`) shows the photo open in GC Gallery's viewer, zoom included, and since 2026-11-14 the camera's live view (the HAL's `camera/exynos_hdmi.c` hands hdmid FIMC1's NV21 frames by physical address for the mixer's video layer: no copy, no CPU), never the screen (no mirroring: user, 2026-11-14); elsewhere a notice names the two apps. Every driver mode (480p to 1080p60) is picked from the EDID or in the gallery, and all are tested with a Cam Link 4K (`tools/hdmi-test.sh`, `gd1_hdmivideo` for the video layer) on both cameras, plus a DVI monitor and hot-plug with the live view on. Kernel: ext-IC + TX strength on in both defconfigs (DDC needs them), 480p 4:3 limited range. Details and the protocol: docs/HDMI.md.
+  - **Wi-Fi transfer (2026-11-14, both models)**: copy photos from a browser at `https://gc100.local:8443` (`gc200.local`); a local-only hotspot when there is no Wi-Fi.
+    - The code is the `camera-app/transfer` library (`:transfer`), hosted by GC Gallery. The gallery session owns it.
+    - The ROM side is in gd1:
+      - `config_systemGallery` = GC Gallery, for trashing GC Camera's photos from a service;
+      - POST_NOTIFICATIONS and NEARBY_WIFI_DEVICES pre-granted;
+      - gd1-setup.sh puts the quick-settings tile fifth, also on updated cameras.
+    - The stable hotspot SSID was dropped: it would need GC Gallery platform-signed.
   - Then BT and audio checks and power measurements. SELinux stays permissive (user, 2026-11-06: an unofficial build for enthusiasts, not worth a day of policy work; docs/TODO.md).
   - Small items are in docs/TODO.md: vibration strength, QS lag, second debloat round, Settings entries.
 - [ ] Camera HAL M9MO preset (mostly working, see step 3 above)
