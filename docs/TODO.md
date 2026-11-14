@@ -470,6 +470,10 @@ Compared with Samsung's GC100 driver (`~/android/ref/ek-gc100-samsung`) and the 
   - flash-ev was dropped (2026-11-04). The value lands (kernel readback), but the flash exposure did not change from -2 to +2. Samsung's app never sets it.
 - **Still never sent by the HAL**: CAF, SMART_SCENE_DETECT, SMART_ZOOM, and the WB custom R/G and B/G gains.
 - The OIS movie mode while recording (IS_OIS_MODE movie, with its interrupt).
+- **Video above 1080p30: not possible with the stock ISP firmware** (tested 2026-11-14 on the GC100, user decision: dropped).
+  - A read-only analysis of `RS_M9MO_EVT3.1.bin` (FCGB04) found the monitor size table at 0x16D540 (6-byte BE entries width, height, flag, indexed by the MON_SIZE code). It has codes the driver never uses: 0x26 = 4000x3000, 0x27 = 4128x3090 (the driver calls 0x27 "HDR 3264x2448", which is 0x29 in this firmware). The sensor's full readout is 4664x3496 at about 10-11 fps (estimated from its register lists, not measured).
+  - Test with a temporary kernel hook (MON_SIZE 0x26 and 0x27, FIMC told the real size and scaling down): the ISP accepted the code but sent no frame; after 5 s every i2c access took ~25 s, until `m9mo_lens_off_or_reset` power-cycled the ISP and retracted the lens. Normal preview afterwards: 30 fps. The hook was not committed.
+  - What is left would need a modified ISP firmware, which the anti-brick rules exclude (no proven recovery of the ISP flash).
 
 ## Image quality and RAW (ideas, user request 2026-10-31)
 
