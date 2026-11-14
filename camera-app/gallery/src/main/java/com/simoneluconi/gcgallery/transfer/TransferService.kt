@@ -229,7 +229,7 @@ class TransferService : Service() {
         STARTER.execute {
             val r = try {
                 // The first time: an EC key and a certificate (~3.5 s on this CPU)
-                val ssl = TlsCert.context(this, "$name.local", address)
+                val ssl = TlsCert.context(this, "$name.local")
                 val server = WebServer(this, ssl, TransferAuth(this), { app.index.photos }, app.thumbs, events).also { it.start(address, PORT) }
                 val mdns = runCatching { MdnsResponder(name, address).also { it.start() } }
                     .onFailure { Log.w(TAG, "mdns did not start: $it") }.getOrNull()

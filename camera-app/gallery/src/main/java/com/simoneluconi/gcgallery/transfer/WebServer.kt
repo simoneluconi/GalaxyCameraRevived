@@ -278,14 +278,17 @@ class WebServer(
         return send(out, 200, "image/jpeg", jpeg, listOf("Cache-Control: private, max-age=604800"))
     }
 
+    /** A context per browser language, made once: the info panel asks on every photo. */
+    private val localised = ConcurrentHashMap<String, Context>()
+
     /** The gallery's info panel as JSON, its labels in the browser's language when the app has it. */
     private fun info(arg: String, req: Request, out: OutputStream): Boolean {
         val p = arg.toLongOrNull()?.let { lookup().items[it] }
             ?: return send(out, 404, "text/plain", "no photo".toByteArray())
         val lang = req.headers["accept-language"]?.substringBefore(',')?.substringBefore(';')?.trim()
-        val ctx = if (lang.isNullOrEmpty()) context else {
-            context.createConfigurationContext(Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(lang)) })
-        }
+        val ctx = if (lang.isNullOrEmpty()) context else localised[lang] ?: context.createConfigurationContext(
+            Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(lang)) },
+        ).also { if (localised.size < 8 && lang.length <= 16) localised[lang] = it }
         val json = runCatching {
             val info = PhotoInfo.read(ctx, p) ?: return@runCatching null
             val o = JSONObject()

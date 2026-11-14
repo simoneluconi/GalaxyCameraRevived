@@ -8,7 +8,6 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.math.BigInteger
-import java.net.Inet4Address
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.SecureRandom
@@ -28,24 +27,28 @@ import javax.net.ssl.SSLContext
  * http to a LAN address is not one; a self-signed certificate is, once the browser's warning
  * is accepted (checked in Chrome and Edge 157, 2026-11-14).
  *
- * Made once and kept, so the warning comes back only when the camera's address changes: the
- * name and the address are in the certificate, so a PC that trusts it sees no warning at all.
+ * Made once per name and kept, so the warning comes once per browser: the name is in the
+ * certificate, so a PC that trusts it and opens the page by name sees no warning at all.
  */
 object TlsCert {
 
     /**
-     * For [host] ("gc100.local") and [address]; a new one when either changed. Off the main
-     * thread: making the key, and loading the PKCS12 file, take seconds on this CPU.
+     * For [host] ("gc100.local"): one certificate per name, kept across networks. The camera's
+     * address changes with every hotspot (a random subnet) and between home and hotspot, and a
+     * certificate tied to it would mean a new browser warning each time. Opened by address the
+     * browser warns about the name instead, once per address. A new one only when the name
+     * changes or it nears its end. Off the main thread: making the key, and loading the PKCS12
+     * file, take seconds on this CPU.
      */
-    fun context(context: Context, host: String, address: Inet4Address): SSLContext {
+    fun context(context: Context, host: String): SSLContext {
         val file = File(context.filesDir, FILE)
-        val ip = address.hostAddress ?: ""
-        val ks = load(file)?.takeIf { namesOf(it) == setOf(host, ip) && !expiresSoon(it) } ?: make(host, address).also { ks ->
+        // Older certificates also carry the address they were made for; the name is what counts
+        val ks = load(file)?.takeIf { host in namesOf(it) && !expiresSoon(it) } ?: make(host).also { ks ->
             // Written aside and renamed: a crash mid-write never leaves half a key store
             val tmp = File(file.path + ".tmp")
             tmp.outputStream().use { ks.store(it, PASSWORD) }
             if (!tmp.renameTo(file)) throw java.io.IOException("cannot replace $file")
-            Log.i(TAG, "new certificate for $host, $ip")
+            Log.i(TAG, "new certificate for $host")
         }
         val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
         kmf.init(ks, PASSWORD)
@@ -69,15 +72,15 @@ object TlsCert {
         return runCatching { cert.subjectAlternativeNames?.mapNotNull { it[1] as? String }?.toSet() }.getOrNull() ?: emptySet()
     }
 
-    private fun make(host: String, address: Inet4Address): KeyStore {
+    private fun make(host: String): KeyStore {
         val kpg = KeyPairGenerator.getInstance("EC")
         kpg.initialize(ECGenParameterSpec("secp256r1"))
         val pair = kpg.generateKeyPair()
         val name = Der.seq(Der.set(Der.seq(Der.oid(OID_CN), Der.utf8("GC Gallery on ${Build.MODEL}"))))
         val now = System.currentTimeMillis()
         val ecdsaSha256 = Der.seq(Der.oid(OID_ECDSA_SHA256))
-        // dNSName [2] and iPAddress [7]
-        val san = Der.seq(Der.oid(OID_SAN), Der.octets(Der.seq(Der.tlv(0x82, host.toByteArray(Charsets.US_ASCII)), Der.tlv(0x87, address.address))))
+        // dNSName [2] only: the address is not stable enough to name
+        val san = Der.seq(Der.oid(OID_SAN), Der.octets(Der.seq(Der.tlv(0x82, host.toByteArray(Charsets.US_ASCII)))))
         // serverAuth: macOS and iOS refuse a trusted TLS certificate without it
         val eku = Der.seq(Der.oid(OID_EKU), Der.octets(Der.seq(Der.oid(OID_SERVER_AUTH))))
         val tbs = Der.seq(

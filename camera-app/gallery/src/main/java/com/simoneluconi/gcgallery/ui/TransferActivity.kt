@@ -174,8 +174,9 @@ class TransferActivity : Activity() {
         // The standard phone camera format: WIFI:T:WPA;S:<name>;P:<password>;;
         fun esc(v: String) = v.replace(Regex("([\\\\;,:\"])"), "\\\\$1")
         qr(findViewById(R.id.qr_wifi), "WIFI:T:WPA;S:${esc(ssid)};P:${esc(s.password ?: "")};;")
-        // By address: a phone on the camera's network may not resolve .local names
-        qr(findViewById(R.id.qr_url), s.ipUrl ?: s.url ?: "")
+        // By name: Android 14 resolves it on the hotspot too, and the certificate is for the
+        // name, so the browser warns once and not on every hotspot's new address
+        qr(findViewById(R.id.qr_url), s.url ?: s.ipUrl ?: "")
     }
 
     private val qrShown = HashMap<Int, String>()
