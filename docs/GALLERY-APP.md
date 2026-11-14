@@ -51,7 +51,13 @@ A photography-first gallery that goes with GC Camera and also opens any picture.
   - **Page**: the photos by day from the gallery's own thumbnail cache, JPEG+DNG as one item, the storage switch, and a JPEG + RAW / JPEG / RAW choice kept in the browser.
     - "Copy new" writes into a folder picked once (its handle kept in IndexedDB), streaming each file into a `FileSystemWritableFileStream`, and skips what the folder already has by name and size.
     - A different photo with the same name gets a date-stamped name, never written over.
-    - Selected photos can be copied or moved to the camera's trash (JPEG and DNG together; GC Gallery restores them).
+    - Selected photos can be copied or moved to the camera's trash (JPEG and DNG together; GC Gallery restores them). A click opens a photo; the tick, Ctrl/Shift-click, or any click once something is selected, selects.
+    - **Viewer**, like the app's:
+      - the photo full screen, the thumbnail first, then the original JPEG (a lone DNG shows its ISP JPEG);
+      - arrows, keys and swipes; a double click or the wheel zooms up to 100% and beyond, and dragging pans;
+      - the info panel (the app's `PhotoInfo`, in the browser's language when the app has it), with an OpenStreetMap link for geotagged shots;
+      - save into the folder (or download), and trash.
+      - Back closes it. Stars and rotation are still to come: they write files, which needs the SYSTEM_GALLERY role too.
     - Firefox and Safari download one file at a time instead.
   - **Server** (`transfer/`): a foreground service (`dataSync`).
     - It listens on the Wi-Fi address only. It holds a partial wake lock, a Wi-Fi lock and a multicast lock while on.
@@ -197,6 +203,7 @@ adb -s <serial> shell appops set com.simoneluconi.gcgallery MANAGE_MEDIA allow
     - choose a folder and "Copy new": the files arrive identical (sha256 against `adb shell sha256sum` of the originals), and a second run copies nothing; the same per kind (JPEG + RAW, JPEG, RAW);
     - a password set on the camera: the page asks once, then not again after a reload; changing it asks again;
     - move a photo to the trash from the page: it is in GC Gallery's Trash with its DNG, and `GcGallery: trash: N files directly` is in the log;
+    - open a photo: it sharpens after the thumbnail; arrows and swipes move, a double click gives 100%, the info panel matches the app's, and Back closes it;
     - left alone it stops after 10 minutes; afterwards `dumpsys power` shows no `GcGallery:transfer` wake lock.
 
 ## 7. Milestones

@@ -46,6 +46,9 @@ The user's storage must not fill up with debug output. Keep only what explains c
   - **The first start makes the certificate in ~3.5 s** (EC key + PKCS12 on the A9); later starts reuse it until the name or the address changes.
   - **The tile starts the service through an invisible activity** (`TransferStartActivity`): Android 14 refuses a foreground-service start from a tile of a background app.
   - **Firefox and Safari** have no `showDirectoryPicker`: the page falls back to one download per file, remembered in the browser's localStorage, not in a folder.
+  - **The page's viewer loads the original JPEG** (3.5-8 MB, ~4 s at these speeds) after the thumbnail. A screen-size version made on the camera would be faster to show but costs the A9 a decode and an encode per photo.
+  - **A lone DNG in the viewer** shows its embedded ISP JPEG without the DNG's Orientation applied (GC Camera always writes the JPEG too, so this is rare).
+  - **No stars or rotation on the page yet**: like the trash, they write GC Camera's files, so they wait for the SYSTEM_GALLERY role to be verified.
 - **The camera folder is recognised by name**: any `DCIM/GC<3 digits>/` (`MediaIndex.isCameraFolder`). GC Camera's folder name is a setting, so a renamed folder shows as a plain album.
 - **The thumbnail grid uses MediaStore's DATE_TAKEN for day sections**; pictures without it fall back to DATE_MODIFIED.
 - **The trash relies on MediaProvider's idle maintenance** for the 30-day expiry. It is not verified that it runs on this ROM.

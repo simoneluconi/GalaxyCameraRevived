@@ -2,10 +2,14 @@
 package com.simoneluconi.gcgallery.transfer
 
 import android.content.Context
+import android.content.res.Configuration
 import android.os.Build
 import android.util.Log
 import com.simoneluconi.gcgallery.data.MediaIndex
 import com.simoneluconi.gcgallery.data.Photo
+import com.simoneluconi.gcgallery.image.Decode
+import com.simoneluconi.gcgallery.image.Fd
+import com.simoneluconi.gcgallery.meta.PhotoInfo
 import com.simoneluconi.gcgallery.thumbs.ThumbLoader
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
@@ -17,6 +21,7 @@ import java.net.Inet4Address
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.URLEncoder
+import java.util.Locale
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.RejectedExecutionException
@@ -25,6 +30,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLServerSocket
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -148,6 +154,8 @@ class WebServer(
             path == "/api/photos" -> send(out, 200, JSON, list().toByteArray(), listOf("Cache-Control: no-store"))
             path.startsWith("/thumb/") -> thumb(path.removePrefix("/thumb/"), out)
             path.startsWith("/file/") -> file(path.removePrefix("/file/"), req, out)
+            path.startsWith("/view/") -> view(path.removePrefix("/view/"), req, out)
+            path.startsWith("/api/info/") -> info(path.removePrefix("/api/info/"), req, out)
             else -> send(out, 404, "text/plain", "not found".toByteArray())
         }
     }
@@ -253,7 +261,47 @@ class WebServer(
         return send(out, 200, "image/jpeg", bytes, listOf("Cache-Control: private, max-age=604800"))
     }
 
-    private fun file(arg: String, req: Request, out: OutputStream): Boolean {
+    /**
+     * The picture for the page's viewer: a JPEG as it is (the browser applies its EXIF
+     * orientation, and zooms to full resolution), a DNG on its own as its embedded ISP JPEG.
+     */
+    private fun view(arg: String, req: Request, out: OutputStream): Boolean {
+        val p = arg.toLongOrNull()?.let { lookup().items[it] }
+            ?: return send(out, 404, "text/plain", "no photo".toByteArray())
+        if (!p.isRaw) return file(arg, req, out, view = true)
+        val jpeg = runCatching {
+            context.contentResolver.openFileDescriptor(p.uri, "r")?.use { Decode.dngPreview(Fd(it.fileDescriptor)) }
+        }.getOrNull() ?: return send(out, 404, "text/plain", "no preview".toByteArray())
+        return send(out, 200, "image/jpeg", jpeg, listOf("Cache-Control: private, max-age=604800"))
+    }
+
+    /** The gallery's info panel as JSON, its labels in the browser's language when the app has it. */
+    private fun info(arg: String, req: Request, out: OutputStream): Boolean {
+        val p = arg.toLongOrNull()?.let { lookup().items[it] }
+            ?: return send(out, 404, "text/plain", "no photo".toByteArray())
+        val lang = req.headers["accept-language"]?.substringBefore(',')?.substringBefore(';')?.trim()
+        val ctx = if (lang.isNullOrEmpty()) context else {
+            context.createConfigurationContext(Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(lang)) })
+        }
+        val info = runCatching { PhotoInfo.read(ctx, p) }.getOrNull()
+            ?: return send(out, 404, JSON, """{"error":"info"}""".toByteArray())
+        val o = JSONObject()
+        o.put("exposure", info.exposureLine ?: JSONObject.NULL)
+        o.put("line", info.barLine ?: JSONObject.NULL)
+        info.latitude?.let { o.put("lat", it) }
+        info.longitude?.let { o.put("lon", it) }
+        info.rating?.let { o.put("rating", it) }
+        val sections = JSONArray()
+        for (s in info.sections) {
+            val rows = JSONArray()
+            for (r in s.rows) rows.put(JSONArray().put(r.label).put(r.value))
+            sections.put(JSONObject().put("title", s.title).put("rows", rows).put("location", s.isLocation))
+        }
+        o.put("sections", sections)
+        return send(out, 200, JSON, o.toString().toByteArray(), listOf("Cache-Control: private, max-age=60"))
+    }
+
+    private fun file(arg: String, req: Request, out: OutputStream, view: Boolean = false): Boolean {
         val p = arg.toLongOrNull()?.let { lookup().files[it] }
             ?: return send(out, 404, "text/plain", "no photo".toByteArray())
         val pfd = runCatching { context.contentResolver.openFileDescriptor(p.uri, "r") }.getOrNull()
@@ -267,9 +315,10 @@ class WebServer(
             // A file name can in theory hold control characters: never let one end the header
             val plain = p.name.filter { it >= ' ' && it != '\u007f' && it != '"' }
             val headers = mutableListOf(
-                "Content-Disposition: attachment; filename=\"$plain\"; filename*=UTF-8''${URLEncoder.encode(p.name, "UTF-8").replace("+", "%20")}",
+                "Content-Disposition: ${if (view) "inline" else "attachment"}; filename=\"$plain\"; filename*=UTF-8''${URLEncoder.encode(p.name, "UTF-8").replace("+", "%20")}",
                 "Accept-Ranges: bytes",
-                "Cache-Control: no-store",
+                // The viewer's URL carries the photo's date_modified, so a turned photo is fetched again
+                if (view) "Cache-Control: private, max-age=604800" else "Cache-Control: no-store",
             )
             if (range != null) headers.add("Content-Range: bytes $start-$end/$size")
             head(out, if (range != null) 206 else 200, p.mime, length, headers)
@@ -284,7 +333,8 @@ class WebServer(
                 streaming.decrementAndGet()
                 events.onRequest()
             }
-            if (range == null) events.onSent(p.name, length)
+            // Looking at a photo is not a transfer
+            if (range == null && !view) events.onSent(p.name, length)
         }
         return true
     }
