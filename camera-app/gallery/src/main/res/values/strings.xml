@@ -164,7 +164,14 @@
     <string name="transfer_save">Save</string>
     <string name="transfer_stopped_idle">Stopped after 10 idle minutes</string>
     <string name="transfer_stopped_wifi">Stopped: Wi-Fi is off</string>
-    <string name="transfer_no_wifi">Connect to Wi-Fi first</string>
+    <string name="transfer_hotspot_failed">The camera\'s own Wi-Fi network could not start</string>
+    <string name="transfer_hotspot_stopped">Stopped: the camera\'s Wi-Fi network closed</string>
+    <string name="transfer_hotspot_join">No Wi-Fi here: join the camera\'s own network</string>
+    <string name="transfer_hotspot_network">Network  %s</string>
+    <string name="transfer_hotspot_password">Password  %s</string>
+    <string name="transfer_hotspot_permission">No Wi-Fi here, and GC Gallery may not make its own network (Nearby devices permission)</string>
+    <string name="transfer_hotspot_then">Then open</string>
+    <string name="transfer_hotspot_line" translatable="false">Wi-Fi %1$s · %2$s</string>
     <string name="transfer_failed">The transfer could not start</string>
-    <string name="transfer_about">Copy photos to a computer on the same Wi-Fi, from the browser.</string>
+    <string name="transfer_about">Copy photos to a computer or a phone, from the browser. Away from any Wi-Fi the camera makes its own network.</string>
 </resources>

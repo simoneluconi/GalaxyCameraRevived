@@ -4,15 +4,20 @@ package com.simoneluconi.gcgallery.ui
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.text.format.Formatter
 import android.view.View
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.TextView
 import com.simoneluconi.gccommon.R as C
 import com.simoneluconi.gcgallery.R
+import com.simoneluconi.gcgallery.transfer.QrCode
 import com.simoneluconi.gcgallery.transfer.Transfer
 import com.simoneluconi.gcgallery.transfer.TransferAuth
 import java.util.concurrent.Executors
@@ -136,6 +141,7 @@ class TransferActivity : Activity() {
         url.text = if (on) s.url else getString(R.string.transfer_title)
         ip.text = if (on) getString(R.string.transfer_or_ip, s.ipUrl) else ""
         ip.visibility = if (on) View.VISIBLE else View.GONE
+        hint.visibility = View.VISIBLE
         hint.text = when {
             on && s.files > 0 -> getString(R.string.transfer_sent, s.files, Formatter.formatShortFileSize(this, s.bytes))
             on -> getString(R.string.transfer_hint)
@@ -150,6 +156,40 @@ class TransferActivity : Activity() {
         passwordRemove.isEnabled = true
         toggle.setText(if (s.phase == Transfer.Phase.OFF) R.string.transfer_start else R.string.transfer_stop)
         toggle.isEnabled = s.phase != Transfer.Phase.STARTING
+        showHotspot(if (on) s else null)
+    }
+
+    /** The camera's own network, when it made one: name, password, and a QR each to join and to open. */
+    private fun showHotspot(s: Transfer.State?) {
+        val box = findViewById<View>(R.id.hotspot)
+        val ssid = s?.ssid
+        if (ssid == null) {
+            box.visibility = View.GONE
+            return
+        }
+        box.visibility = View.VISIBLE
+        hint.visibility = View.GONE
+        findViewById<TextView>(R.id.ssid).text = getString(R.string.transfer_hotspot_network, ssid)
+        findViewById<TextView>(R.id.wifi_password).text = getString(R.string.transfer_hotspot_password, s.password ?: "")
+        // The standard phone camera format: WIFI:T:WPA;S:<name>;P:<password>;;
+        fun esc(v: String) = v.replace(Regex("([\\\\;,:\"])"), "\\\\$1")
+        qr(findViewById(R.id.qr_wifi), "WIFI:T:WPA;S:${esc(ssid)};P:${esc(s.password ?: "")};;")
+        // By address: a phone on the camera's network may not resolve .local names
+        qr(findViewById(R.id.qr_url), s.ipUrl ?: s.url ?: "")
+    }
+
+    private val qrShown = HashMap<Int, String>()
+
+    /** Dark on light whatever the theme, with the quiet zone, and no smoothing of the modules. */
+    private fun qr(view: ImageView, text: String) {
+        if (qrShown[view.id] == text) return
+        val code = QrCode.encode(text) ?: return
+        val n = code.size + 8
+        val pixels = IntArray(n * n) { Color.WHITE }
+        for (y in 0 until code.size) for (x in 0 until code.size) if (code[x, y]) pixels[(y + 4) * n + x + 4] = Color.BLACK
+        val bmp = Bitmap.createBitmap(pixels, n, n, Bitmap.Config.RGB_565)
+        view.setImageDrawable(BitmapDrawable(resources, bmp).apply { isFilterBitmap = false })
+        qrShown[view.id] = text
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()

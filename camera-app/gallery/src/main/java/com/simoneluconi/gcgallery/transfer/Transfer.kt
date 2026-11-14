@@ -20,6 +20,9 @@ object Transfer {
         val ipUrl: String? = null,
         val files: Int = 0,
         val bytes: Long = 0,
+        /** The camera's own network (local-only hotspot) to join, when it is not on a Wi-Fi. */
+        val ssid: String? = null,
+        val password: String? = null,
         /** Why it is off: a string resource, or 0. */
         val reason: Int = 0,
     )

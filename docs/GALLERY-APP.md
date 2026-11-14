@@ -47,6 +47,11 @@ A photography-first gallery that goes with GC Camera and also opens any picture.
   - The screen stays on while a TV is connected (FLAG_KEEP_SCREEN_ON): showing photos must not end on the screen timeout.
 - **Wi-Fi transfer** (user, 2026-11-14): the camera serves its photos to a browser on the same Wi-Fi. It is switched on by hand, from the grid's Wi-Fi button or the Quick Settings tile, never on its own, because of the battery.
   - **Address**: `https://gc100.local:8443` (`gc200.local` on the GC200; the gallery answers mDNS for that name itself), with the IP as a fallback. The certificate is self-signed, made once per camera, with the name and the IP in its SAN. The browser warns once; after the click-through Chrome and Edge keep a secure context, so `showDirectoryPicker` works (checked in Chrome and Edge 157).
+  - **Away from any Wi-Fi** (user, 2026-11-14): the camera makes its own network, a local-only hotspot (`startLocalOnlyHotspot`: no internet behind it, so the 3G is never shared).
+    - The screen shows its name and password, a `WIFI:` QR code to join from a phone, and a QR of the page's address.
+    - The server and mDNS use the hotspot's address. On the BCM4334 the hotspot replaces the client connection while it runs, and Wi-Fi comes back when the transfer stops.
+    - The QR encoder is the gallery's own (`transfer/QrCode`, byte mode, level M, versions 1-10).
+    - It needs NEARBY_WIFI_DEVICES (`neverForLocation`), granted by the ROM's default permissions; the app never asks.
   - **Access**: open on the local network by default. An optional password is set, changed or removed on the camera only, never from the page, so someone else on the Wi-Fi cannot lock the owner out. A browser types it once and keeps a 400-day cookie; changing the password signs every browser out. The password is stored as PBKDF2, the session tokens as SHA-256. A wrong password costs 1 s, and 10 misses lock logins for a minute.
   - **Page**: the photos by day from the gallery's own thumbnail cache, JPEG+DNG as one item, the storage switch, and a JPEG + RAW / JPEG / RAW choice kept in the browser.
     - "Copy new" writes into a folder picked once (its handle kept in IndexedDB), streaming each file into a `FileSystemWritableFileStream`, and skips what the folder already has by name and size.
@@ -203,6 +208,7 @@ adb -s <serial> shell appops set com.simoneluconi.gcgallery MANAGE_MEDIA allow
     - choose a folder and "Copy new": the files arrive identical (sha256 against `adb shell sha256sum` of the originals), and a second run copies nothing; the same per kind (JPEG + RAW, JPEG, RAW);
     - a password set on the camera: the page asks once, then not again after a reload; changing it asks again;
     - move a photo to the trash from the page: it is in GC Gallery's Trash with its DNG, and `GcGallery: trash: N files directly` is in the log;
+    - with the camera on no Wi-Fi: the start makes the hotspot, a phone joins it from the QR (or a second camera with `cmd wifi connect-network <ssid> wpa2 <pass>`), `gc100.local` resolves there, the page works, and after the stop the hotspot is gone;
     - open a photo: it sharpens after the thumbnail; arrows and swipes move, a double click gives 100%, the info panel matches the app's, and Back closes it;
     - left alone it stops after 10 minutes; afterwards `dumpsys power` shows no `GcGallery:transfer` wake lock.
 

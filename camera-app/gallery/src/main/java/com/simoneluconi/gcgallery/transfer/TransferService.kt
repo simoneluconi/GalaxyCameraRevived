@@ -54,6 +54,10 @@ class TransferService : Service() {
     private var bytes = 0L
     private var url: String? = null
     private var ipUrl: String? = null
+    /** The camera's own network, when there was no Wi-Fi to join. */
+    private var hotspot: WifiManager.LocalOnlyHotspotReservation? = null
+    private var ssid: String? = null
+    private var password: String? = null
 
     private val wifiCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onLost(n: Network) {
@@ -102,12 +106,22 @@ class TransferService : Service() {
         val thisRun = ++run
         startForeground(NOTIFICATION, notification(getString(R.string.transfer_starting)), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         Transfer.update(Transfer.State(Transfer.Phase.STARTING))
-        val (net, address) = wifi() ?: return stop(R.string.transfer_no_wifi)
+        acquireLocks()
+        val wifi = wifi()
+        if (wifi == null) {
+            // Not on a Wi-Fi: the camera makes its own (local only: the 3G is never shared)
+            startHotspot(thisRun)
+            return
+        }
+        val (net, address) = wifi
         network = net
-        this.address = address
         val cm = getSystemService(ConnectivityManager::class.java)
         cm.registerNetworkCallback(NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build(), wifiCallback)
         callbackRegistered = true
+        serve(thisRun, address)
+    }
+
+    private fun acquireLocks() {
         wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GcGallery:transfer").apply {
             setReferenceCounted(false)
             // A safety net only: the idle stop ends a normal run long before
@@ -124,6 +138,76 @@ class TransferService : Service() {
             setReferenceCounted(false)
             acquire()
         }
+    }
+
+    /**
+     * A local-only hotspot: an access point with no internet behind it, only the camera. On the
+     * BCM4334 it replaces the client connection while it runs; Wi-Fi is back as before when it
+     * closes. Its address comes from a random subnet, so it is read from the interface.
+     */
+    private fun startHotspot(thisRun: Int) {
+        val wm = getSystemService(WifiManager::class.java)
+        val callback = object : WifiManager.LocalOnlyHotspotCallback() {
+            override fun onStarted(reservation: WifiManager.LocalOnlyHotspotReservation) {
+                if (stopped || thisRun != run) return reservation.close()
+                hotspot = reservation
+                val cfg = reservation.softApConfiguration
+                @Suppress("DEPRECATION")
+                ssid = cfg.ssid
+                password = cfg.passphrase
+                // The interface gets its address a moment after the callback
+                STARTER.execute {
+                    val a = hotspotAddress()
+                    main.post {
+                        when {
+                            stopped || thisRun != run -> Unit
+                            a == null -> stop(R.string.transfer_hotspot_failed)
+                            else -> serve(thisRun, a)
+                        }
+                    }
+                }
+            }
+
+            override fun onStopped() {
+                main.post { if (hotspot != null && thisRun == run) stop(R.string.transfer_hotspot_stopped) }
+            }
+
+            override fun onFailed(reason: Int) {
+                Log.w(TAG, "hotspot failed: $reason")
+                main.post { if (thisRun == run) stop(R.string.transfer_hotspot_failed) }
+            }
+        }
+        // Granted with the ROM's defaults for this app; asked for nowhere else
+        if (checkSelfPermission(android.Manifest.permission.NEARBY_WIFI_DEVICES) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return stop(R.string.transfer_hotspot_permission)
+        }
+        try {
+            wm.startLocalOnlyHotspot(callback, main)
+        } catch (e: Exception) {
+            // SecurityException without NEARBY_WIFI_DEVICES, IllegalStateException if one is already up
+            Log.w(TAG, "hotspot: $e")
+            stop(R.string.transfer_hotspot_failed)
+        }
+    }
+
+    /** The hotspot's IPv4 address, once the interface has one (up to 5 s). Off the main thread. */
+    private fun hotspotAddress(): Inet4Address? {
+        repeat(25) {
+            val a = runCatching {
+                java.net.NetworkInterface.getNetworkInterfaces().toList()
+                    .filter { it.isUp && !it.isLoopback && (it.name.startsWith("wlan") || it.name.startsWith("swlan") || it.name.startsWith("ap")) }
+                    .flatMap { it.inetAddresses.toList() }
+                    .filterIsInstance<Inet4Address>()
+                    .firstOrNull { it.isSiteLocalAddress }
+            }.getOrNull()
+            if (a != null) return a
+            Thread.sleep(200)
+        }
+        return null
+    }
+
+    private fun serve(thisRun: Int, address: Inet4Address) {
+        this.address = address
         val app = GalleryApp.of(this)
         app.index.start()
         val events = object : WebServer.Events {
@@ -198,13 +282,14 @@ class TransferService : Service() {
 
     private fun publish() {
         if (running == null) return
-        Transfer.update(Transfer.State(Transfer.Phase.ON, url, ipUrl, files, bytes))
+        Transfer.update(Transfer.State(Transfer.Phase.ON, url, ipUrl, files, bytes, ssid = ssid, password = password))
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION, notification(text()))
     }
 
     private fun text(): String {
         val s = Transfer.state
-        val base = getString(R.string.transfer_notification, s.url, s.ipUrl)
+        val base = getString(R.string.transfer_notification, s.url, s.ipUrl) +
+            (s.ssid?.let { "\n" + getString(R.string.transfer_hotspot_line, it, s.password ?: "") } ?: "")
         return if (s.files == 0) base else base + "\n" + getString(R.string.transfer_sent, s.files, Formatter.formatShortFileSize(this, s.bytes))
     }
 
@@ -225,6 +310,11 @@ class TransferService : Service() {
         wifiLock = null
         multicastLock?.release()
         multicastLock = null
+        // The camera's own network goes away, and its Wi-Fi client comes back
+        hotspot?.close()
+        hotspot = null
+        ssid = null
+        password = null
         Log.i(TAG, "transfer off ($files files, $bytes bytes)")
         Transfer.update(Transfer.State(Transfer.Phase.OFF, files = files, bytes = bytes, reason = reason))
         stopForeground(STOP_FOREGROUND_REMOVE)

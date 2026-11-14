@@ -1,104 +1,185 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Wi-Fi transfer: the address and PIN to type on the computer, and on/off -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Wi-Fi transfer: the address to open on the computer (and, away from any Wi-Fi, the camera's
+     own network to join), the optional password, on/off. Scrolls when it does not fit. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fillViewport="true">
 
-    <LinearLayout
-        android:id="@+id/card"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:background="@drawable/panel_bg"
-        android:elevation="3dp"
-        android:orientation="vertical"
-        android:paddingStart="22dp"
-        android:paddingTop="18dp"
-        android:paddingEnd="22dp"
-        android:paddingBottom="14dp">
-
-        <TextView
-            android:id="@+id/status"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:fontFamily="sans-serif-medium"
-            android:textColor="@color/on_surface_muted"
-            android:textSize="13sp" />
-
-        <TextView
-            android:id="@+id/url"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:fontFamily="sans-serif-medium"
-            android:fontFeatureSettings="tnum"
-            android:textColor="@color/on_surface"
-            android:textSize="22sp" />
-
-        <TextView
-            android:id="@+id/ip"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:fontFeatureSettings="tnum"
-            android:textColor="@color/on_surface_muted"
-            android:textSize="13sp" />
-
-        <TextView
-            android:id="@+id/hint"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:textColor="@color/on_surface_muted"
-            android:textSize="13sp" />
-
-        <TextView
-            android:id="@+id/password_state"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:fontFamily="sans-serif-medium"
-            android:textColor="@color/on_surface"
-            android:textSize="13sp" />
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp">
 
         <LinearLayout
+            android:id="@+id/card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:orientation="horizontal">
+            android:layout_gravity="center"
+            android:background="@drawable/panel_bg"
+            android:elevation="3dp"
+            android:orientation="vertical"
+            android:paddingStart="22dp"
+            android:paddingTop="18dp"
+            android:paddingEnd="22dp"
+            android:paddingBottom="14dp">
 
             <TextView
-                android:id="@+id/password"
-                style="@style/TextButton"
-                android:layout_height="36dp"
-                android:layout_marginEnd="8dp" />
+                android:id="@+id/status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="@color/on_surface_muted"
+                android:textSize="13sp" />
 
             <TextView
-                android:id="@+id/password_remove"
-                style="@style/TextButton"
-                android:layout_height="36dp"
-                android:text="@string/transfer_remove_password" />
+                android:id="@+id/url"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:fontFamily="sans-serif-medium"
+                android:fontFeatureSettings="tnum"
+                android:textColor="@color/on_surface"
+                android:textSize="22sp" />
+
+            <TextView
+                android:id="@+id/ip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:fontFeatureSettings="tnum"
+                android:textColor="@color/on_surface_muted"
+                android:textSize="13sp" />
+
+            <!-- Away from any Wi-Fi: join the camera's network (QR for phones), then open the page -->
+            <LinearLayout
+                android:id="@+id/hotspot"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/qr_wifi"
+                    android:layout_width="112dp"
+                    android:layout_height="112dp"
+                    android:importantForAccessibility="no" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:layout_marginEnd="14dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/transfer_hotspot_join"
+                        android:textColor="@color/on_surface_muted"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/ssid"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/on_surface"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/wifi_password"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:fontFamily="sans-serif-medium"
+                        android:fontFeatureSettings="tnum"
+                        android:textColor="@color/on_surface"
+                        android:textSize="16sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical">
+
+                    <ImageView
+                        android:id="@+id/qr_url"
+                        android:layout_width="112dp"
+                        android:layout_height="112dp"
+                        android:importantForAccessibility="no" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/transfer_hotspot_then"
+                        android:textColor="@color/on_surface_muted"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textColor="@color/on_surface_muted"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/password_state"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="@color/on_surface"
+                android:textSize="13sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/password"
+                    style="@style/TextButton"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/password_remove"
+                    style="@style/TextButton"
+                    android:layout_height="36dp"
+                    android:text="@string/transfer_remove_password" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:gravity="end"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/close"
+                    style="@style/TextButton"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="8dp"
+                    android:text="@string/close" />
+
+                <TextView
+                    android:id="@+id/toggle"
+                    style="@style/TextButton"
+                    android:layout_height="40dp" />
+            </LinearLayout>
         </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:gravity="end"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/close"
-                style="@style/TextButton"
-                android:layout_height="40dp"
-                android:layout_marginEnd="8dp"
-                android:text="@string/close" />
-
-            <TextView
-                android:id="@+id/toggle"
-                style="@style/TextButton"
-                android:layout_height="40dp" />
-        </LinearLayout>
-    </LinearLayout>
-</FrameLayout>
+    </FrameLayout>
+</ScrollView>

@@ -137,7 +137,13 @@
     <string name="transfer_hint">Chrome o Edge sulla stessa rete Wi-Fi. Certificato autofirmato: accettalo una volta. Si ferma dopo 10 minuti inattivo.</string>
     <string name="transfer_stopped_idle">Fermato dopo 10 minuti inattivo</string>
     <string name="transfer_stopped_wifi">Fermato: Wi-Fi spento</string>
-    <string name="transfer_no_wifi">Prima collegati al Wi-Fi</string>
+    <string name="transfer_hotspot_failed">Non è stato possibile avviare la rete Wi-Fi della fotocamera</string>
+    <string name="transfer_hotspot_stopped">Fermato: la rete Wi-Fi della fotocamera si è chiusa</string>
+    <string name="transfer_hotspot_join">Nessun Wi-Fi qui: collegati alla rete della fotocamera</string>
+    <string name="transfer_hotspot_network">Rete  %s</string>
+    <string name="transfer_hotspot_password">Password  %s</string>
+    <string name="transfer_hotspot_permission">Nessun Wi-Fi qui, e GC Gallery non può creare una rete sua (permesso Dispositivi nelle vicinanze)</string>
+    <string name="transfer_hotspot_then">Poi apri</string>
     <string name="transfer_failed">Non è stato possibile avviare il trasferimento</string>
-    <string name="transfer_about">Copia le foto su un computer nella stessa rete Wi-Fi, dal browser.</string>
+    <string name="transfer_about">Copia le foto su un computer o un telefono, dal browser. Lontano da ogni Wi-Fi la fotocamera crea una rete sua.</string>
 </resources>
