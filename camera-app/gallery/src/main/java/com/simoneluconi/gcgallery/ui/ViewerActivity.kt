@@ -231,6 +231,8 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
     }
 
     override fun onStop() {
+        // A release while away never arrives here
+        lever.clear()
         // The camera, the home screen or the screen turning off: the TV goes back to hdmid's notice
         tv?.stop()
         tv = null
@@ -530,7 +532,8 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         if (!isWanted(p)) return
         val t0 = SystemClock.elapsedRealtime()
         val d = try {
-            if (needThumb) {
+            // Not for a picture from another app: those are all id -1, so they would share one cache entry
+            if (needThumb && p.inMediaStore) {
                 app.thumbs.loadNow(p)?.let { thumb ->
                     // Thumbnails are stored upright
                     ui { if (isWanted(p) && pages[p.id] == null) putPage(p, PhotoPagerView.Page(thumb, thumb.width, thumb.height, 1, preview = true)) }
@@ -796,7 +799,7 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
             // Messages sit above the bottom bar, or above the panel when it is open
             val bar = bottomBarTravel()
             message.root.translationX = 0f
-            message.root.translationY = -(bar + f * (bottom - bar))
+            message.baseY = -(bar + f * (bottom - bar))
         } else {
             val width = lp.width + lp.leftMargin + lp.rightMargin.toFloat()
             infoPanel.translationY = 0f
@@ -804,7 +807,7 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
             pager.setInsets(f * width, f * lp.topMargin)
             // Messages stay centred on the photo, not under the panel
             message.root.translationX = -f * width / 2
-            message.root.translationY = 0f
+            message.baseY = 0f
         }
     }
 
@@ -827,16 +830,18 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
             pages[p.id]?.let { putPage(p, it.turned(Orientation.compose(op, it.orientation))) }
             if (clipOn) buildClipMask()
             editor.launch {
-                val o = Edits.rotate(contentResolver, p, op)
+                val t = Edits.rotate(contentResolver, p, op)
                 app.thumbs.invalidate(p)
                 ui {
                     infos.remove(p.id)
-                    if (o < 0) {
+                    if (t == null) {
                         message.show(getString(R.string.edit_failed))
                     } else {
                         // What the file now says wins over any screen decode still in flight
+                        val o = t.orientation
                         turned[p.id] = o
                         pages[p.id]?.takeIf { !it.preview && it.orientation != o }?.let { putPage(p, it.turned(o)) }
+                        if (!t.complete) message.show(getString(R.string.raw_not_turned))
                     }
                     if (current() === p) loadInfo(p)
                 }
@@ -911,6 +916,8 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         access.write(p.files().map { it.uri }) { ok ->
             if (!ok) return@write
             editor.launch {
+                // A rating moves DATE_MODIFIED, not the pixels: keep the thumbnail
+                app.thumbs.keepThrough(p)
                 val written = Edits.setRating(contentResolver, p, rating)
                 ui {
                     infos.remove(p.id)
@@ -937,7 +944,14 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
             onPageChanged(next)
             val text = if (p.trashed) getString(R.string.restored, 1) else getString(R.string.moved_to_trash, 1)
             message.show(text, if (p.trashed) null else getString(R.string.undo)) {
-                access.trash(uris, false) {}
+                access.trash(uris, false) { back ->
+                    // The photo returns to the pager where it was, not only to MediaStore
+                    if (!back || isDestroyed || items.any { it.id == p.id }) return@trash
+                    val at = i.coerceIn(0, items.size)
+                    items = items.toMutableList().apply { add(at, p) }
+                    pager.show(at)
+                    onPageChanged(at)
+                }
             }
         }
     }
@@ -960,16 +974,25 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
                 return true
             }
             keyCode == KeyEvent.KEYCODE_ZOOM_IN -> {
+                // Not repeatCount: the fast stage's down arrives inside the slow one with the
+                // same key code, so the dispatcher counts it as a repeat of the slow press
+                val first = lever.add(event.scanCode)
                 if (Keys.isFast(event)) {
-                    if (event.repeatCount == 0 && pager.isAtFit()) pager.toggleZoom()
-                } else pager.zoomBy(1.15f)
+                    // The slow stage's first step has already left fit: what counts is where
+                    // the press started
+                    if (first && teleFromFit) pager.zoomToDetail()
+                } else {
+                    if (first) teleFromFit = pager.isAtFit()
+                    pager.zoomBy(1.15f)
+                }
                 return true
             }
             keyCode == KeyEvent.KEYCODE_ZOOM_OUT -> {
+                val first = lever.add(event.scanCode)
                 when {
                     // Wide at fit goes back to the index, as on a camera's playback
-                    pager.isAtFit() -> if (event.repeatCount == 0 && !Keys.isFast(event)) finish()
-                    Keys.isFast(event) -> if (event.repeatCount == 0) pager.fitAnimated()
+                    pager.isAtFit() -> if (first && !Keys.isFast(event)) finish()
+                    Keys.isFast(event) -> if (first) pager.fitAnimated()
                     else -> pager.zoomBy(1 / 1.15f)
                 }
                 return true
@@ -979,9 +1002,16 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_ZOOM_IN || keyCode == KeyEvent.KEYCODE_ZOOM_OUT) lever.remove(event.scanCode)
         if (Keys.isShutter(keyCode) || keyCode == KeyEvent.KEYCODE_ZOOM_IN || keyCode == KeyEvent.KEYCODE_ZOOM_OUT) return true
         return super.onKeyUp(keyCode, event)
     }
+
+    /** The photo was at fit when the lever's tele press began (see the fast stage). */
+    private var teleFromFit = false
+
+    /** The lever's scan codes held down (slow and fast stages): a press's first event, as the camera does. */
+    private val lever = HashSet<Int>()
 
     private fun executor(name: String): ExecutorService = Executors.newSingleThreadExecutor { r ->
         Thread({

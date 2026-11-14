@@ -57,11 +57,13 @@
 
     <!-- Results -->
     <string name="moved_to_trash">%d moved to trash</string>
+    <string name="share_too_many">Share at most %d photos at a time</string>
     <string name="raw_moved_to_trash">%d RAW files moved to trash</string>
     <string name="restored">%d restored</string>
     <string name="deleted">%d deleted</string>
     <string name="no_raw_selected">None of these has a RAW file</string>
     <string name="edit_failed">The file could not be changed</string>
+    <string name="raw_not_turned">The JPEG turned, its RAW file did not</string>
     <string name="rating_store_only">Rating kept in the gallery only: the file has no room for it</string>
     <string name="working">Saving %1$d of %2$d…</string>
     <string name="manage_media_hint">Allow GC Gallery to manage media to skip these confirmations</string>

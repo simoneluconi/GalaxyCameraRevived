@@ -1,8 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 package com.simoneluconi.gcgallery.edit
 
 import android.content.ContentResolver
 import android.util.Log
-import androidx.exifinterface.media.ExifInterface
 import com.simoneluconi.gcgallery.data.Photo
 import com.simoneluconi.gcgallery.image.Fd
 import com.simoneluconi.gcgallery.image.JpegSegments
@@ -11,17 +11,22 @@ import com.simoneluconi.gcgallery.image.Tiff
 import com.simoneluconi.gcgallery.image.Xmp
 
 /**
- * Lossless edits, written into the files themselves so other apps see them. Where the tag
- * already exists, only its bytes are patched: a 5 MB JPEG or a 35 MB DNG is never rewritten
- * (a rewrite over FUSE to the microSD takes seconds). Off the main thread; the caller holds
- * write access (MediaAccess.write).
+ * Lossless edits, written into the files themselves so other apps see them. Only the bytes of
+ * a tag that is already there are patched, in place: a file is never rewritten. A rewrite over
+ * FUSE takes seconds, and a process killed half-way would leave a truncated photo. What has no
+ * tag to patch (some other apps' photos) is refused, or kept in the gallery only. Off the main
+ * thread; the caller holds write access (MediaAccess.write).
  */
 object Edits {
     private const val TAG = "GcGallery"
 
-    /** Turns [p] (and its DNG) by [op]; returns the new orientation of [p], or -1. */
-    fun rotate(resolver: ContentResolver, p: Photo, op: Int): Int {
+    /** A turn: [orientation] is [Photo]'s new one; [complete] is false when its DNG did not turn. */
+    class Turned(val orientation: Int, val complete: Boolean)
+
+    /** Turns [p] (and its DNG) by [op]; null when [p] itself could not be turned. */
+    fun rotate(resolver: ContentResolver, p: Photo, op: Int): Turned? {
         var result = -1
+        var complete = true
         for (file in p.files()) {
             val o = try {
                 resolver.openFileDescriptor(file.uri, "rw")?.use { pfd -> rotateFile(Fd(pfd.fileDescriptor), file, op) } ?: -1
@@ -30,31 +35,23 @@ object Edits {
                 Log.e(TAG, "rotate ${file.name} failed", e)
                 -1
             }
-            if (file === p) result = o
+            if (file === p) result = o else if (o < 0) complete = false
         }
-        return result
+        return if (result < 0) null else Turned(result, complete)
     }
 
+    /** Patches the Orientation SHORT of IFD0; -1 when the file has none (it is then left alone). */
     private fun rotateFile(f: Fd, file: Photo, op: Int): Int {
-        val tiff = tiffOf(f, file)
-        val entry = tiff?.ifd(tiff.firstIfd)?.find(Tiff.TAG_ORIENTATION)?.takeIf { it.type == Tiff.TYPE_SHORT }
-        if (tiff != null && entry != null) {
-            val next = Orientation.compose(op, tiff.ints(entry, 1).firstOrNull()?.toInt() ?: 1)
-            f.write(entry.valuePos, tiff.shortBytes(next))
-            return next
-        }
-        // No Orientation tag to patch: only a JPEG can take a rewrite
-        if (!file.isJpeg) return -1
-        val exif = ExifInterface(f.fd)
-        val next = Orientation.compose(op, exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, 1))
-        exif.setAttribute(ExifInterface.TAG_ORIENTATION, next.toString())
-        exif.saveAttributes()
+        val tiff = tiffOf(f, file) ?: return -1
+        val entry = tiff.ifd(tiff.firstIfd)?.find(Tiff.TAG_ORIENTATION)?.takeIf { it.type == Tiff.TYPE_SHORT } ?: return -1
+        val next = Orientation.compose(op, tiff.ints(entry, 1).firstOrNull()?.toInt() ?: 1)
+        f.write(entry.valuePos, tiff.shortBytes(next))
         return next
     }
 
     /**
-     * Sets xmp:Rating in [p] and its DNG. Returns false when no file could take it in place or by
-     * rewrite (the rating then lives only in RatingStore).
+     * Sets xmp:Rating in [p] and its DNG, in place. Returns false when no file has a packet with
+     * room for it (the rating then lives only in RatingStore).
      */
     fun setRating(resolver: ContentResolver, p: Photo, rating: Int): Boolean {
         var any = false
@@ -81,16 +78,11 @@ object Edits {
             f.write(pos, patched.toByteArray(Charsets.ISO_8859_1))
             return true
         }
-        // A packet without room (other apps' photos: motion photo, HDR gain map, Lightroom…) is
-        // never replaced; the rating then stays in RatingStore. Only a JPEG with no XMP at all
-        // gets one, padded so the next change is in place
-        if (!file.isJpeg) return false
-        Log.d(TAG, "rating ${file.name}: no XMP, rewriting the file")
-        val exif = ExifInterface(f.fd)
-        if (exif.getAttribute(ExifInterface.TAG_XMP) != null) return false
-        exif.setAttribute(ExifInterface.TAG_XMP, Xmp.newPacket(rating))
-        exif.saveAttributes()
-        return true
+        // No packet, or one without room (other apps' photos: motion photo, HDR gain map,
+        // Lightroom…): never added or replaced, which would mean rewriting the file. The rating
+        // then stays in RatingStore. GC Camera's own files always have a padded packet.
+        Log.d(TAG, "rating ${file.name}: no XMP packet with room, kept in the gallery")
+        return false
     }
 
     /** No real packet is this big; a bigger "count" is a damaged file. */

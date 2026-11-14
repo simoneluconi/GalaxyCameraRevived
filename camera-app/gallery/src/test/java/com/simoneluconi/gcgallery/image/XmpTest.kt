@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 package com.simoneluconi.gcgallery.image
 
 import org.junit.Assert.assertEquals
@@ -47,11 +48,28 @@ class XmpTest {
         assertNull(Xmp.withRating(tight, 3))
     }
 
+    private val pad = " ".repeat(200)
+
+    /** xmp declared on the second Description only: the rating goes there, the prefix stays bound. */
     @Test
-    fun newPacketHasRoomToGrow() {
-        val p = Xmp.newPacket(2)
-        assertEquals(2, Xmp.rating(p))
-        // A later change fits in place
-        assertEquals(p.length, Xmp.withRating(p, 5)!!.length)
+    fun ratingGoesWhereTheXmpPrefixIsDeclared() {
+        val packet = "<?xpacket begin=\"\"?><x:xmpmeta><rdf:RDF>" +
+            "<rdf:Description rdf:about=\"\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\"/>" +
+            "<rdf:Description rdf:about=\"\" xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" xmp:CreatorTool=\"x\"/>" +
+            "</rdf:RDF></x:xmpmeta>$pad<?xpacket end=\"w\"?>"
+        val patched = Xmp.withRating(packet, 3)!!
+        assertEquals(packet.length, patched.length)
+        val second = patched.indexOf("<rdf:Description", patched.indexOf("<rdf:Description") + 1)
+        assertEquals(true, patched.indexOf("xmp:Rating=\"3\"") > second)
+        assertEquals(3, Xmp.rating(patched))
+    }
+
+    /** No Description declares xmp: the first one gets the attribute and the declaration. */
+    @Test
+    fun ratingDeclaresTheXmpPrefixWhenNoneDoes() {
+        val packet = "<?xpacket begin=\"\"?><x:xmpmeta><rdf:RDF><rdf:Description rdf:about=\"\"/></rdf:RDF></x:xmpmeta>$pad<?xpacket end=\"w\"?>"
+        val patched = Xmp.withRating(packet, 2)!!
+        assertEquals(true, patched.contains("<rdf:Description xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" xmp:Rating=\"2\""))
+        assertEquals(packet.length, patched.length)
     }
 }

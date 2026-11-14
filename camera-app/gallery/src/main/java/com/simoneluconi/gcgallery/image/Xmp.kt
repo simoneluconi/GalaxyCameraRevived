@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 package com.simoneluconi.gcgallery.image
 
 /**
@@ -41,22 +42,22 @@ object Xmp {
             val g = m.groups[1]!!.range
             return fitLength(packet.replaceRange(g, value), packet.length)
         }
+        // No rating yet: an attribute on the rdf:Description that declares the xmp prefix, so the
+        // prefix is bound where it is used. With none, on the first one, declaring it there too.
         val tag = "<rdf:Description"
-        val d = packet.indexOf(tag)
-        if (d < 0) return null
+        val starts = generateSequence(packet.indexOf(tag).takeIf { it >= 0 }) { from ->
+            packet.indexOf(tag, from + tag.length).takeIf { it >= 0 }
+        }.toList()
+        if (starts.isEmpty()) return null
+        fun declaresXmp(start: Int): Boolean {
+            val end = packet.indexOf('>', start).takeIf { it >= 0 } ?: return false
+            return packet.substring(start, end).contains("xmlns:xmp=")
+        }
+        val d = starts.firstOrNull(::declaresXmp)
         var insert = " xmp:Rating=\"$value\""
-        if (!packet.contains("xmlns:xmp=")) insert = " xmlns:xmp=\"$XMP_NS\"$insert"
-        val at = d + tag.length
+        if (d == null) insert = " xmlns:xmp=\"$XMP_NS\"$insert"
+        val at = (d ?: starts.first()) + tag.length
         return fitLength(packet.substring(0, at) + insert + packet.substring(at), packet.length)
-    }
-
-    /** A new packet with [rating] and room to grow, for files that have none. */
-    fun newPacket(rating: Int): String {
-        val body = "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">" +
-            "<rdf:Description rdf:about=\"\" xmlns:xmp=\"$XMP_NS\" xmp:Rating=\"$rating\"/></rdf:RDF></x:xmpmeta>"
-        val padding = buildString { repeat(PADDING / 100) { append(" ".repeat(99)).append('\n') } }
-        // Empty begin (no BOM): ExifInterface writes TAG_XMP as ASCII
-        return "<?xpacket begin=\"\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>$body$padding<?xpacket end=\"w\"?>"
     }
 
     /** Takes [text] back to [length] by trimming or adding whitespace before the packet end. */
@@ -71,6 +72,4 @@ object Xmp {
         if (end - start < diff) return null
         return text.substring(0, start) + text.substring(end)
     }
-
-    private const val PADDING = 2048
 }

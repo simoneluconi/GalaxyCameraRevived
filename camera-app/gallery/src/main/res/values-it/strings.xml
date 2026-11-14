@@ -46,11 +46,13 @@
     <string name="tv_unnamed">TV collegata</string>
 
     <string name="moved_to_trash">%d spostate nel cestino</string>
+    <string name="share_too_many">Condividi al massimo %d foto alla volta</string>
     <string name="raw_moved_to_trash">%d file RAW spostati nel cestino</string>
     <string name="restored">%d ripristinate</string>
     <string name="deleted">%d eliminate</string>
     <string name="no_raw_selected">Nessuna di queste ha un file RAW</string>
     <string name="edit_failed">Non è stato possibile modificare il file</string>
+    <string name="raw_not_turned">Il JPEG è stato ruotato, il suo file RAW no</string>
     <string name="rating_store_only">Valutazione salvata solo nella galleria: il file non ha spazio</string>
     <string name="working">Salvataggio %1$d di %2$d…</string>
     <string name="manage_media_hint">Consenti a GC Gallery di gestire i contenuti multimediali per evitare queste conferme</string>

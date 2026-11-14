@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.provider.Settings
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
@@ -167,7 +168,7 @@ class GridActivity : Activity(), ThumbGridView.Callback {
         selBottom.animate().cancel()
         selBottom.alpha = 1f
         selBottom.visibility = if (shown) View.VISIBLE else View.GONE
-        message.root.translationY = if (shown) -dp(BAR_DP + 8).toFloat() else 0f
+        message.baseY = if (shown) -dp(BAR_DP + 8).toFloat() else 0f
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
@@ -446,7 +447,7 @@ class GridActivity : Activity(), ThumbGridView.Callback {
         crossfade(if (selecting) selectionBar else topBar, if (selecting) topBar else selectionBar)
         if (portrait) {
             if (selecting) crossfade(selBottom, null) else crossfade(null, selBottom)
-            message.root.translationY = if (selecting) -dp(BAR_DP + 8).toFloat() else 0f
+            message.baseY = if (selecting) -dp(BAR_DP + 8).toFloat() else 0f
         }
         emptyTrash.visibility = if (inTrash && !selecting && grid.photos.isNotEmpty()) View.VISIBLE else View.GONE
     }
@@ -475,7 +476,8 @@ class GridActivity : Activity(), ThumbGridView.Callback {
             message.show(getString(R.string.moved_to_trash, photos.size), getString(R.string.undo)) {
                 access.trash(uris, false) {}
             }
-            hintManageMedia()
+            // After the Undo has had its time
+            main.postDelayed({ if (!isDestroyed) hintManageMedia() }, 6500)
         }
     }
 
@@ -538,7 +540,8 @@ class GridActivity : Activity(), ThumbGridView.Callback {
         access.write(uris(photos)) { ok ->
             if (!ok) return@write
             grid.clearSelection()
-            runEdits(photos, pixels = true, R.string.edit_failed) { p -> Edits.rotate(contentResolver, p, Orientation.ROTATE_CW) >= 0 }
+            // A pair counts as failed when its DNG did not turn with the JPEG
+            runEdits(photos, pixels = true, R.string.edit_failed) { p -> Edits.rotate(contentResolver, p, Orientation.ROTATE_CW)?.complete == true }
         }
     }
 
@@ -569,6 +572,8 @@ class GridActivity : Activity(), ThumbGridView.Callback {
             var failed = 0
             for ((i, p) in photos.withIndex()) {
                 if (photos.size > 3) main.post { message.show(getString(R.string.working, i + 1, photos.size), durationMs = 10_000) }
+                // A rating moves DATE_MODIFIED, not the pixels: keep the thumbnail
+                if (!pixels) app.thumbs.keepThrough(p)
                 if (!edit(p)) failed++
                 if (pixels) app.thumbs.invalidate(p)
             }
@@ -583,6 +588,11 @@ class GridActivity : Activity(), ThumbGridView.Callback {
 
     private fun share(photos: List<Photo>) {
         if (photos.isEmpty()) return
+        // Every uri rides in the binder transaction (1 MB for the whole call): cap the batch
+        if (photos.size > MAX_SHARE) {
+            message.show(getString(R.string.share_too_many, MAX_SHARE))
+            return
+        }
         val uris = ArrayList<Uri>(photos.map { it.uri })
         val intent = if (uris.size == 1) {
             Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0]).setType(photos[0].mime)
@@ -590,12 +600,21 @@ class GridActivity : Activity(), ThumbGridView.Callback {
             Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris).setType("image/*")
         }
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        startActivity(Intent.createChooser(intent, getString(R.string.share)))
+        try {
+            startActivity(Intent.createChooser(intent, getString(R.string.share)))
+        } catch (e: RuntimeException) {
+            // TransactionTooLargeException arrives wrapped; long names can still overflow
+            Log.w(TAG, "share of ${uris.size} failed", e)
+            message.show(getString(R.string.share_too_many, MAX_SHARE))
+        }
     }
 
-    /** Once: without MANAGE_MEDIA every action asks the system for consent. */
+    /**
+     * Once: without MANAGE_MEDIA every action asks the system for consent. Never over another
+     * message (a trash's Undo): it waits for the next action instead.
+     */
     private fun hintManageMedia() {
-        if (access.silent) return
+        if (access.silent || message.showing) return
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         if (prefs.getBoolean(PREF_HINTED, false)) return
         prefs.edit().putBoolean(PREF_HINTED, true).apply()
@@ -606,11 +625,13 @@ class GridActivity : Activity(), ThumbGridView.Callback {
 
     companion object {
         const val PREFS = "gallery"
+        private const val TAG = "GcGallery"
         private const val PREF_COLUMNS = "columns"
         private const val PREF_COLUMNS_PORTRAIT = "columns_portrait"
         /** The floating bars' height. */
         private const val BAR_DP = 52
         private const val PREF_HINTED = "manage_media_hinted"
+        private const val MAX_SHARE = 300
         private const val STATE_ALBUM = "album"
         private const val STATE_POSITION = "position"
         private const val STATE_SCOPE = "scope"

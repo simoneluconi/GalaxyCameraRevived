@@ -232,15 +232,25 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
 
     /** 100% (one stored pixel per screen pixel) from fit; fit from anything else. */
     fun toggleZoom(fx: Float = contentW / 2, fy: Float = insetTop + contentH / 2) {
-        val p = callback?.page(index) ?: return
-        val fit = fitScale(p.width, p.height)
-        val target = if (isAtFit()) (if (fit < 1f) 1f else fit * 2f).coerceAtMost(MAX_SCALE) else fit
-        animateZoom(target, fx, fy)
+        if (isAtFit()) zoomToDetail(fx, fy) else fitAnimated(fx, fy)
     }
 
-    fun fitAnimated() {
+    /** 100% (or twice fit for a small picture), from wherever the zoom is. */
+    fun zoomToDetail(fx: Float = contentW / 2, fy: Float = insetTop + contentH / 2) {
+        // Not mid-swipe: the zoom would cancel the page's settle and leave it half-way
+        if (pageOffset != 0f) return
         val p = callback?.page(index) ?: return
-        animateZoom(fitScale(p.width, p.height), contentW / 2, insetTop + contentH / 2)
+        val fit = fitScale(p.width, p.height)
+        animateZoom((if (fit < 1f) 1f else fit * 2f).coerceAtMost(maxScale(fit)), fx, fy)
+    }
+
+    /** A small picture is already past MAX_SCALE at fit: then fit is also the most. */
+    private fun maxScale(fit: Float) = max(fit, MAX_SCALE)
+
+    fun fitAnimated(fx: Float = contentW / 2, fy: Float = insetTop + contentH / 2) {
+        if (pageOffset != 0f) return
+        val p = callback?.page(index) ?: return
+        animateZoom(fitScale(p.width, p.height), fx, fy)
     }
 
     // --- Geometry
@@ -293,7 +303,8 @@ class PhotoPagerView(context: Context, attrs: AttributeSet?) : View(context, att
 
     private fun zoomAround(target: Float, fx: Float, fy: Float) {
         val p = callback?.page(index) ?: return
-        val ns = target.coerceIn(fitScale(p.width, p.height), MAX_SCALE)
+        val fit = fitScale(p.width, p.height)
+        val ns = target.coerceIn(fit, maxScale(fit))
         val k = ns / scale
         tx = fx - (fx - tx) * k
         ty = fy - (fy - ty) * k

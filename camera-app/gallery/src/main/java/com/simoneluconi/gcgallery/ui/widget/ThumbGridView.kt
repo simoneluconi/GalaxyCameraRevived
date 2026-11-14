@@ -179,12 +179,24 @@ class ThumbGridView(context: Context, attrs: AttributeSet?) : View(context, attr
     fun setPhotos(list: List<Photo>, keepPosition: Boolean) {
         val anchor = if (keepPosition && cell > 0f) photos.getOrNull(firstVisibleIndex())?.id else null
         if (!keepPosition) pendingIndex = -1
+        // A drag selection goes on from the same photo, wherever the new list has it
+        val anchorId = if (dragSelecting) photos.getOrNull(dragAnchor)?.id else null
         photos = list
         val ids = HashSet<Long>(list.size)
         for (p in list) ids.add(p.id)
-        selected.retainAll(ids)
+        val shrunk = selected.retainAll(ids)
+        if (dragSelecting) {
+            dragAnchor = anchorId?.let { id -> list.indexOfFirst { it.id == id } } ?: -1
+            if (dragAnchor < 0) {
+                dragSelecting = false
+                removeCallbacks(autoScroll)
+            }
+        }
         if (selecting && selected.isEmpty()) {
             selecting = false
+            callback?.onSelectionChanged()
+        } else if (shrunk) {
+            // A selected photo went away elsewhere (trashed from the transfer page): the count changes
             callback?.onSelectionChanged()
         }
         sections = buildSections(list)
@@ -688,6 +700,7 @@ class ThumbGridView(context: Context, attrs: AttributeSet?) : View(context, attr
     }
 
     private fun applyDrag(i: Int) {
+        if (dragAnchor !in photos.indices || i !in photos.indices) return
         selected.clear()
         selected.addAll(dragBase)
         for (k in min(dragAnchor, i)..max(dragAnchor, i)) {
