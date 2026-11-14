@@ -136,7 +136,7 @@ The adb serial changes with the mode (the stock adbd and ours report different n
   adb push app.apk /data/local/tmp/app.apk
   adb shell pm install -r /data/local/tmp/app.apk
   ```
-- **Wi-Fi**: use a 2.4 GHz network. 5 GHz access points reject the camera's radio. On a dual-band network with a single name, the camera tries 5 GHz once and then connects on 2.4 GHz by itself.
+- **Wi-Fi**: 2.4 GHz only. The camera's radio cannot connect on 5 GHz, so it does not see 5 GHz networks at all. A dual-band network with a single name works, on its 2.4 GHz side.
 - Default time zone is Europe/Rome; change it in Settings → System → Date & time.
 
 ## 8. Updating to a newer build

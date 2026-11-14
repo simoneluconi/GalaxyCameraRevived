@@ -32,7 +32,7 @@ It is built camera-first: no Google services and no phone apps, only what a came
 | Lens retracts when the camera closes or reboots | Works |
 | microSD (FAT32, exFAT) | Works |
 | Rotation sensor, level, compass | Works |
-| Wi-Fi | 2.4 GHz works. 5 GHz does not connect (on Samsung's own firmware either); on a dual-band network the camera uses 2.4 GHz by itself |
+| Wi-Fi | 2.4 GHz only: the radio cannot connect on 5 GHz (on Samsung's own firmware either). Dual-band networks work on their 2.4 GHz side |
 | GPS | Works |
 | 3G mobile data (GC100) | Works |
 | SMS (GC100) | Sending and receiving work; no voice calls (no dialer, by design) |

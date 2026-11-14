@@ -50,6 +50,32 @@ fi
 
 OUT=${OUT:-$HOME/android/lineage/out/target/product/$DEVICE}
 STAGE=${STAGE:-$DEF_STAGE}
+
+# Never flash one model's images on the other. `lunch` exports OUT, so a
+# shell that last ran `lunch lineage_sf2wifi-…` points OUT at the GC200's
+# images even with DEVICE=gd1 (it happened once, 2026-11-14: the GC100 booted
+# the GC200 kernel). A build tree's product directory must be $DEVICE, and
+# its kernel must be configured for that board.
+check_out() {
+    case "$OUT" in
+        */out/target/product/*)
+            local product=${OUT%/}
+            product=${product##*/}
+            if [ "$product" != "$DEVICE" ]; then
+                echo "OUT is $OUT, the $product build, but DEVICE is $DEVICE: refusing" >&2
+                exit 1
+            fi ;;
+    esac
+    local cfg=$OUT/obj/KERNEL_OBJ/.config
+    if [ -f "$cfg" ]; then
+        local sf2=no
+        grep -q '^CONFIG_MACH_SF2=y' "$cfg" && sf2=yes
+        if { [ "$DEVICE" = gd1 ] && [ $sf2 = yes ]; } || { [ "$DEVICE" = sf2wifi ] && [ $sf2 = no ]; }; then
+            echo "the kernel in $OUT is not configured for $DEVICE (CONFIG_MACH_SF2: $sf2): refusing" >&2
+            exit 1
+        fi
+    fi
+}
 if [ -z "${ADB:-}" ]; then
     ADB="$(wslpath "$(cmd.exe /c 'echo %LOCALAPPDATA%' 2>/dev/null | tr -d '\r')")/Android/Sdk/platform-tools/adb.exe"
 fi
@@ -79,6 +105,7 @@ info() {
 }
 
 prepare() {
+    check_out
     mkdir -p "$STAGE"
     echo "preparing images from $OUT in $STAGE"
     cp "$OUT/boot.img" "$STAGE/boot.img"
