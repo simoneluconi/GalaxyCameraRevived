@@ -1,16 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-package com.simoneluconi.gcgallery.transfer
+package com.simoneluconi.gctransfer
 
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
 import android.util.Log
-import com.simoneluconi.gcgallery.data.MediaIndex
-import com.simoneluconi.gcgallery.data.Photo
-import com.simoneluconi.gcgallery.image.Decode
-import com.simoneluconi.gcgallery.image.Fd
-import com.simoneluconi.gcgallery.meta.PhotoInfo
-import com.simoneluconi.gcgallery.thumbs.ThumbLoader
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.FileInputStream
@@ -35,24 +29,21 @@ import org.json.JSONObject
 
 /**
  * A small HTTPS server for the Wi-Fi transfer page: the page itself, the photo list, the
- * gallery's thumbnails and the files, streamed, and moving photos to the trash. Only what the
- * gallery's index holds is served (no trash, nothing outside MediaStore). Open to the local
- * network unless the user set a password on the camera ([TransferAuth]).
+ * thumbnails and the files, streamed, and moving photos to the trash. Only what the host's
+ * [PhotoSource] lists is served. Open to the local network unless the user set a password on
+ * the camera ([TransferAuth]).
  */
 class WebServer(
     private val context: Context,
     private val ssl: SSLContext,
     private val auth: TransferAuth,
-    private val photos: () -> List<Photo>,
-    private val thumbs: ThumbLoader,
+    private val source: PhotoSource,
     private val events: Events,
 ) {
     /** Called on the server's threads. */
     interface Events {
         fun onRequest()
         fun onSent(name: String, bytes: Long)
-        /** Moves these files to MediaStore's trash; false when it is not allowed. */
-        fun trash(photos: List<Photo>): Boolean
     }
 
     /** Files being streamed right now; the service does not stop for idleness while > 0. */
@@ -198,28 +189,28 @@ class WebServer(
         val items = lookup().items
         val list = ids.mapNotNull { items[it] }
         if (list.isEmpty()) return send(out, 200, JSON, """{"trashed":0}""".toByteArray())
-        if (!events.trash(list)) return send(out, 403, JSON, """{"error":"denied"}""".toByteArray())
+        if (!runCatching { source.trash(list) }.getOrDefault(false)) return send(out, 403, JSON, """{"error":"denied"}""".toByteArray())
         return send(out, 200, JSON, """{"trashed":${list.size}}""".toByteArray())
     }
 
-    /** Newest first, as the gallery shows them; a JPEG's DNG rides along as "raw". */
+    /** Newest first, as the host lists them; a JPEG's DNG rides along as "raw". */
     private fun list(): String {
         val sb = StringBuilder(64 * 1024)
         sb.append("{\"camera\":").append(json(Build.MODEL)).append(",\"password\":").append(auth.hasPassword).append(",\"photos\":[")
         var first = true
-        for (p in photos()) {
+        for (p in lookup().list) {
             if (!first) sb.append(',')
             first = false
             sb.append("{\"id\":").append(p.id)
-                .append(",\"name\":").append(json(p.name))
-                .append(",\"mime\":").append(json(p.mime))
-                .append(",\"size\":").append(p.size)
-                .append(",\"taken\":").append(p.dateTaken)
-                .append(",\"m\":").append(p.dateModified)
+                .append(",\"name\":").append(json(p.file.name))
+                .append(",\"mime\":").append(json(p.file.mime))
+                .append(",\"size\":").append(p.file.size)
+                .append(",\"taken\":").append(p.taken)
+                .append(",\"m\":").append(p.modified)
                 .append(",\"w\":").append(p.width)
                 .append(",\"h\":").append(p.height)
                 .append(",\"folder\":").append(json(p.folder))
-                .append(",\"storage\":").append(json(if (MediaIndex.scopeOf(p) == MediaIndex.Scope.SD) "sd" else "internal"))
+                .append(",\"storage\":").append(json(p.storage))
             p.raw?.let { r ->
                 sb.append(",\"raw\":{\"id\":").append(r.id)
                     .append(",\"name\":").append(json(r.name))
@@ -230,10 +221,10 @@ class WebServer(
         return sb.append("]}").toString()
     }
 
-    /** id → photo, for the index's current list: the files of an item (its DNG too), or the item itself. */
-    private class Lookup(val list: List<Photo>) {
-        val items = HashMap<Long, Photo>(list.size * 2)
-        val files = HashMap<Long, Photo>(list.size * 3)
+    /** id → item and id → file (an item's DNG too), for the source's current list. */
+    private class Lookup(val list: List<TransferItem>) {
+        val items = HashMap<Long, TransferItem>(list.size * 2)
+        val files = HashMap<Long, TransferFile>(list.size * 3)
 
         init {
             for (p in list) {
@@ -245,9 +236,9 @@ class WebServer(
 
     @Volatile private var lookup = Lookup(emptyList())
 
-    /** Rebuilt only when the index replaced its list (a page load asks once per thumbnail). */
+    /** Rebuilt only when the source replaced its list (a page load asks once per thumbnail). */
     private fun lookup(): Lookup {
-        val list = photos()
+        val list = runCatching { source.items() }.getOrDefault(emptyList())
         val l = lookup
         if (l.list === list) return l
         return Lookup(list).also { lookup = it }
@@ -256,32 +247,28 @@ class WebServer(
     private fun thumb(arg: String, out: OutputStream): Boolean {
         val p = arg.toLongOrNull()?.let { lookup().items[it] }
             ?: return send(out, 404, "text/plain", "no photo".toByteArray())
-        // The gallery's own disk cache: upright, 256 px, made once
-        val f = thumbs.file(p) ?: return send(out, 404, "text/plain", "no thumbnail".toByteArray())
+        val f = runCatching { source.thumbnail(p) }.getOrNull() ?: return send(out, 404, "text/plain", "no thumbnail".toByteArray())
         val bytes = runCatching { f.readBytes() }.getOrNull() ?: return send(out, 404, "text/plain", "no thumbnail".toByteArray())
         return send(out, 200, "image/jpeg", bytes, listOf("Cache-Control: private, max-age=604800"))
     }
 
     /**
      * The picture for the page's viewer: a JPEG as it is (the browser applies its EXIF
-     * orientation, and zooms to full resolution), a DNG on its own as its embedded ISP JPEG.
+     * orientation, and zooms to full resolution), anything else as the JPEG the host makes of it
+     * (a DNG's embedded ISP JPEG). Never the file itself inline: an SVG would run script here.
      */
     private fun view(arg: String, req: Request, out: OutputStream): Boolean {
         val p = arg.toLongOrNull()?.let { lookup().items[it] }
             ?: return send(out, 404, "text/plain", "no photo".toByteArray())
-        // Only what is surely a photo is shown inline: an SVG (image/* too) would run script here
-        if (p.isJpeg) return file(arg, req, out, view = true)
-        if (!p.isRaw) return send(out, 415, "text/plain", "not viewable".toByteArray())
-        val jpeg = runCatching {
-            context.contentResolver.openFileDescriptor(p.uri, "r")?.use { Decode.dngPreview(Fd(it.fileDescriptor)) }
-        }.getOrNull() ?: return send(out, 404, "text/plain", "no preview".toByteArray())
+        if (p.file.isJpeg) return file(arg, req, out, view = true)
+        val jpeg = runCatching { source.preview(p) }.getOrNull() ?: return send(out, 415, "text/plain", "not viewable".toByteArray())
         return send(out, 200, "image/jpeg", jpeg, listOf("Cache-Control: private, max-age=604800"))
     }
 
     /** A context per browser language, made once: the info panel asks on every photo. */
     private val localised = ConcurrentHashMap<String, Context>()
 
-    /** The gallery's info panel as JSON, its labels in the browser's language when the app has it. */
+    /** The host's details panel as JSON, its labels in the browser's language when the app has it. */
     private fun info(arg: String, req: Request, out: OutputStream): Boolean {
         val p = arg.toLongOrNull()?.let { lookup().items[it] }
             ?: return send(out, 404, "text/plain", "no photo".toByteArray())
@@ -290,10 +277,10 @@ class WebServer(
             Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(lang)) },
         ).also { if (localised.size < 8 && lang.length <= 16) localised[lang] = it }
         val json = runCatching {
-            val info = PhotoInfo.read(ctx, p) ?: return@runCatching null
+            val info = source.info(p, ctx) ?: return@runCatching null
             val o = JSONObject()
-            o.put("exposure", info.exposureLine ?: JSONObject.NULL)
-            o.put("line", info.barLine ?: JSONObject.NULL)
+            o.put("exposure", info.exposure ?: JSONObject.NULL)
+            o.put("line", info.line ?: JSONObject.NULL)
             // JSONObject refuses NaN: a broken GPS tag must not cost the whole panel
             val lat = info.latitude?.takeIf { it.isFinite() }
             val lon = info.longitude?.takeIf { it.isFinite() }
@@ -302,7 +289,7 @@ class WebServer(
             val sections = JSONArray()
             for (s in info.sections) {
                 val rows = JSONArray()
-                for (r in s.rows) rows.put(JSONArray().put(r.label).put(r.value))
+                for ((label, value) in s.rows) rows.put(JSONArray().put(label).put(value))
                 sections.put(JSONObject().put("title", s.title).put("rows", rows).put("location", s.isLocation))
             }
             o.put("sections", sections).toString()
@@ -313,7 +300,7 @@ class WebServer(
     private fun file(arg: String, req: Request, out: OutputStream, view: Boolean = false): Boolean {
         val p = arg.toLongOrNull()?.let { lookup().files[it] }
             ?: return send(out, 404, "text/plain", "no photo".toByteArray())
-        val pfd = runCatching { context.contentResolver.openFileDescriptor(p.uri, "r") }.getOrNull()
+        val pfd = runCatching { source.open(p) }.getOrNull()
             ?: return send(out, 404, "text/plain", "cannot open".toByteArray())
         pfd.use {
             val size = pfd.statSize
@@ -331,7 +318,7 @@ class WebServer(
             )
             if (range != null) headers.add("Content-Range: bytes $start-$end/$size")
             // Downloads of anything but our own two types go out as opaque bytes
-            val type = if (p.isJpeg || p.isRaw) p.mime else "application/octet-stream"
+            val type = if (p.isJpeg || p.isDng) p.mime else "application/octet-stream"
             head(out, if (range != null) 206 else 200, type, length, headers)
             streaming.incrementAndGet()
             try {

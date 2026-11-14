@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-package com.simoneluconi.gcgallery.transfer
+package com.simoneluconi.gctransfer
 
 import android.app.Activity
 import android.os.Bundle

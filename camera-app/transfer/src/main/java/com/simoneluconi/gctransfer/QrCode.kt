@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-package com.simoneluconi.gcgallery.transfer
+package com.simoneluconi.gctransfer
 
 /**
  * A QR code for a short text (the hotspot's "WIFI:" string), as a square of modules. ISO/IEC

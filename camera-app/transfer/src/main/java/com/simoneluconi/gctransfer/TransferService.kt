@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-package com.simoneluconi.gcgallery.transfer
+package com.simoneluconi.gctransfer
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -14,7 +14,6 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.wifi.WifiManager
-import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -22,10 +21,6 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.text.format.Formatter
 import android.util.Log
-import com.simoneluconi.gcgallery.GalleryApp
-import com.simoneluconi.gcgallery.R
-import com.simoneluconi.gcgallery.data.Photo
-import com.simoneluconi.gcgallery.ui.TransferActivity
 import java.net.Inet4Address
 import java.util.concurrent.Executors
 
@@ -208,8 +203,9 @@ class TransferService : Service() {
 
     private fun serve(thisRun: Int, address: Inet4Address) {
         this.address = address
-        val app = GalleryApp.of(this)
-        app.index.start()
+        val host = TransferHost.of(this)
+        val source = host.photoSource
+        source.start()
         val events = object : WebServer.Events {
             override fun onRequest() {
                 lastRequest = SystemClock.elapsedRealtime()
@@ -222,15 +218,13 @@ class TransferService : Service() {
                     publish()
                 }
             }
-
-            override fun trash(photos: List<Photo>): Boolean = MediaTrash.trash(this@TransferService, photos)
         }
-        val name = hostName()
+        val name = host.transferName
         STARTER.execute {
             val r = try {
                 // The first time: an EC key and a certificate (~3.5 s on this CPU)
                 val ssl = TlsCert.context(this, "$name.local")
-                val server = WebServer(this, ssl, TransferAuth(this), { app.index.photos }, app.thumbs, events).also { it.start(address, PORT) }
+                val server = WebServer(this, ssl, TransferAuth(this), source, events).also { it.start(address, PORT) }
                 val mdns = runCatching { MdnsResponder(name, address).also { it.start() } }
                     .onFailure { Log.w(TAG, "mdns did not start: $it") }.getOrNull()
                 Running(server, mdns)
@@ -263,10 +257,6 @@ class TransferService : Service() {
             server.stop()
         }
     }
-
-    /** "gc100" for the EK-GC100: short to type, and a GC200 on the same network gets its own. */
-    private fun hostName(): String =
-        Build.MODEL.lowercase().removePrefix("ek-").replace(Regex("[^a-z0-9-]"), "").ifEmpty { "galaxycamera" }
 
     /** The Wi-Fi network and its IPv4 address, or null when the camera is not on Wi-Fi. */
     private fun wifi(): Pair<Network, Inet4Address>? {
@@ -335,7 +325,7 @@ class TransferService : Service() {
         val open = PendingIntent.getActivity(this, 0, Intent(this, TransferActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, TransferService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_wifi_transfer)
+            .setSmallIcon(TransferHost.of(this).transferIcon)
             .setContentTitle(getString(R.string.transfer_title))
             .setContentText(text)
             .setStyle(Notification.BigTextStyle().bigText(text))

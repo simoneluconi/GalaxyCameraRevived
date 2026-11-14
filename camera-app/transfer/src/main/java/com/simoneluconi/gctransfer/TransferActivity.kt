@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-package com.simoneluconi.gcgallery.ui
+package com.simoneluconi.gctransfer
 
 import android.app.Activity
 import android.app.AlertDialog
@@ -16,10 +16,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import com.simoneluconi.gccommon.R as C
-import com.simoneluconi.gcgallery.R
-import com.simoneluconi.gcgallery.transfer.QrCode
-import com.simoneluconi.gcgallery.transfer.Transfer
-import com.simoneluconi.gcgallery.transfer.TransferAuth
 import java.util.concurrent.Executors
 
 /** Wi-Fi transfer: the address to open on the computer, the optional password, and the switch. */
@@ -112,7 +108,7 @@ class TransferActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle(R.string.transfer_set_password)
             .setView(box)
-            .setNegativeButton(R.string.cancel, null)
+            .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.transfer_save) { _, _ -> input.text.toString().takeIf { it.isNotEmpty() }?.let { savePassword(it) } }
             .show()
         input.requestFocus()

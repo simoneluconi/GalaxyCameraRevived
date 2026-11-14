@@ -128,7 +128,7 @@ class GridActivity : Activity(), ThumbGridView.Callback {
         applyOrientation()
 
         findViewById<View>(R.id.camera).setOnClickListener { Keys.openCamera(this) }
-        findViewById<View>(R.id.transfer).setOnClickListener { startActivity(Intent(this, TransferActivity::class.java)) }
+        findViewById<View>(R.id.transfer).setOnClickListener { startActivity(Intent(this, com.simoneluconi.gctransfer.TransferActivity::class.java)) }
         emptyTrash.setOnClickListener { confirmEmptyTrash() }
         findViewById<View>(R.id.sel_close).setOnClickListener { grid.clearSelection() }
         findViewById<View>(R.id.sel_all).setOnClickListener { grid.selectAll() }

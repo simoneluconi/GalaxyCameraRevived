@@ -646,7 +646,7 @@ class ViewerActivity : Activity(), PhotoPagerView.Callback {
         }.apply { (layoutParams as LinearLayout.LayoutParams).marginStart = dp(6) })
     }
 
-    private fun button(label: String, onClick: () -> Unit) = TextView(this, null, 0, R.style.TextButton).apply {
+    private fun button(label: String, onClick: () -> Unit) = TextView(this, null, 0, C.style.TextButton).apply {
         text = label
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36))
         setOnClickListener { onClick() }

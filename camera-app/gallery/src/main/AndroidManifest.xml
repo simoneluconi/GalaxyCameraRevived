@@ -6,21 +6,7 @@
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
     <!-- Special app-op: trash, edit and favourite GC Camera's photos without a dialog each time -->
     <uses-permission android:name="android.permission.MANAGE_MEDIA" />
-    <!-- Wi-Fi transfer: a server on the Wi-Fi address only, switched on by hand -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <!-- The camera's name on the network (mDNS) -->
-    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
-    <!-- Away from any Wi-Fi: the camera's own local-only hotspot (no location involved) -->
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <uses-permission
-        android:name="android.permission.NEARBY_WIFI_DEVICES"
-        android:usesPermissionFlags="neverForLocation" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- The Wi-Fi transfer's permissions, service and screens come from the :transfer module's manifest -->
 
     <application
         android:name=".GalleryApp"
@@ -72,32 +58,7 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".ui.TransferActivity"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
-            android:exported="true"
-            android:label="@string/transfer_title"
-            android:screenOrientation="fullUser">
-            <!-- A long press on the Quick Settings tile -->
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
-            </intent-filter>
-        </activity>
-
-        <!-- The tile's way to start the service: no window, its own task, gone at once -->
-        <activity
-            android:name=".transfer.TransferStartActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:noHistory="true"
-            android:taskAffinity=""
-            android:theme="@android:style/Theme.NoDisplay" />
-
-        <service
-            android:name=".transfer.TransferService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
+        <!-- The transfer's tile, under this exact name: gd1-setup.sh adds it to the default tiles -->
         <service
             android:name=".transfer.TransferTile"
             android:exported="true"

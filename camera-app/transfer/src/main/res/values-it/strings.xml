@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<resources>
+    <string name="transfer_title">Trasferimento Wi-Fi</string>
+    <string name="transfer_starting">Avvio…</string>
+    <string name="transfer_on">Attivo</string>
+    <string name="transfer_off">Spento</string>
+    <string name="transfer_start">Avvia</string>
+    <string name="transfer_stop">Ferma</string>
+    <string name="transfer_close">Chiudi</string>
+    <string name="transfer_sent">%1$d file inviati, %2$s</string>
+    <string name="transfer_or_ip">Se il nome non si apre: %s</string>
+    <string name="transfer_password_off">Nessuna password: chiunque sia su questo Wi-Fi può aprirla</string>
+    <string name="transfer_password_on">Password attiva</string>
+    <string name="transfer_set_password">Imposta password</string>
+    <string name="transfer_change_password">Cambia password</string>
+    <string name="transfer_remove_password">Rimuovi password</string>
+    <string name="transfer_new_password">Nuova password</string>
+    <string name="transfer_save">Salva</string>
+    <string name="transfer_hint">Chrome o Edge sulla stessa rete Wi-Fi. Certificato autofirmato: accettalo una volta. Si ferma dopo 10 minuti inattivo.</string>
+    <string name="transfer_stopped_idle">Fermato dopo 10 minuti inattivo</string>
+    <string name="transfer_stopped_wifi">Fermato: Wi-Fi spento</string>
+    <string name="transfer_hotspot_failed">Non è stato possibile avviare la rete Wi-Fi della fotocamera</string>
+    <string name="transfer_hotspot_stopped">Fermato: la rete Wi-Fi della fotocamera si è chiusa</string>
+    <string name="transfer_hotspot_join">Nessun Wi-Fi qui: collegati alla rete della fotocamera</string>
+    <string name="transfer_hotspot_network">Rete  %s</string>
+    <string name="transfer_hotspot_password">Password  %s</string>
+    <string name="transfer_hotspot_permission">Nessun Wi-Fi qui, e questa app non può creare una rete sua (permesso Dispositivi nelle vicinanze)</string>
+    <string name="transfer_hotspot_then">Poi apri</string>
+    <string name="transfer_failed">Non è stato possibile avviare il trasferimento</string>
+    <string name="transfer_about">Copia le foto su un computer o un telefono, dal browser. Lontano da ogni Wi-Fi la fotocamera crea una rete sua.</string>
+</resources>

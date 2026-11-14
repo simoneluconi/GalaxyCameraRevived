@@ -33,6 +33,8 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    // The Wi-Fi transfer; the gallery hosts it (transfer/GalleryPhotoSource)
+    implementation(project(":transfer"))
     // EXIF, XMP and thumbnails from JPEG and DNG; the framework ExifInterface lacks the lens and GPS accuracy tags
     implementation(libs.exifinterface)
     // JVM tests of the byte-level parts (XMP patching, orientation maths)

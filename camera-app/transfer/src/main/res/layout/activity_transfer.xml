@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!-- Wi-Fi transfer: the address to open on the computer (and, away from any Wi-Fi, the camera's
      own network to join), the optional password, on/off. Scrolls when it does not fit. -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
@@ -173,7 +174,7 @@
                     style="@style/TextButton"
                     android:layout_height="40dp"
                     android:layout_marginEnd="8dp"
-                    android:text="@string/close" />
+                    android:text="@string/transfer_close" />
 
                 <TextView
                     android:id="@+id/toggle"

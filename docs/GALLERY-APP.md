@@ -46,11 +46,12 @@ A photography-first gallery that goes with GC Camera and also opens any picture.
   - A TV button appears in the top bar: the TV's name, the mode, and a list of resolutions (Auto, then every mode, marking the ones the TV does not list).
   - The screen stays on while a TV is connected (FLAG_KEEP_SCREEN_ON): showing photos must not end on the screen timeout.
 - **Wi-Fi transfer** (user, 2026-11-14): the camera serves its photos to a browser on the same Wi-Fi. It is switched on by hand, from the grid's Wi-Fi button or the Quick Settings tile, never on its own, because of the battery.
-  - **Address**: `https://gc100.local:8443` (`gc200.local` on the GC200; the gallery answers mDNS for that name itself), with the IP as a fallback. The certificate is self-signed, made once per camera, with the name and the IP in its SAN. The browser warns once; after the click-through Chrome and Edge keep a secure context, so `showDirectoryPicker` works (checked in Chrome and Edge 157).
+  - **The code is the `:transfer` library** (`camera-app/transfer/`, its README), so another app can host it; GC Gallery is its host (`transfer/GalleryPhotoSource`, `GalleryApp` as `TransferHost`).
+  - **Address**: `https://gc100.local:8443` (`gc200.local` on the GC200; the transfer answers mDNS for that name itself), with the IP as a fallback. The certificate is self-signed, made once per name and kept across networks. The browser warns once; after the click-through Chrome and Edge keep a secure context, so `showDirectoryPicker` works (checked in Chrome and Edge 157).
   - **Away from any Wi-Fi** (user, 2026-11-14): the camera makes its own network, a local-only hotspot (`startLocalOnlyHotspot`: no internet behind it, so the 3G is never shared).
     - The screen shows its name and password, a `WIFI:` QR code to join from a phone, and a QR of the page's address.
     - The server and mDNS use the hotspot's address. On the BCM4334 the hotspot replaces the client connection while it runs, and Wi-Fi comes back when the transfer stops.
-    - The QR encoder is the gallery's own (`transfer/QrCode`, byte mode, level M, versions 1-10).
+    - The QR encoder is our own (`:transfer`'s `QrCode`, byte mode, level M, versions 1-10).
     - It needs NEARBY_WIFI_DEVICES (`neverForLocation`), granted by the ROM's default permissions; the app never asks.
   - **Access**: open on the local network by default. An optional password is set, changed or removed on the camera only, never from the page, so someone else on the Wi-Fi cannot lock the owner out. A browser types it once and keeps a 400-day cookie; changing the password signs every browser out. The password is stored as PBKDF2, the session tokens as SHA-256. A wrong password costs 1 s, and 10 misses lock logins for a minute.
   - **Page**: the photos by day from the gallery's own thumbnail cache, JPEG+DNG as one item, the storage switch, and a JPEG + RAW / JPEG / RAW choice kept in the browser.
@@ -59,14 +60,14 @@ A photography-first gallery that goes with GC Camera and also opens any picture.
     - Selected photos can be copied or moved to the camera's trash (JPEG and DNG together; GC Gallery restores them). A click opens a photo; the tick, Ctrl/Shift-click, or any click once something is selected, selects.
     - **Viewer**, like the app's:
       - the photo full screen, the thumbnail first, then the original JPEG (a lone DNG shows its ISP JPEG);
-      - arrows, keys and swipes; a double click or the wheel zooms up to 100% and beyond, and dragging pans;
+      - arrows, keys and swipes; a click on the photo, the wheel or the − / + buttons zoom up to 100% and beyond, dragging pans, and a click on the dark band closes it (touch: pinch and double tap);
       - the info panel (the app's `PhotoInfo`, in the browser's language when the app has it), with an OpenStreetMap link for geotagged shots;
       - save into the folder (or download), and trash.
       - Back closes it. Stars and rotation are still to come: they write files, which needs the SYSTEM_GALLERY role too.
     - Firefox and Safari download one file at a time instead.
-  - **Server** (`transfer/`): a foreground service (`dataSync`).
-    - It listens on the Wi-Fi address only. It holds a partial wake lock, a Wi-Fi lock and a multicast lock while on.
-    - It stops after 10 minutes without requests (not during a copy), when the Wi-Fi goes, or from the notification, the tile or the screen.
+  - **Server**: a foreground service (`dataSync`).
+    - It listens on the Wi-Fi (or hotspot) address only. It holds a partial wake lock, a Wi-Fi lock and a multicast lock while on.
+    - It stops after 10 minutes without requests or bytes sent (a stalled copy counts as idle), when the Wi-Fi goes or its address changes, or from the notification, the tile or the screen.
     - POSTs need an `X-GC` header, so other sites cannot trash photos through the user's browser.
     - Only photos in the gallery's index are served.
   - **Trashing from the page needs the SYSTEM_GALLERY role** (gd1 overlay `config_systemGallery`): the service has no activity on screen to approve a MediaStore request.
@@ -158,16 +159,16 @@ adb -s <serial> shell appops set com.simoneluconi.gcgallery MANAGE_MEDIA allow
 - `edit/Edits`: in-place rotation and rating.
 - `tv/TvOut`: the TV through hdmid's socket: `TvState`, drawing at the mode's size (pixel aspect), the banded sharp decode.
 - `meta/PhotoInfo`: the info panel's sections.
-- `transfer/`: the Wi-Fi transfer.
-  - `TransferService` (foreground service, locks, auto-stop), `Transfer` (state for the screen, notification and tile);
-  - `WebServer` (HTTPS, routes, streaming, trash), `TransferAuth` (optional password, session tokens), `TlsCert` (self-signed certificate, hand-built DER), `MdnsResponder` (`gcNNN.local`), `MediaTrash`;
-  - `TransferTile` + `TransferStartActivity` (Quick Settings; the invisible start).
-  - The page is `assets/web/index.html`, one file with no external resources.
+- `transfer/`: GC Gallery as the Wi-Fi transfer's host.
+  - `GalleryPhotoSource`: the `PhotoSource` over MediaIndex, ThumbLoader, PhotoInfo and MediaTrash. `GalleryApp` is the `TransferHost`.
+  - `TransferTile`: the tile under the name the ROM lists (`com.simoneluconi.gcgallery/.transfer.TransferTile`).
+  - `MediaTrash`: MediaStore's trash with no activity on screen.
 - `ui/`:
-  - `GridActivity`, `ViewerActivity`, `TransferActivity`;
+  - `GridActivity`, `ViewerActivity`;
   - `MediaAccess` (MediaStore consent requests), `MessageBar`, `Keys`, `Layout` (portrait check, moving views between bars);
   - `widget/`: `ThumbGridView`, `PhotoPagerView`, `StarsView`.
-- `:common` (`camera-app/common/`): colour tokens, `Ui.kt`, `HistogramView`, `panel_button_bg`.
+- `:common` (`camera-app/common/`): colour tokens, `Ui.kt`, `HistogramView`, `panel_button_bg`, `panel_bg`, `chip_bg`, the `TextButton` style.
+- `:transfer` (`camera-app/transfer/`, its README): the Wi-Fi transfer as a library any app can host. Service, server, certificate, password, mDNS, hotspot, QR encoder, tile base class, screen and page.
 
 ## 6. Device test list (run after each full build and flash)
 
