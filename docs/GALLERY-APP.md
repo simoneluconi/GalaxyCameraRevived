@@ -56,7 +56,8 @@ A photography-first gallery that goes with GC Camera and also opens any picture.
   - **Access**: open on the local network by default. An optional password is set, changed or removed on the camera only, never from the page, so someone else on the Wi-Fi cannot lock the owner out. A browser types it once and keeps a 400-day cookie; changing the password signs every browser out. The password is stored as PBKDF2, the session tokens as SHA-256. A wrong password costs 1 s, and 10 misses lock logins for a minute.
   - **Page**: the photos by day from the gallery's own thumbnail cache, JPEG+DNG as one item, the storage switch, and a JPEG + RAW / JPEG / RAW choice kept in the browser.
     - "Copy new" writes into a folder picked once (its handle kept in IndexedDB), streaming each file into a `FileSystemWritableFileStream`, and skips what the folder already has by name and size.
-    - A different photo with the same name gets a date-stamped name, never written over.
+    - A different photo with the same name gets a date-stamped name (UTC, so every computer picks the same one; `_2`, `_3` after it), never written over.
+    - An interrupted copy can leave only an empty file at its name (the data goes to the browser's swap file); an empty file counts as free.
     - Selected photos can be copied or moved to the camera's trash (JPEG and DNG together; GC Gallery restores them). A click opens a photo; the tick, Ctrl/Shift-click, or any click once something is selected, selects.
     - **Viewer**, like the app's:
       - the photo full screen, the thumbnail first, then the original JPEG (a lone DNG shows its ISP JPEG);

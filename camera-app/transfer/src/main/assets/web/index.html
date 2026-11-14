@@ -102,6 +102,8 @@ figure.sel .tick svg { opacity: 1; }
 .badge.done { background: var(--ok); color: #04210f; }
 figcaption { position: absolute; right: 8px; bottom: 7px; z-index: 2; font-size: 11px; color: #fff; font-variant-numeric: tabular-nums; }
 .empty { color: var(--muted); text-align: center; padding: 18vh 0; font-size: 15px; }
+.empty p { margin: 0 0 16px; }
+.empty button { display: inline-flex; }
 
 /* Dock */
 .dock { position: fixed; z-index: 4; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%);
@@ -282,7 +284,7 @@ const T = {
     noApi: "This browser can only download the photos one by one. Chrome and Edge copy them into a folder and skip what is already there.",
     copying: (i, n) => `${i} / ${n}`, done: (n, s) => n ? `Copied ${n} files · ${s}` : "Nothing to copy", failed: e => `Stopped: ${e}`,
     partly: (n, k, e) => `Copied ${n} files, ${k} not copied (${e})`, nameTaken: n => `${n}: a different file already has that name`,
-    scanning: "Reading the folder…",
+    scanning: "Reading the folder…", offline: "The camera does not answer. Is the transfer still on?", retry: "Try again",
     today: "Today", yesterday: "Yesterday", lost: "the camera asks for its password again",
   },
   it: {
@@ -298,7 +300,7 @@ const T = {
     noApi: "Questo browser può solo scaricare le foto una alla volta. Chrome ed Edge le copiano in una cartella e saltano quelle che ci sono già.",
     copying: (i, n) => `${i} / ${n}`, done: (n, s) => n ? `Copiati ${n} file · ${s}` : "Niente da copiare", failed: e => `Interrotto: ${e}`,
     partly: (n, k, e) => `Copiati ${n} file, ${k} non copiati (${e})`, nameTaken: n => `${n}: c'è già un file diverso con questo nome`,
-    scanning: "Lettura della cartella…",
+    scanning: "Lettura della cartella…", offline: "La fotocamera non risponde. Il trasferimento è ancora attivo?", retry: "Riprova",
     today: "Oggi", yesterday: "Ieri", lost: "la fotocamera chiede di nuovo la password",
   },
 };
@@ -313,7 +315,23 @@ let photos = [], storage = "sd", dir = null, savedDir = null;
 let inFolder = new Map();
 const selected = new Set();
 let lastClicked = null, busy = false, controller = null;
-const downloaded = new Set(JSON.parse(localStorage.getItem("gc-downloaded") || "[]"));
+
+/** localStorage that never throws: blocked storage (Firefox's setting) or a bad value gives the default. */
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* not remembered */ } },
+  json(k, def) { try { const v = JSON.parse(this.get(k)); return v ?? def; } catch (e) { return def; } },
+};
+
+/**
+ * Without a folder (no File System Access): the files already downloaded from here, by name, size
+ * and date (ids are reused after a wipe, and another camera may answer at the same address). A
+ * download cannot be confirmed: this is a best guess, so a selection downloads all it holds.
+ */
+const DOWNLOADED_MAX = 5000;
+const downloadKey = (f, p) => `${f.name}|${f.size}|${p.taken}`;
+let downloaded = store.json("gc-downloaded2", []);
+downloaded = new Set(Array.isArray(downloaded) ? downloaded.slice(-DOWNLOADED_MAX) : []);
 
 function size(b) {
   return b >= 1e9 ? (b / 1e9).toFixed(2) + " GB" : b >= 1e6 ? (b / 1e6).toFixed(1) + " MB" : Math.round(b / 1e3) + " kB";
@@ -348,15 +366,43 @@ $("loginForm").addEventListener("submit", async e => {
     if (r.status === 204) { $("loginError").textContent = ""; $("login").hidden = true; load(); return; }
     $("loginError").textContent = r.status === 429 ? L.pwLocked : L.pwWrong;
     $("pw").select();
+  } catch (e) {
+    // The camera gone (transfer stopped, Wi-Fi lost)
+    $("loginError").textContent = L.offline;
   } finally {
     btn.disabled = false;
   }
 });
 
+/** The camera did not answer: say so, with a way to ask again (the page stays as it was). */
+function showOffline() {
+  if (!$("login").hidden) return;
+  $("app").hidden = false;
+  const e = document.createElement("div");
+  e.className = "empty";
+  const p = document.createElement("p");
+  p.textContent = L.offline;
+  const b = document.createElement("button");
+  b.className = "tonal";
+  b.textContent = L.retry;
+  b.onclick = () => load();
+  e.append(p, b);
+  $("grid").replaceChildren(e);
+}
+
 async function load() {
   let j;
-  try { j = await (await api("/api/photos")).json(); } catch (e) { return; }
+  try {
+    const r = await api("/api/photos");
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    j = await r.json();
+  } catch (e) {
+    // 401: the password box is up already
+    if (e.message !== "pin") showOffline();
+    return;
+  }
   photos = j.photos;
+  doneCache.clear();
   $("camera").textContent = j.camera;
   $("loginTitle").textContent = j.camera;
   document.title = `${j.camera} · GC Gallery`;
@@ -367,7 +413,7 @@ async function load() {
     const b = document.createElement("button");
     b.textContent = L[s];
     b.className = s === storage ? "on" : "";
-    b.onclick = () => { if (busy || s === storage) return; storage = s; selected.clear(); load(); };
+    b.onclick = () => { if (busy || s === storage) return; storage = s; selected.clear(); lastClicked = null; load(); };
     return b;
   }));
   seg.hidden = stores.length < 2;
@@ -382,7 +428,7 @@ async function load() {
 const visible = () => photos.filter(p => p.storage === storage);
 
 /** What to copy: "both", "jpeg" or "raw", remembered in this browser. */
-let kind = localStorage.getItem("gc-kind") || "both";
+let kind = store.get("gc-kind") || "both";
 if (!["both", "jpeg", "raw"].includes(kind)) kind = "both";
 
 function buildKinds() {
@@ -395,7 +441,8 @@ function buildKinds() {
     b.onclick = () => {
       if (busy || k === kind) return;
       kind = k;
-      localStorage.setItem("gc-kind", k);
+      store.set("gc-kind", k);
+      doneCache.clear();
       buildKinds();
       render();
     };
@@ -419,21 +466,39 @@ function filesOf(p, k = kind) {
 const hasFiles = p => filesOf(p).length > 0;
 const rawCount = list => list.filter(p => p.raw || isDng(p.name)).length;
 
-/** Another photo with the same name (the camera's counter restarted): saved next to it, never over it. */
-function altName(name, taken) {
+/**
+ * Another photo with the same name (the camera's counter restarted): saved next to it, never over
+ * it, under its date and time in UTC, so every computer picks the same name; [n] > 1 for a third
+ * photo with the same name and second.
+ */
+function altName(name, taken, n = 1) {
   const d = new Date(taken), z = n => String(n).padStart(2, "0");
-  const stamp = `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`;
+  const stamp = `${d.getUTCFullYear()}${z(d.getUTCMonth() + 1)}${z(d.getUTCDate())}-` +
+    `${z(d.getUTCHours())}${z(d.getUTCMinutes())}${z(d.getUTCSeconds())}` + (n > 1 ? `_${n}` : "");
   const dot = name.lastIndexOf(".");
   return dot < 0 ? `${name}_${stamp}` : `${name.slice(0, dot)}_${stamp}${name.slice(dot)}`;
 }
 
+/** The names a file may have in the folder, in the order they are tried. */
+const namesOf = (f, p) => [f.name, altName(f.name, p.taken), altName(f.name, p.taken, 2), altName(f.name, p.taken, 3)];
+
 function fileDone(f, p) {
-  if (!canWrite) return downloaded.has(f.id);
-  return inFolder.get(f.name) === f.size || inFolder.get(altName(f.name, p.taken)) === f.size;
+  if (!canWrite) return downloaded.has(downloadKey(f, p));
+  return namesOf(f, p).some(n => inFolder.get(n) === f.size);
 }
 
+/**
+ * id -> isDone, so a click does not redo the names of every photo. Cleared when the folder's
+ * contents, the kind, the list or the downloads change.
+ */
+const doneCache = new Map();
+
 /** Everything of the chosen kind is in the folder; false for an item with nothing of that kind. */
-const isDone = p => hasFiles(p) && filesOf(p).every(f => fileDone(f, p));
+function isDone(p) {
+  let d = doneCache.get(p.id);
+  if (d === undefined) doneCache.set(p.id, d = hasFiles(p) && filesOf(p).every(f => fileDone(f, p)));
+  return d;
+}
 /** Has something of the chosen kind still to copy. */
 const isNew = p => hasFiles(p) && !isDone(p);
 const bytesOf = list => list.reduce((a, p) => a + filesOf(p).reduce((b, f) => b + f.size, 0), 0);
@@ -486,6 +551,8 @@ function render() {
     grid.append(...items.map(tile));
     main.append(head, grid);
   }
+  // Not in update(): it does not change with the selection
+  $("count").textContent = L.photos(list.length, rawCount(list), size(bytesOf(list)));
   update();
 }
 
@@ -520,8 +587,10 @@ function tile(p) {
 
 function toggle(p, range) {
   const list = visible();
-  if (range && lastClicked != null) {
-    const a = list.findIndex(x => x.id === lastClicked), b = list.findIndex(x => x.id === p.id);
+  // The last clicked photo may be gone (trashed): then a plain toggle
+  const a = range && lastClicked != null ? list.findIndex(x => x.id === lastClicked) : -1;
+  const b = list.findIndex(x => x.id === p.id);
+  if (a >= 0 && b >= 0) {
     const on = !selected.has(p.id);
     for (let i = Math.min(a, b); i <= Math.max(a, b); i++) on ? selected.add(list[i].id) : selected.delete(list[i].id);
   } else {
@@ -553,7 +622,6 @@ function update() {
   }
   const sel = list.filter(p => selected.has(p.id));
   $("grid").classList.toggle("selecting", sel.length > 0);
-  $("count").textContent = L.photos(list.length, rawCount(list), size(bytesOf(list)));
   const fresh = list.filter(isNew);
   const ready = canWrite ? !!dir : true;
   $("copyNewLabel").textContent = scanning ? L.scanning : !ready ? L.copyNew(list.length) : canWrite ? L.copyNew(fresh.length) : L.downloadNew(fresh.length);
@@ -563,6 +631,7 @@ function update() {
   $("copySel").hidden = !sel.length;
   $("copySel").disabled = busy || scanning || !ready;
   $("vDown").disabled = busy || scanning;
+  $("vTrash").disabled = busy;
   $("trashSel").hidden = !sel.length;
   $("trashSel").disabled = busy;
   $("trashLabel").textContent = L.trash(sel.length);
@@ -595,7 +664,7 @@ document.addEventListener("keydown", e => {
 // --- Viewer: one photo full screen, like GC Gallery's
 
 let vList = [], vIndex = -1, vChanged = false;
-let infoOpen = localStorage.getItem("gc-info") === "1";
+let infoOpen = store.get("gc-info") === "1";
 const infoCache = new Map();
 
 function openViewer(id) {
@@ -718,7 +787,7 @@ $("vPrev").onclick = e => { e.stopPropagation(); step(-1); };
 $("vNext").onclick = e => { e.stopPropagation(); step(1); };
 $("vInfo").onclick = () => {
   infoOpen = !infoOpen;
-  localStorage.setItem("gc-info", infoOpen ? "1" : "0");
+  store.set("gc-info", infoOpen ? "1" : "0");
   $("vInfo").classList.toggle("on", infoOpen);
   $("vPanel").hidden = !infoOpen;
   resetZoom();
@@ -731,16 +800,23 @@ $("vDown").onclick = () => {
 };
 $("vTrash").onclick = async () => {
   const p = vList[vIndex];
-  if (!p || !confirm(L.trashQ(1))) return;
+  // Not while a copy runs, as in the dock
+  if (!p || busy || !confirm(L.trashQ(1))) return;
+  busy = true;
+  update();
   try {
     const r = await post("/api/trash", { ids: [p.id] });
     if (!r.ok) throw new Error(L.trashDenied);
   } catch (e) {
     if (e.message !== "pin") alert(e.message);
     return;
+  } finally {
+    busy = false;
+    update();
   }
   photos = photos.filter(x => x.id !== p.id);
   selected.delete(p.id);
+  if (lastClicked === p.id) lastClicked = null;
   vList.splice(vIndex, 1);
   vChanged = true;
   if (!vList.length) return closeViewer();
@@ -971,20 +1047,33 @@ async function useFolder(handle) {
   const gen = ++scanGen;
   dir = handle;
   inFolder = new Map();
+  doneCache.clear();
   scanning = true;
   update();
   // Into a map of our own: a folder picked meanwhile must not get this one's names
   const found = new Map();
   try {
+    // Sizes asked several at a time: one by one, a big folder (or a network drive) takes ages
+    let batch = [];
+    const flush = async () => {
+      await Promise.all(batch.map(async ([name, h]) => {
+        try { found.set(name, (await h.getFile()).size); } catch (e) { /* gone meanwhile */ }
+      }));
+      batch = [];
+    };
     for await (const [name, h] of handle.entries()) {
       if (gen !== scanGen) return;
-      if (h.kind === "file") found.set(name, (await h.getFile()).size);
+      if (h.kind !== "file") continue;
+      batch.push([name, h]);
+      if (batch.length >= 32) await flush();
     }
+    await flush();
   } catch (e) {
     console.warn("folder scan", e);
   }
   if (gen !== scanGen) return;
   inFolder = found;
+  doneCache.clear();
   scanning = false;
   update();
 }
@@ -1022,6 +1111,7 @@ $("trashSel").onclick = async () => {
     const gone = new Set(list.map(p => p.id));
     photos = photos.filter(p => !gone.has(p.id));
     for (const id of gone) selected.delete(id);
+    if (gone.has(lastClicked)) lastClicked = null;
     $("progress").hidden = false;
     $("cancel").hidden = true;
     $("pBarBox").hidden = true;
@@ -1036,7 +1126,12 @@ $("trashSel").onclick = async () => {
 };
 
 $("copyNew").onclick = () => copy(visible().filter(isNew));
-$("copySel").onclick = () => copy(visible().filter(p => selected.has(p.id)));
+$("copySel").onclick = () => {
+  const list = visible().filter(p => selected.has(p.id));
+  // Downloads cannot be confirmed: a selection downloads all of it, done or not
+  if (!canWrite) download(list.flatMap(p => filesOf(p).map(f => ({ f, p }))));
+  else copy(list);
+};
 $("cancel").onclick = () => controller && controller.abort();
 
 async function copy(items) {
@@ -1049,7 +1144,8 @@ async function copy(items) {
   controller = new AbortController();
   update();
   const total = jobs.reduce((a, j) => a + j.f.size, 0) || 1;
-  let doneBytes = 0, count = 0;
+  // doneBytes drives the bar (skipped files included); the message counts only what was copied
+  let doneBytes = 0, skippedBytes = 0, count = 0;
   const t0 = performance.now();
   $("progress").hidden = false;
   $("pBarBox").hidden = false;
@@ -1061,15 +1157,22 @@ async function copy(items) {
     $("pName").textContent = name;
     $("pNums").textContent = `${L.copying(i, jobs.length)} · ${size(doneBytes)} / ${size(total)} · ${size(speed)}/s` +
       (eta > 5 ? ` · ${Math.floor(eta / 60)}:${String(eta % 60).padStart(2, "0")}` : "");
-    $("pBar").style.width = (100 * doneBytes / total).toFixed(1) + "%";
+    // A file grown on the camera since the list came may take it past the total
+    $("pBar").style.width = Math.min(100, 100 * doneBytes / total).toFixed(1) + "%";
   };
   let failed = 0, lastError = null;
   try {
     for (const [i, { f, p }] of jobs.entries()) {
       show(f.name, i + 1);
       try {
-        await copyFile(f, p, controller.signal, n => { doneBytes += n; show(f.name, i + 1); });
-        count++;
+        const copied = await copyFile(f, p, controller.signal, n => { doneBytes += n; show(f.name, i + 1); });
+        // Already there (another tab, another program): not counted as copied, but done
+        if (copied) count++;
+        else {
+          doneBytes += f.size;
+          skippedBytes += f.size;
+          show(f.name, i + 1);
+        }
         selected.delete(p.id);
       } catch (e) {
         // Cancel, or the camera gone (password asked again): stop. Anything else: skip that file
@@ -1080,10 +1183,10 @@ async function copy(items) {
       }
       update();
     }
-    $("pName").textContent = failed ? L.partly(count, failed, lastError) : L.done(count, size(doneBytes));
+    $("pName").textContent = failed ? L.partly(count, failed, lastError) : L.done(count, size(doneBytes - skippedBytes));
     if (!failed) $("pBarBox").classList.add("ok");
   } catch (e) {
-    $("pName").textContent = e.name === "AbortError" ? L.done(count, size(doneBytes)) : L.failed(e.message === "pin" ? L.lost : e.message);
+    $("pName").textContent = e.name === "AbortError" ? L.done(count, size(doneBytes - skippedBytes)) :L.failed(e.message === "pin" ? L.lost : e.message);
   } finally {
     busy = false;
     controller = null;
@@ -1107,20 +1210,31 @@ async function sizeInFolder(name) {
   }
 }
 
+function noteInFolder(name, bytes) {
+  inFolder.set(name, bytes);
+  doneCache.clear();
+}
+
+/**
+ * Copies one file into the folder. True when it was copied, false when it was there already.
+ * Never over a file already there, whatever the scan said: another program, another tab or a
+ * scan still running may have put one in. Same size: it is this photo. Else the next dated name.
+ */
 async function copyFile(f, p, signal, progress) {
-  // Never over a file already there, whatever the scan said: another program, another tab or
-  // a scan still running may have put one in. Same size: it is this photo. Else the dated name.
-  let target = f.name;
-  let there = await sizeInFolder(target);
-  if (there === f.size) return inFolder.set(target, there);
-  if (there !== -1) {
-    target = altName(f.name, p.taken);
-    there = await sizeInFolder(target);
-    if (there === f.size) return inFolder.set(target, there);
-    if (there !== -1) throw new Error(L.nameTaken(f.name));
+  let target = null;
+  for (const name of namesOf(f, p)) {
+    const there = await sizeInFolder(name);
+    if (there === f.size) {
+      noteInFolder(name, there);
+      return false;
+    }
+    // Empty: what an interrupted copy leaves (no photo has 0 bytes), so it is free
+    if (there === -1 || there === 0) { target = name; break; }
   }
+  if (!target) throw new Error(L.nameTaken(f.name));
   let fh = null, w = null, got = 0;
   try {
+    // This makes an empty file at once: if the copy dies with the tab, that is all it leaves
     fh = await dir.getFileHandle(target, { create: true });
     // Written to a swap file and swapped in on close: an interrupted copy leaves nothing half-done
     w = await fh.createWritable();
@@ -1138,33 +1252,57 @@ async function copyFile(f, p, signal, progress) {
     }
     if (got !== expected) throw new Error(`${f.name}: ${got} / ${expected} bytes`);
     await w.close();
-    inFolder.set(target, got);
+    // The file as it is now (an edit on the camera may have changed it since the list came)
+    if (got !== f.size) {
+      if (p.id === f.id) p.size = got;
+      else if (p.raw && p.raw.id === f.id) p.raw.size = got;
+    }
+    noteInFolder(target, got);
+    return true;
   } catch (e) {
     progress(-got);
     if (w) await w.abort().catch(() => {});
-    // getFileHandle(create) made an empty file, and the name was free: take it away again
-    if (fh) await dir.removeEntry(target).catch(() => {});
+    // getFileHandle(create) made an empty file: take it away, but only while it is still empty
+    // (another tab may have finished a copy under that name meanwhile)
+    if (fh && await sizeInFolder(target).catch(() => -1) === 0) await dir.removeEntry(target).catch(() => {});
     throw e;
   }
 }
 
-/** Without a folder to write into: one download per file, remembered in this browser. */
+/**
+ * Without a folder to write into: one download per file, remembered in this browser (as a best
+ * guess: the browser does not say whether a download went through, or was blocked).
+ */
 async function download(jobs) {
-  for (const { f } of jobs) {
-    const a = document.createElement("a");
-    a.href = `/file/${f.id}`;
-    a.download = f.name;
-    document.body.append(a);
-    a.click();
-    a.remove();
-    downloaded.add(f.id);
-    await new Promise(r => setTimeout(r, 400));
-  }
-  localStorage.setItem("gc-downloaded", JSON.stringify([...downloaded]));
+  if (busy || !jobs.length) return;
+  busy = true;
   update();
+  try {
+    for (const { f, p } of jobs) {
+      const a = document.createElement("a");
+      a.href = `/file/${f.id}`;
+      a.download = f.name;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      const key = downloadKey(f, p);
+      // Most recent last, so the cap drops the oldest
+      downloaded.delete(key);
+      downloaded.add(key);
+      await new Promise(r => setTimeout(r, 400));
+    }
+    while (downloaded.size > DOWNLOADED_MAX) downloaded.delete(downloaded.values().next().value);
+    store.set("gc-downloaded2", JSON.stringify([...downloaded]));
+  } finally {
+    doneCache.clear();
+    busy = false;
+    update();
+  }
 }
 
-restoreFolder().finally(load);
+// The photos first; the remembered folder is read meanwhile (copies wait for it)
+load();
+restoreFolder().catch(e => console.warn("folder", e));
 </script>
 </body>
 </html>
