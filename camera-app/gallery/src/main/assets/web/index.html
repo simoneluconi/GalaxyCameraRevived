@@ -124,16 +124,17 @@ figcaption { position: absolute; right: 8px; bottom: 7px; z-index: 2; font-size:
 .bar.ok div { background: var(--ok); }
 
 /* Viewer */
-#viewer { position: fixed; inset: 0; z-index: 10; background: #0b0c0e; color: #eceef1; display: flex; overflow: hidden; touch-action: none; }
-#vStage { position: relative; flex: 1; overflow: hidden; cursor: zoom-in; }
+#viewer { position: fixed; inset: 0; z-index: 10; background: #0b0c0e; color: #eceef1; display: flex; overflow: hidden; }
+/* The script does pinch and pan here; the info panel keeps the browser's own scrolling */
+#vStage { position: relative; flex: 1; overflow: hidden; cursor: zoom-in; touch-action: none; }
 #vStage.zoomed { cursor: grab; }
 #vStage.dragging { cursor: grabbing; }
-#vBox { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
-#vBox img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+/* Placed and sized in pixels by the script: the picture's own rectangle, never its letterbox */
+#vStage img { position: absolute; left: 0; top: 0; max-width: none; user-select: none; -webkit-user-drag: none; pointer-events: none; }
 #vImg { opacity: 0; transition: opacity .25s; }
 #vImg.in { opacity: 1; }
-.vbar { position: absolute; z-index: 2; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 8px; padding: 10px 12px;
-  background: linear-gradient(rgb(0 0 0 / .6), transparent); transition: opacity .2s; }
+.vbar { position: absolute; z-index: 3; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  background: linear-gradient(rgb(0 0 0 / .65), transparent); transition: opacity .2s; }
 .vtitle { flex: 1; min-width: 0; }
 .vtitle b { display: block; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vtitle small { display: block; color: #b8bec7; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -234,16 +235,17 @@ figcaption { position: absolute; right: 8px; bottom: 7px; z-index: 2; font-size:
 </div>
 
 <div id="viewer" hidden>
+  <!-- Across the whole viewer, so its buttons stay put when the info panel opens -->
+  <div class="vbar">
+    <button id="vClose" class="icon"><svg><use href="#i-close"/></svg></button>
+    <div class="vtitle"><b id="vName"></b><small id="vLine"></small></div>
+    <span id="vCount" class="num"></span>
+    <button id="vDown" class="icon"><svg><use href="#i-down"/></svg></button>
+    <button id="vTrash" class="icon danger"><svg><use href="#i-trash"/></svg></button>
+    <button id="vInfo" class="icon"><svg><use href="#i-info"/></svg></button>
+  </div>
   <div id="vStage">
-    <div id="vBox"><img id="vLow" alt=""><img id="vImg" alt=""></div>
-    <div class="vbar">
-      <button id="vClose" class="icon"><svg><use href="#i-close"/></svg></button>
-      <div class="vtitle"><b id="vName"></b><small id="vLine"></small></div>
-      <span id="vCount" class="num"></span>
-      <button id="vDown" class="icon"><svg><use href="#i-down"/></svg></button>
-      <button id="vTrash" class="icon danger"><svg><use href="#i-trash"/></svg></button>
-      <button id="vInfo" class="icon"><svg><use href="#i-info"/></svg></button>
-    </div>
+    <img id="vLow" alt=""><img id="vImg" alt="">
     <button id="vPrev" class="nav prev"><svg><use href="#i-left"/></svg></button>
     <button id="vNext" class="nav next"><svg><use href="#i-right"/></svg></button>
     <div id="vZoom" class="num" hidden></div>
@@ -572,7 +574,7 @@ document.addEventListener("keydown", e => {
 
 // --- Viewer: one photo full screen, like GC Gallery's
 
-let vList = [], vIndex = -1, vScale = 1, vX = 0, vY = 0, vChanged = false;
+let vList = [], vIndex = -1, vChanged = false;
 let infoOpen = localStorage.getItem("gc-info") === "1";
 const infoCache = new Map();
 
@@ -712,85 +714,163 @@ $("vTrash").onclick = async () => {
   showPhoto();
 };
 
-// Zoom: double click or the wheel, drag to pan; at fit a swipe changes photo
-const stage = $("vStage"), box = $("vBox");
+// Zoom, in the picture's own pixels: z.s is screen pixels per image pixel, (z.x, z.y) where its
+// top-left corner sits in the stage. Fit is the floor; the most is 2 screen pixels per image pixel.
+const stage = $("vStage"), lowImg = $("vLow"), fullImg = $("vImg");
+const z = { s: 1, fit: 1, x: 0, y: 0, w: 0, h: 0 };
 
-/** Screen pixels per image pixel at fit, from the picture's natural size and the stage. */
-function fitScale() {
-  const img = $("vImg").naturalWidth ? $("vImg") : $("vLow");
-  const w = img.naturalWidth, h = img.naturalHeight;
-  if (!w || !h) return 1;
-  return Math.min(stage.clientWidth / w, stage.clientHeight / h);
+/** The picture's size in image pixels: the full JPEG once it is in, else the thumbnail scaled up to it. */
+function dims() {
+  if (fullImg.classList.contains("in") && fullImg.naturalWidth) return [fullImg.naturalWidth, fullImg.naturalHeight];
+  const tw = lowImg.naturalWidth, th = lowImg.naturalHeight, p = vList[vIndex];
+  if (!tw || !th) return [0, 0];
+  const long = p ? Math.max(p.w, p.h) : 0;
+  const k = long ? long / Math.max(tw, th) : 1;
+  return [tw * k, th * k];
 }
 
-function applyZoom() {
-  const W = stage.clientWidth, H = stage.clientHeight;
-  // Keep the picture over the stage: no panning past its edges
-  vX = Math.min(0, Math.max(W - W * vScale, vX));
-  vY = Math.min(0, Math.max(H - H * vScale, vY));
-  box.style.transform = vScale === 1 ? "" : `translate(${vX}px, ${vY}px) scale(${vScale})`;
-  stage.classList.toggle("zoomed", vScale > 1);
-  const z = $("vZoom");
-  z.hidden = vScale === 1;
-  z.textContent = Math.round(vScale * fitScale() * 100) + "%";
+function layout() {
+  for (const im of [lowImg, fullImg]) {
+    im.style.left = z.x + "px";
+    im.style.top = z.y + "px";
+    im.style.width = z.w * z.s + "px";
+    im.style.height = z.h * z.s + "px";
+  }
+  const zoomed = z.s > z.fit * 1.01;
+  stage.classList.toggle("zoomed", zoomed);
+  $("vZoom").hidden = !zoomed;
+  $("vZoom").textContent = Math.round(z.s * 100) + "%";
+}
+
+/** Centred while smaller than the stage; once bigger, never panned past its own edges. */
+function clamp() {
+  const W = stage.clientWidth, H = stage.clientHeight, dw = z.w * z.s, dh = z.h * z.s;
+  z.x = dw <= W ? (W - dw) / 2 : Math.min(0, Math.max(W - dw, z.x));
+  z.y = dh <= H ? (H - dh) / 2 : Math.min(0, Math.max(H - dh, z.y));
 }
 
 function resetZoom() {
-  vScale = 1; vX = 0; vY = 0;
-  applyZoom();
+  const [w, h] = dims();
+  z.w = w; z.h = h;
+  if (!w) return;
+  z.fit = Math.min(stage.clientWidth / w, stage.clientHeight / h);
+  z.s = z.fit;
+  clamp();
+  layout();
 }
 
-function zoomAt(scale, cx, cy) {
-  const max = Math.max(2, 2 / fitScale());
-  const s = Math.min(max, Math.max(1, scale));
-  vX = cx - (cx - vX) * (s / vScale);
-  vY = cy - (cy - vY) * (s / vScale);
-  vScale = s;
-  applyZoom();
+/** The full JPEG replaced the thumbnail: same place on screen, now in its real pixels. */
+function rescale() {
+  const [w, h] = dims();
+  if (!w) return;
+  if (!z.w || z.s <= z.fit * 1.01) return resetZoom();
+  const k = z.w / w;
+  z.s *= k; z.fit *= k; z.w = w; z.h = h;
+  clamp();
+  layout();
 }
+
+function zoomTo(s, cx, cy) {
+  if (!z.w) return;
+  s = Math.min(Math.max(z.fit, 2), Math.max(z.fit, s));
+  // The image point under (cx, cy) stays there
+  const ix = (cx - z.x) / z.s, iy = (cy - z.y) / z.s;
+  z.s = s;
+  z.x = cx - ix * s;
+  z.y = cy - iy * s;
+  clamp();
+  layout();
+}
+
+/** Fit ↔ 100% (one image pixel per screen pixel), as in the app. */
+function toggleZoom(cx, cy) {
+  if (z.s > z.fit * 1.01) resetZoom();
+  else zoomTo(z.fit < 1 ? 1 : z.fit * 2, cx, cy);
+}
+
+lowImg.addEventListener("load", () => { if (!fullImg.classList.contains("in")) resetZoom(); });
+fullImg.addEventListener("load", () => requestAnimationFrame(rescale));
 
 function local(e) {
   const r = stage.getBoundingClientRect();
   return [e.clientX - r.left, e.clientY - r.top];
 }
 
-stage.addEventListener("dblclick", e => {
-  if (e.target.closest("button")) return;
-  const [x, y] = local(e);
-  // Fit and 100% (one image pixel per screen pixel), as in the app
-  vScale > 1 ? resetZoom() : zoomAt(Math.max(1.5, 1 / fitScale()), x, y);
-});
+/** On the picture itself, not the dark band around it. */
+function onPicture(x, y) {
+  return x >= z.x && x <= z.x + z.w * z.s && y >= z.y && y <= z.y + z.h * z.s;
+}
+
 stage.addEventListener("wheel", e => {
   e.preventDefault();
   const [x, y] = local(e);
-  zoomAt(vScale * (e.deltaY < 0 ? 1.2 : 1 / 1.2), x, y);
+  // Proportional to the scroll, so a trackpad zooms smoothly and a mouse wheel in steps
+  zoomTo(z.s * Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0025)), x, y);
 }, { passive: false });
 
-let drag = null;
+// Pointers: one drags (or swipes at fit), two pinch; a quick second tap toggles the zoom
+const pointers = new Map();
+let gesture = null, lastTap = { t: 0, x: 0, y: 0 };
+
 stage.addEventListener("pointerdown", e => {
   if (e.target.closest("button")) return;
-  drag = { x: e.clientX, y: e.clientY, vx: vX, vy: vY, moved: false };
   stage.setPointerCapture(e.pointerId);
-});
-stage.addEventListener("pointermove", e => {
-  if (!drag) return;
-  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-  if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
-  if (vScale > 1) {
-    stage.classList.add("dragging");
-    vX = drag.vx + dx; vY = drag.vy + dy;
-    applyZoom();
+  pointers.set(e.pointerId, local(e));
+  if (pointers.size === 1) {
+    const [x, y] = local(e);
+    gesture = { kind: "drag", x0: x, y0: y, zx: z.x, zy: z.y, moved: false, touch: e.pointerType !== "mouse" };
+  } else if (pointers.size === 2) {
+    const [[ax, ay], [bx, by]] = [...pointers.values()];
+    gesture = { kind: "pinch", d0: Math.hypot(bx - ax, by - ay) || 1, s0: z.s, moved: true };
   }
 });
-stage.addEventListener("pointerup", e => {
-  if (!drag) return;
-  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-  stage.classList.remove("dragging");
-  if (vScale === 1 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1);
-  // A tap without moving shows or hides the bars, as in the app
-  else if (!drag.moved && !e.target.closest("button")) $("viewer").classList.toggle("chromeless");
-  drag = null;
+
+stage.addEventListener("pointermove", e => {
+  if (!pointers.has(e.pointerId) || !gesture) return;
+  pointers.set(e.pointerId, local(e));
+  if (gesture.kind === "pinch" && pointers.size >= 2) {
+    const [[ax, ay], [bx, by]] = [...pointers.values()];
+    zoomTo(gesture.s0 * Math.hypot(bx - ax, by - ay) / gesture.d0, (ax + bx) / 2, (ay + by) / 2);
+    return;
+  }
+  const [x, y] = local(e), dx = x - gesture.x0, dy = y - gesture.y0;
+  if (Math.abs(dx) + Math.abs(dy) > 6) gesture.moved = true;
+  if (gesture.moved && z.s > z.fit * 1.01) {
+    stage.classList.add("dragging");
+    z.x = gesture.zx + dx;
+    z.y = gesture.zy + dy;
+    clamp();
+    layout();
+  }
 });
+
+function endPointer(e) {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  stage.classList.remove("dragging");
+  const g = gesture;
+  if (pointers.size > 0 || !g) return;
+  gesture = null;
+  if (g.kind !== "drag" || e.type === "pointercancel") return;
+  const [x, y] = local(e), dx = x - g.x0, dy = y - g.y0;
+  if (g.moved) {
+    // At fit, a sideways swipe changes photo
+    if (z.s <= z.fit * 1.01 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1);
+    return;
+  }
+  const now = performance.now();
+  if (now - lastTap.t < 320 && Math.hypot(x - lastTap.x, y - lastTap.y) < 30) {
+    lastTap.t = 0;
+    toggleZoom(x, y);
+    return;
+  }
+  lastTap = { t: now, x, y };
+  // A click on the dark band around the photo closes it; on a touch screen a tap shows or hides the bars
+  if (!g.touch && !onPicture(x, y) && z.s <= z.fit * 1.01) closeViewer();
+  else if (g.touch) $("viewer").classList.toggle("chromeless");
+}
+stage.addEventListener("pointerup", endPointer);
+stage.addEventListener("pointercancel", endPointer);
 addEventListener("resize", () => { if (!$("viewer").hidden) resetZoom(); });
 
 // --- The folder, kept between visits (IndexedDB holds the handle; the browser asks again for access)
