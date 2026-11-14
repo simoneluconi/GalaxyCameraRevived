@@ -126,7 +126,9 @@ figcaption { position: absolute; right: 8px; bottom: 7px; z-index: 2; font-size:
 /* Viewer */
 #viewer { position: fixed; inset: 0; z-index: 10; background: #0b0c0e; color: #eceef1; display: flex; overflow: hidden; }
 /* The script does pinch and pan here; the info panel keeps the browser's own scrolling */
-#vStage { position: relative; flex: 1; overflow: hidden; cursor: zoom-in; touch-action: none; }
+#vStage { position: relative; flex: 1; overflow: hidden; touch-action: none; }
+/* Set by the script: a magnifier over the photo, the plain arrow around it (a click there closes) */
+#vStage.over { cursor: zoom-in; }
 #vStage.zoomed { cursor: grab; }
 #vStage.dragging { cursor: grabbing; }
 /* Placed and sized in pixels by the script: the picture's own rectangle, never its letterbox */
@@ -147,9 +149,12 @@ figcaption { position: absolute; right: 8px; bottom: 7px; z-index: 2; font-size:
   color: #fff; background: rgb(0 0 0 / .35); }
 .nav:hover { background: rgb(0 0 0 / .6); }
 .nav.prev { left: 14px; } .nav.next { right: 14px; }
-#viewer.chromeless .vbar, #viewer.chromeless .nav { opacity: 0; pointer-events: none; }
-#vZoom { position: absolute; z-index: 2; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 6px 12px; border-radius: 999px;
-  background: rgb(0 0 0 / .6); font-size: 12.5px; }
+#viewer.chromeless .vbar, #viewer.chromeless .nav, #viewer.chromeless #vZoomBar { opacity: 0; pointer-events: none; }
+#vZoomBar { position: absolute; z-index: 2; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 4px;
+  padding: 4px; border-radius: 999px; background: rgb(0 0 0 / .6); transition: opacity .2s; }
+#vZoom { min-width: 52px; text-align: center; font-size: 13px; font-weight: 600; }
+.icon.small { width: 34px; height: 34px; background: transparent; }
+.icon.small:hover { background: rgb(255 255 255 / .15); }
 #vPanel { width: 340px; flex: none; overflow-y: auto; background: #15171b; border-left: 1px solid #2a2d33; padding: 64px 18px 24px; }
 #vPanel .exp { font: 600 19px/1.3 system-ui, sans-serif; margin: 0 0 6px; font-variant-numeric: tabular-nums; }
 #vPanel h3 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 20px 0 6px; }
@@ -188,6 +193,9 @@ figcaption { position: absolute; right: 8px; bottom: 7px; z-index: 2; font-size:
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
+  <symbol id="i-fit" viewBox="0 0 24 24"><path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/></symbol>
   <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></symbol>
   <symbol id="i-left" viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></symbol>
@@ -248,7 +256,12 @@ figcaption { position: absolute; right: 8px; bottom: 7px; z-index: 2; font-size:
     <img id="vLow" alt=""><img id="vImg" alt="">
     <button id="vPrev" class="nav prev"><svg><use href="#i-left"/></svg></button>
     <button id="vNext" class="nav next"><svg><use href="#i-right"/></svg></button>
-    <div id="vZoom" class="num" hidden></div>
+    <div id="vZoomBar">
+      <button id="vOut" class="icon small"><svg><use href="#i-minus"/></svg></button>
+      <span id="vZoom" class="num"></span>
+      <button id="vIn" class="icon small"><svg><use href="#i-plus"/></svg></button>
+      <button id="vFit" class="icon small"><svg><use href="#i-fit"/></svg></button>
+    </div>
   </div>
   <aside id="vPanel" hidden></aside>
 </div>
@@ -738,8 +751,11 @@ function layout() {
   }
   const zoomed = z.s > z.fit * 1.01;
   stage.classList.toggle("zoomed", zoomed);
-  $("vZoom").hidden = !zoomed;
+  // Always shown: at fit it says how small the photo is drawn
   $("vZoom").textContent = Math.round(z.s * 100) + "%";
+  $("vOut").disabled = !zoomed;
+  $("vFit").disabled = !zoomed;
+  $("vIn").disabled = z.s >= Math.max(z.fit, 2) * 0.99;
 }
 
 /** Centred while smaller than the stage; once bigger, never panned past its own edges. */
@@ -788,6 +804,13 @@ function toggleZoom(cx, cy) {
   else zoomTo(z.fit < 1 ? 1 : z.fit * 2, cx, cy);
 }
 
+/** The buttons zoom around the middle of the stage, in steps of 1.5x. */
+const centre = () => [stage.clientWidth / 2, stage.clientHeight / 2];
+$("vIn").onclick = e => { e.stopPropagation(); zoomTo(z.s * 1.5, ...centre()); };
+$("vOut").onclick = e => { e.stopPropagation(); zoomTo(z.s / 1.5, ...centre()); };
+$("vFit").onclick = e => { e.stopPropagation(); resetZoom(); };
+for (const id of ["vIn", "vOut", "vFit"]) $(id).addEventListener("pointerdown", e => e.stopPropagation());
+
 lowImg.addEventListener("load", () => { if (!fullImg.classList.contains("in")) resetZoom(); });
 fullImg.addEventListener("load", () => requestAnimationFrame(rescale));
 
@@ -826,7 +849,11 @@ stage.addEventListener("pointerdown", e => {
 });
 
 stage.addEventListener("pointermove", e => {
-  if (!pointers.has(e.pointerId) || !gesture) return;
+  if (!pointers.has(e.pointerId) || !gesture) {
+    // The magnifier only where a click would zoom
+    if (e.pointerType === "mouse") stage.classList.toggle("over", !e.target.closest("button") && onPicture(...local(e)));
+    return;
+  }
   pointers.set(e.pointerId, local(e));
   if (gesture.kind === "pinch" && pointers.size >= 2) {
     const [[ax, ay], [bx, by]] = [...pointers.values()];
@@ -858,6 +885,15 @@ function endPointer(e) {
     if (z.s <= z.fit * 1.01 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1);
     return;
   }
+  if (!g.touch) {
+    // Mouse: a click on the photo zooms to 100% there, a click when zoomed goes back to fit,
+    // and a click on the dark band around the photo closes the viewer
+    if (z.s > z.fit * 1.01) resetZoom();
+    else if (onPicture(x, y)) toggleZoom(x, y);
+    else closeViewer();
+    return;
+  }
+  // Touch: a double tap zooms, a single tap shows or hides the bars
   const now = performance.now();
   if (now - lastTap.t < 320 && Math.hypot(x - lastTap.x, y - lastTap.y) < 30) {
     lastTap.t = 0;
@@ -865,9 +901,7 @@ function endPointer(e) {
     return;
   }
   lastTap = { t: now, x, y };
-  // A click on the dark band around the photo closes it; on a touch screen a tap shows or hides the bars
-  if (!g.touch && !onPicture(x, y) && z.s <= z.fit * 1.01) closeViewer();
-  else if (g.touch) $("viewer").classList.toggle("chromeless");
+  $("viewer").classList.toggle("chromeless");
 }
 stage.addEventListener("pointerup", endPointer);
 stage.addEventListener("pointercancel", endPointer);
