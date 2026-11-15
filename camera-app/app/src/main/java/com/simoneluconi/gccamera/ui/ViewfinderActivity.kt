@@ -136,6 +136,8 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     private lateinit var btnLast: ImageView
     /** The newest JPEG we saved (or found in our folder), for the last-shot button. */
     private var lastShot: Uri? = null
+    /** Bumped by every setLastShot, so a slower findLastShot cannot undo a newer save. */
+    private var lastShotGen = 0
     private lateinit var rotatingViews: List<View>
     private var uiRotation = 0f
     private var rotationAnim: ValueAnimator? = null
@@ -300,9 +302,15 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), RECEIVER_NOT_EXPORTED)
             ?.let(::onBattery)
         if (testHooks) registerReceiver(testShotReceiver, IntentFilter(ACTION_TEST_SHOT), RECEIVER_EXPORTED)
-        storage.watch(this) { refreshStorage() }
+        storage.watch(this) {
+            val old = target?.volumeName
+            refreshStorage()
+            // Another card, or none: the button must not show the old card's photo
+            if (target?.volumeName != old) findLastShot()
+        }
         refreshStorage()
-        if (lastShot == null) findLastShot()
+        // Every time: the gallery may have trashed or deleted the last shot meanwhile
+        findLastShot()
         registerWifi()
         clockTick.run()
         orientation.start()
@@ -1222,6 +1230,7 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
     // --- Last shot (opens the gallery: GC Gallery, or any app taking ACTION_REVIEW) ---
 
     private fun setLastShot(uri: Uri) {
+        lastShotGen++
         lastShot = uri
         decode {
             // The EXIF thumbnail: MediaStore reads it instead of decoding the 16 MP image
@@ -1234,23 +1243,41 @@ class ViewfinderActivity : Activity(), CameraController.Listener, SurfaceHolder.
         }
     }
 
-    /** At start: the newest JPEG in our folder on the current card. */
+    /**
+     * On resume: the newest JPEG in our folder on the current card. The query leaves out
+     * trashed and pending rows, so a photo trashed in the gallery drops off the button.
+     */
     private fun findLastShot() {
-        val t = target ?: return
+        // A save that lands meanwhile is newer than anything this query can see
+        val gen = lastShotGen
+        val t = target ?: return clearLastShot()
         val folder = "DCIM/${prefs.folderName}/"
         decode {
             val collection = MediaStore.Images.Media.getContentUri(t.volumeName)
-            val uri = runCatching {
+            val cursor = runCatching {
                 contentResolver.query(
                     collection,
                     arrayOf(MediaStore.Images.Media._ID),
                     "${MediaStore.Images.Media.RELATIVE_PATH}=? AND ${MediaStore.Images.Media.MIME_TYPE}=?",
                     arrayOf(folder, "image/jpeg"),
                     "${MediaStore.Images.Media.DATE_TAKEN} DESC",
-                )?.use { c -> if (c.moveToFirst()) ContentUris.withAppendedId(collection, c.getLong(0)) else null }
-            }.getOrNull()
-            if (uri != null) main.post { if (lastShot == null) setLastShot(uri) }
+                )
+            }.getOrNull() ?: return@decode // A failed query keeps the button as it is
+            val uri = runCatching {
+                cursor.use { c -> if (c.moveToFirst()) ContentUris.withAppendedId(collection, c.getLong(0)) else null }
+            }.getOrElse { return@decode }
+            main.post {
+                if (gen != lastShotGen || uri == lastShot) return@post
+                if (uri != null) setLastShot(uri) else clearLastShot()
+            }
         }
+    }
+
+    private fun clearLastShot() {
+        lastShotGen++
+        lastShot = null
+        btnLast.setImageDrawable(null)
+        btnLast.visibility = View.GONE
     }
 
     private fun openLastShot() {
