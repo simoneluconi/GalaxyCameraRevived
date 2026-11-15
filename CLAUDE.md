@@ -316,12 +316,12 @@ html6405's i9300 LOS21 build needs a **custom PIT** (recovery 16MB, vendor ~560M
 - [ ] Camera HAL M9MO preset (mostly working, see step 3 above)
 - [x] **First public release (GC100 and GC200), published 2026-11-12** with the user's OK: GitHub release `20261112` (https://github.com/simoneluconi/GalaxyCameraRevived/releases/tag/20261112). Assets, named by model (user: keep the two models clearly apart everywhere): `EK-GC100-minirecovery.tar.md5`, `EK-GC100-system-<date>.tar.md5`, the same for `EK-GC200-…` (Odin tars with numeric owner 0; rebuild, never rename, a `.tar.md5`: its md5 trailer holds the name), `EK-GC100-lens-profile.lcp` / `EK-GC200-lens-profile.lcp` (one per camera, `tools/gc100-lcp.py --camera`; the GC200's has its own frame and centre) and `SHA256SUMS`; the text is the package's `RELEASE-NOTES.md`. A new release needs the user's OK each time.
   - **Only one release is published at a time** (user, 2026-11-14): when a new one is published, the old ones are deleted with their tags. Release notes stay short: the files per model, what works, the known limits.
-  - **The current release is `20261114`**, republished on the evening of 2026-11-14 with the user's OK, and the only one online.
-    - What it carries: the Wi-Fi transfer, 2.4 GHz only, and the GC Gallery and GC Camera review fixes.
-    - Build: kernel a2434a3a, gd1 1a5f241.
-    - Boot sha1: GC100 399c1267, GC200 e4932306. Both cameras run exactly these images.
-    - Packages are in the git-ignored `device-dump/release-20261114-final/`; the mini recoveries and lens profiles are unchanged since the first release.
-    - The earlier releases (20261112, 20261113, the morning's 20261114) are deleted; their files remain under `device-dump/release-*`.
+  - **The current release is `20261115`**, published on 2026-11-15 with the user's OK, and the only one online.
+    - What it carries: the Wi-Fi transfer, 2.4 GHz only, the GC Gallery and GC Camera review fixes, and the GC Camera last-shot button that drops trashed photos.
+    - Build: kernel a2434a3a, gd1 d7a6b42.
+    - Boot sha1: GC100 f244add5, GC200 3f9dfc2e. Both cameras run exactly these images.
+    - Packages are in the git-ignored `device-dump/release-20261115/`; the mini recoveries and lens profiles are unchanged since the first release.
+    - The earlier releases (20261112, 20261113, 20261114) are deleted; their files remain under `device-dump/release-*`.
   - A first GC100-only release (`gc100-20261112`) was deleted within the hour: smdk4412-common's `system_prop_debug.mk` gave root adb without authorisation. Release builds now leave it out (smdk4412-common 8dfa198, gd1 ee1f954); only `GALAXYCAMERA_DEV_ADB_KEYS=true` builds keep it.
   - With release builds adbd runs as shell. This PC's key is in `/data/misc/adb/adb_keys` on both cameras; for root, `setprop service.adb.root 1; setprop ctl.restart adbd` (works because SELinux is permissive), `adb unroot` to go back. `flash-adb.sh` stages in `/data/local/tmp/flash`, so it needs no root adb.
   - The GC200 package's mini recovery is `device-dump/gc200-tests/rec-k18` (our kernel #18, recovery.img sha1 9caca872), the one in this GC200's RECOVERY. The GC200 PIT maps boot/system/hidden/recovery.img like the GC100's.
